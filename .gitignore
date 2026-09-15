@@ -1,0 +1,8 @@
+# Build & IDE
+.gradle/
+build/
+.idea/
+HELP.md
+
+# OS
+.DS_Store
