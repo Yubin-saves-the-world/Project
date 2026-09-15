@@ -2,6 +2,7 @@
 .gradle/
 build/
 .idea/
+.metadata/
 HELP.md
 
 # OS
