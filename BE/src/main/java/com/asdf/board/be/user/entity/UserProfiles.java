@@ -23,7 +23,7 @@ public class UserProfiles extends BaseTimeEntity {
     @Column(nullable = false, name = "height_cm", precision = 5, scale = 1)
     private BigDecimal height;
 
-    @Column(nullable = false, name = "weight_cm", precision = 5, scale = 1)
+    @Column(nullable = false, name = "weight_kg", precision = 5, scale = 1)
     private BigDecimal weight;
 
     private Byte age;
