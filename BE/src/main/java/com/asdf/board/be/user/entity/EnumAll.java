@@ -36,4 +36,10 @@ public class EnumAll {
         INTERMEDIATE,   // 어느 정도 해봄
         ADVANCED        // 꾸준히 해온 경험 많음
     }
+
+    public  enum ConsentType {
+        terms,
+        privacy,
+        bodyPhoto
+    }
 }
