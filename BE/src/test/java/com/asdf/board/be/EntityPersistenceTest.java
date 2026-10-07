@@ -160,26 +160,26 @@ class EntityPersistenceTest {
 
     @Test
     void 운동_종목의_이름_검색용_계산_컬럼과_복합키가_동작한다() {
-        Exercise ex = Exercise.builder().name("바벨 스쿼트").targetPart(TargetPart.leg).equipment(Exercise.Equipment.barbell).difficulty(3).build();
+        Exercise ex = Exercise.builder().name("테스트 스쿼트").targetPart(TargetPart.leg).equipment(Exercise.Equipment.barbell).difficulty(3).build();
         em.persist(ex);
         em.persist(ExercisePrescription.builder().exercise(ex).experienceLevel(ExperienceLevel.under3m).minSets(3).maxSets(4).build());
         em.persist(ExercisePrescription.builder().exercise(ex).experienceLevel(ExperienceLevel.over1y).minSets(4).maxSets(6).build());
         flushAndClear();
         Exercise found = em.find(Exercise.class, ex.getId());
-        assertThat(found.getNameNospace()).isEqualTo("바벨스쿼트");
+        assertThat(found.getNameNospace()).isEqualTo("테스트스쿼트");
         assertThat(found.getIsActive()).isTrue();
         ExercisePrescription.Key key = new ExercisePrescription.Key();
         key.setExerciseId(ex.getId());
         key.setExperienceLevel(ExperienceLevel.over1y);
         ExercisePrescription p = em.find(ExercisePrescription.class, key);
         assertThat(p.getMaxSets()).isEqualTo(6);
-        assertThat(p.getExercise().getName()).isEqualTo("바벨 스쿼트");
+        assertThat(p.getExercise().getName()).isEqualTo("테스트 스쿼트");
     }
 
     @Test
     void 같은_종목의_진행중_운동은_1개만_허용하고_세트는_client_set_id로_중복을_막는다() {
         User user = newUser("운동");
-        Exercise ex = Exercise.builder().name("데드리프트").targetPart(TargetPart.back).equipment(Exercise.Equipment.barbell).difficulty(4).build();
+        Exercise ex = Exercise.builder().name("테스트 데드리프트").targetPart(TargetPart.back).equipment(Exercise.Equipment.barbell).difficulty(4).build();
         em.persist(ex);
         Routine routine = Routine.builder().user(user).analysis(null).scheduledDate(LocalDate.of(2026, 10, 7)).title("등 집중")
                 .targetPart(TargetPart.back).estimatedMinutes(45).build();
