@@ -1,0 +1,9 @@
+{
+  "name": "3대500 · 내부 묶음 해제",
+  "id": "vitality-local-ungroup",
+  "api": "1.0.0",
+  "main": "code.js",
+  "editorType": ["figma"],
+  "documentAccess": "dynamic-page",
+  "networkAccess": {"allowedDomains": ["none"]}
+}

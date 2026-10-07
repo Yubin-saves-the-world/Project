@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body>
+<title>Vitality API 명세서</title>
+<style>
+:root{--bg:#f7f7f6;--panel:#ffffff;--soft:#efefed;--ink:#1c1c1c;--ink2:#444444;--muted:#6f6f6f;--line:#dcdcd9;
+--acc:#24598a;--accbg:#e4edf6;--warn:#8f6209;--warnbg:#f8efd9;--bad:#b0372e;--badbg:#f8e4e1;--good:#2c7449;--goodbg:#e2f1e8;
+--p1:#24598a;--p1b:#e4edf6;--p2:#444444;--p2b:#e6e6e3;--p3:#6f6f6f;--p3b:#efefed;--code:#ececea;
+--get:#4a7094;--post:#4f7d5a;--patch:#98762a;--put:#7a679b;--delete:#a8514a}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#141414;--panel:#1c1c1c;--soft:#252525;--ink:#ececec;--ink2:#c8c8c8;--muted:#8f8f8f;--line:#333333;
+--acc:#8db8e6;--accbg:#1f2f40;--warn:#e0b25c;--warnbg:#33290f;--bad:#f0958d;--badbg:#3a1f1c;--good:#8fd1a6;--goodbg:#1b3324;
+--p1:#8db8e6;--p1b:#1f2f40;--p2:#c8c8c8;--p2b:#2e2e2e;--p3:#8f8f8f;--p3b:#252525;--code:#262626;--get:#6c93b8;--post:#6fa57c;--patch:#b8924a;--put:#9d8bbd;--delete:#c8736b;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#141414;--panel:#1c1c1c;--soft:#252525;--ink:#ececec;--ink2:#c8c8c8;--muted:#8f8f8f;--line:#333333;
+--acc:#8db8e6;--accbg:#1f2f40;--warn:#e0b25c;--warnbg:#33290f;--bad:#f0958d;--badbg:#3a1f1c;--good:#8fd1a6;--goodbg:#1b3324;
+--p1:#8db8e6;--p1b:#1f2f40;--p2:#c8c8c8;--p2b:#2e2e2e;--p3:#8f8f8f;--p3b:#252525;--code:#262626;--get:#6c93b8;--post:#6fa57c;--patch:#b8924a;--put:#9d8bbd;--delete:#c8736b;color-scheme:dark}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font:15.5px/1.75 "IBM Plex Sans KR","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;padding-inline:16px;padding-block:0 80px;word-break:keep-all;overflow-wrap:anywhere}
+code,pre,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+code{font-size:12.5px;background:var(--code);padding:1px 5px;border-radius:4px}
+a{color:var(--acc);text-underline-offset:2px}
+.layout{max-width:1180px;margin-inline:auto;display:grid;grid-template-columns:230px minmax(0,1fr);gap:36px}
+@media(max-width:960px){.layout{grid-template-columns:minmax(0,1fr)}.side{display:none}}
+.side{position:sticky;top:env(safe-area-inset-top,0px);align-self:start;max-height:100vh;overflow-y:auto;padding-block:24px;font-size:13.5px}
+.side b{display:block;margin:14px 0 4px;color:var(--muted);font-size:12px;letter-spacing:.04em}
+.side a{display:block;padding:3px 8px;border-radius:6px;color:var(--ink2);text-decoration:none;line-height:1.5}
+.side a:hover{background:var(--soft)}
+main{min-width:0}
+header.top{padding-block:36px 6px}
+.eyebrow{font:500 12px ui-monospace,Menlo,monospace;letter-spacing:.08em;color:var(--acc)}
+h1{font-size:clamp(25px,5vw,34px);line-height:1.3;margin:6px 0 10px;text-wrap:balance}
+h2{font-size:21px;margin:44px 0 6px;text-wrap:balance}
+h3{font-size:17px;margin:0;text-wrap:balance}
+h4{font-size:12.5px;margin:20px 0 6px;color:var(--muted);letter-spacing:.03em}
+p{margin:6px 0;max-width:72ch}.lede{color:var(--ink2);max-width:70ch}
+.note{background:var(--accbg);border-radius:10px;padding:12px 16px;margin:16px 0}
+.warn{background:var(--warnbg);border-radius:10px;padding:12px 16px;margin:16px 0}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;border-bottom:1px solid var(--line)}
+.bar input{flex:1;min-width:200px;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);font:inherit}
+.chip{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:999px;padding:5px 14px;cursor:pointer;font:inherit;font-size:13px}
+.chip.on{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.tag{display:inline-block;font-size:11.5px;font-weight:600;padding:1px 9px;border-radius:999px;background:var(--soft);color:var(--ink2);white-space:nowrap}
+.tag.p1{background:var(--p1b);color:var(--p1)}.tag.p2{background:var(--p2b);color:var(--p2)}.tag.p3{background:var(--p3b);color:var(--p3)}
+.tw{overflow-x:auto;margin:8px 0}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{border-bottom:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+th{background:var(--soft);font-size:12.5px;color:var(--muted);font-weight:600;white-space:nowrap}
+td.k{font:600 12.5px ui-monospace,Menlo,monospace;white-space:nowrap}td.t{color:var(--muted);font-size:13px}
+.sec{margin-top:34px;scroll-margin-top:70px}
+.sec>.hd{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding-bottom:8px;border-bottom:2px solid var(--line)}
+.sec .id{font:600 13px ui-monospace,Menlo,monospace;color:var(--acc)}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:4px 28px}
+ul.r,ol.r{margin:4px 0 4px;padding-left:22px}ul.r li,ol.r li{margin:3px 0}
+ul.chk{list-style:none;padding:0;margin:4px 0}ul.chk li{padding-left:26px;position:relative;margin:4px 0}
+ul.chk li:before{content:"";position:absolute;left:2px;top:6px;width:14px;height:14px;border:1.5px solid var(--good);border-radius:4px}
+.api{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;padding:6px 0;border-bottom:1px dashed var(--line)}
+.m{font:700 11px ui-monospace,Menlo,monospace;padding:2px 7px;border-radius:5px;color:#fff;min-width:54px;text-align:center}
+.m.GET{background:var(--get)}.m.POST{background:var(--post)}.m.PATCH{background:var(--patch)}.m.PUT{background:var(--put)}.m.DELETE{background:var(--delete)}
+.pth{font:600 13px ui-monospace,Menlo,monospace}
+.chips span{display:inline-block;background:var(--code);border-radius:6px;padding:0 7px;margin:2px 4px 2px 0;font:12px ui-monospace,Menlo,monospace}
+.chips span.w{outline:1.5px solid var(--warn);background:var(--warnbg)}
+details.op{background:var(--panel);border:1px solid var(--line);border-radius:12px;margin:12px 0;scroll-margin-top:70px}
+details.op>summary{list-style:none;cursor:pointer;padding:12px 16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+details.op>summary::-webkit-details-marker{display:none}
+details.op>summary:before{content:"▸";color:var(--muted);transition:transform .15s}
+details.op[open]>summary:before{transform:rotate(90deg)}
+details.op .nm{font-weight:600}.when{color:var(--muted);font-size:13.5px;flex-basis:100%;padding-left:20px}
+.bd{padding:2px 18px 18px;border-top:1px solid var(--line)}
+pre{background:var(--code);border-radius:8px;padding:11px 14px;overflow-x:auto;font-size:12.5px;line-height:1.55;margin:6px 0}
+.nul{font-size:11px;color:var(--warn);background:var(--warnbg);border-radius:4px;padding:0 5px;margin-left:5px;white-space:nowrap}.req{color:var(--bad);font-weight:800}
+.none{text-align:center;color:var(--muted);padding:40px}
+h4.rule{color:var(--warn)}h4.case,h4.fail{color:var(--bad)}h4.done{color:var(--good)}
+td.err{font:600 12.5px ui-monospace,Menlo,monospace;white-space:nowrap;color:var(--bad)}
+th.todo{color:var(--good)}
+.hidden{display:none!important}
+.flow{white-space:pre;font-size:12.5px}
+</style>
+<div class="layout">
+<nav class="side" aria-label="목차"><b>MVP · 11개</b><a href="#F-01">F-01 회원가입</a><a href="#F-02">F-02 로그인 · 자동 로그인 · 로그아웃</a><a href="#F-03">F-03 신체정보 · 설문</a><a href="#F-04">F-04 사진 촬영 · 업로드</a><a href="#F-05">F-05 체형 분석 (사진)</a><a href="#F-06">F-06 목표 체형</a><a href="#F-07">F-07 맞춤 운동 루틴</a><a href="#F-08">F-08 운동 종목 탐색 · 선택 (자유 운동)</a><a href="#F-09">F-09 운동 실행 · 세트 기록 · 타이머</a><a href="#F-10">F-10 운동 기록 조회</a><a href="#F-11">F-11 설정 · 동의 관리 · 회원 탈퇴</a><b>2차 · 10개</b><a href="#F-12">F-12 구글 로그인</a><a href="#F-13">F-13 비밀번호 재설정</a><a href="#F-14">F-14 체형 분석 (글)</a><a href="#F-15">F-15 루틴 건너뛰기</a><a href="#F-16">F-16 운동 통계 · 연속 운동</a><a href="#F-17">F-17 자세 교정 가이드</a><a href="#F-18">F-18 맞춤 식단 · 알레르기</a><a href="#F-19">F-19 AI 코치</a><a href="#F-20">F-20 커뮤니티</a><a href="#F-21">F-21 신고 · 차단</a><b>확장 · 4개</b><a href="#F-22">F-22 제휴 상품</a><a href="#F-23">F-23 미션 · 할인권</a><a href="#F-24">F-24 알림 · 푸시</a><a href="#F-25">F-25 관리자</a></nav>
+<main>
+<header class="top"><div class="eyebrow">PROJECT VITALITY · API 명세서(읽기용) · 2026-10-06</div><h1>API 명세서</h1><p class="lede">전체 95개. 기능별로 묶고, 보내는 값·받는 값·실패했을 때를 한 곳에 모았습니다.</p></header>
+<div class="note">앱과 서버가 주고받는 <b>요청과 응답</b>입니다. 기능 순서로 묶었고, <b>MVP 35개</b>는 처음부터 펼쳐져 있습니다. 2차 34개 · 확장 26개는 눌러서 펼칩니다. 어떤 기능이 왜 필요한지는 <a href="기능명세서.html">기능 명세서</a>에 있습니다.</div>
+<h2 style="margin-top:28px">먼저 알아둘 것</h2><div class="tw"><table><tr><td class='k' style='white-space:nowrap'>주소</td><td>모든 경로는 <code>/api</code>로 시작합니다. 개발 중 주소는 <code>http://localhost:8080</code>, Android 에뮬레이터에서는 <code>http://10.0.2.2:8080</code></td></tr><tr><td class='k' style='white-space:nowrap'>형식</td><td>JSON(UTF-8), 필드 이름은 <code>snake_case</code>. 사진과 게시글 이미지만 <code>multipart/form-data</code></td></tr><tr><td class='k' style='white-space:nowrap'>로그인</td><td>헤더에 <code>Authorization: Bearer {access_token}</code>. 토큰은 7일이고 재발급은 없습니다. 만료되면 <code>401</code> → 다시 로그인</td></tr><tr><td class='k' style='white-space:nowrap'>받는 값</td><td>필드는 항상 있습니다. 값이 없으면 <code>null</code>, 목록은 <code>[]</code>. 목록은 <code>{ items, page, page_size, total }</code></td></tr><tr><td class='k' style='white-space:nowrap'>시간</td><td>날짜 <code>2026-10-06</code>, 시각 <code>2026-10-06T19:02:10+09:00</code>(한국 시간). 한 주는 월요일부터</td></tr><tr><td class='k' style='white-space:nowrap'>실패</td><td><code>{ code, message, status, fields }</code>. 앱은 <code>code</code>로 나누고 <code>message</code>는 그대로 보여줘도 됩니다</td></tr><tr><td class='k' style='white-space:nowrap'>모든 API 공통 실패</td><td><code>400 VALIDATION_FAILED</code>(입력 오류, <code>fields</code>에 칸별 사유) · <code>401 UNAUTHORIZED</code>(토큰 없음·만료·탈퇴) · <code>403 FORBIDDEN</code>(관리자 전용) · <code>403 ONBOARDING_REQUIRED</code>(신체정보 등록 전)</td></tr><tr><td class='k' style='white-space:nowrap'>내 것이 아닌 데이터</td><td><code>404 NOT_FOUND</code> (남의 데이터가 있는지도 알려주지 않습니다)</td></tr><tr><td class='k' style='white-space:nowrap'>분석은 기다리는 방식</td><td>요청하면 바로 <code>202</code>로 접수하고, 앱이 <code>GET /body-analyses/{id}</code>를 2초마다 최대 60초 조회합니다. 분석 실패(<code>failed</code>)도 HTTP 200입니다</td></tr></table></div>
+<h2>처음부터 끝까지 부르는 순서</h2><pre class="flow">① POST  /api/users                    가입 (토큰은 오지 않음)
+② POST  /api/auth/login              로그인 → access_token
+③ POST  /api/users/me/profile        신체정보 → 온보딩 끝
+④ POST  /api/photos                  사진 올리기 → photo_id
+⑤ POST  /api/goal-bodies             (선택) 목표 체형
+⑥ POST  /api/body-analyses/photo     분석 요청 → 202, analysis_id
+⑦ GET   /api/body-analyses/{id}      2초마다 확인 (pending → done / failed)
+⑧ POST  /api/routines                { analysis_id } → 오늘부터 7일 루틴
+⑨ GET   /api/routines/today          홈의 오늘의 루틴
+⑩ POST  /api/workout-logs            운동 시작 (종목 1개)
+⑪ POST  /api/workout-logs/{id}/sets  세트마다 기록 (client_set_id)
+⑫ PATCH /api/workout-logs/{id}/complete  운동 종료</pre>
+<p style="color:var(--muted);font-size:13.5px">표의 <span class="req">*</span>는 꼭 보내야 하는 값, <b>null 가능</b>은 값이 없을 수 있다는 뜻입니다. 예시의 값은 모양을 보여주는 용도입니다.</p>
+<div class="bar"><input id="q" placeholder="검색 (예: 로그인, 사진, client_set_id)" autocomplete="off" aria-label="검색">
+<button class="chip on" data-ph="0">전체</button><button class="chip" data-ph="1">MVP</button><button class="chip" data-ph="2">2차</button><button class="chip" data-ph="3">확장</button><button class="chip" id="all">모두 펼치기</button></div>
+<section class="sec" id="F-01">
+<div class="hd"><span class="id">F-01</span><h3>회원가입</h3><span class="tag p1">MVP</span><span class="tag">1개</span></div>
+<p class="lede" style="margin-top:10px">이메일, 비밀번호, 닉네임과 동의 4가지로 계정을 만든다. <a href="기능명세서.html#F-01">기능 명세 보기</a></p><details class="op" id="op-signup" data-phase="1" open>
+<summary><span class="m POST">POST</span><span class="pth">/api/users</span><span class="nm">회원가입</span><span class="tag p1">MVP</span><span class="tag">로그인 없이</span><span class="when">가입 버튼을 눌렀을 때</span></summary>
+<div class="bd"><h4>보내는 값</h4><div class="tw"><table><tr><th>이름</th><th>종류</th><th>어디에</th><th>설명</th></tr><tr><td class="k" style="padding-left:10px">email <span class=req>*</span></td><td class="t">이메일</td><td class="t">본문</td><td>이메일 (소문자로 저장·비교)</td></tr><tr><td class="k" style="padding-left:10px">password <span class=req>*</span></td><td class="t">비밀번호</td><td class="t">본문</td><td>8~64자, 영문과 숫자를 각각 1자 이상 포함</td></tr><tr><td class="k" style="padding-left:10px">nickname <span class=req>*</span></td><td class="t">문자열 (2~20자)</td><td class="t">본문</td><td>닉네임</td></tr><tr><td class="k" style="padding-left:10px">terms_agreed <span class=req>*</span></td><td class="t">예/아니오</td><td class="t">본문</td><td>이용약관 동의 (true 필수)</td></tr><tr><td class="k" style="padding-left:10px">privacy_agreed <span class=req>*</span></td><td class="t">예/아니오</td><td class="t">본문</td><td>개인정보 처리방침 동의 (true 필수)</td></tr><tr><td class="k" style="padding-left:10px">body_photo_agreed <span class=req>*</span></td><td class="t">예/아니오</td><td class="t">본문</td><td>신체 사진 수집·이용 동의 (true 필수)</td></tr><tr><td class="k" style="padding-left:10px">ai_processing_agreed <span class=req>*</span></td><td class="t">예/아니오</td><td class="t">본문</td><td>AI 분석 처리 동의 (true 필수). 사진·정보가 AI 서버로 전송되는 것에 대한 동의</td></tr><tr><td class="k" style="padding-left:10px">policy_version</td><td class="t">문자열 (1~30자)</td><td class="t">본문</td><td>동의한 약관 버전. 생략하면 서버의 현재 버전</td></tr></table></div><p style="font-size:12.5px;color:var(--muted)"><span class="req">*</span> 반드시 보내야 합니다. 나머지는 생략해도 됩니다.</p><h4>받는 값 · 성공 201</h4><div class="tw"><table><tr><th>이름</th><th>종류</th><th>설명</th></tr><tr><td class="k" style="padding-left:10px">user_id</td><td class="t">정수</td><td>회원 ID</td></tr><tr><td class="k" style="padding-left:10px">email</td><td class="t">이메일</td><td>이메일</td></tr><tr><td class="k" style="padding-left:10px">nickname</td><td class="t">문자열</td><td>닉네임</td></tr><tr><td class="k" style="padding-left:10px">created_at</td><td class="t">일시</td><td>가입 시각</td></tr></table></div>
+<h4 class="fail">실패하면</h4><div class="tw"><table><tr><th>코드</th><th>어떤 때</th><th class="todo">앱이 할 일</th></tr><tr><td class="err">400 TERMS_REQUIRED</td><td>가입 때 동의 4개 중 하나라도 false</td><td>동의 체크 4개 중 빠진 것을 강조한다.</td></tr><tr><td class="err">409 EMAIL_DUPLICATED</td><td>이메일 중복</td><td>이메일 입력칸 오류. 구글 로그인(2차)에서 오면 "이메일로 가입한 계정이 있어요" 안내.</td></tr><tr><td class="err">409 NICKNAME_DUPLICATED</td><td>닉네임 중복</td><td><span style=color:var(--muted)>메시지를 그대로 보여준다</span></td></tr></table></div><p style="font-size:12.5px;color:var(--muted)">모든 API 공통: 400 VALIDATION_FAILED</p>
+<h4>보내는 예시</h4><pre>{
+  &quot;email&quot;: &quot;user@example.com&quot;,
+  &quot;password&quot;: &quot;abcd1234&quot;,
+  &quot;nickname&quot;: &quot;지한&quot;,
+  &quot;terms_agreed&quot;: true,
+  &quot;privacy_agreed&quot;: true,
+  &quot;body_photo_agreed&quot;: true,
+  &quot;ai_processing_agreed&quot;: true,
+  &quot;policy_version&quot;: &quot;2026-10-01&quot;
+}</pre><h4>받는 예시 (201)</h4><pre>{
+  &quot;user_id&quot;: 12,
+  &quot;email&quot;: &quot;user@example.com&quot;,
+  &quot;nickname&quot;: &quot;지한&quot;,
+  &quot;created_at&quot;: &quot;2026-10-06T19:02:10+09:00&quot;
+}</pre><h4 class="rule">알아둘 것</h4><ul class="r"><li>가입만 하고 토큰은 발급하지 않는다. 앱이 이어서 <code>POST /auth/login</code>을 호출한다.</li><li>이메일은 소문자로 바꿔 저장·비교한다.</li><li>동의 4개(<code>terms_agreed</code>, <code>privacy_agreed</code>, <code>body_photo_agreed</code>, <code>ai_processing_agreed</code>)가 모두 <code>true</code>가 아니면 <code>TERMS_REQUIRED</code>. 앱은 사진·AI 동의를 한 체크박스로 묶어 두 값을 함께 보내도 된다.</li><li>동의는 종류별(<code>terms</code>·<code>privacy</code>·<code>body_photo</code>·<code>ai_processing</code>)로 <b>약관 버전과 시각을 이력으로 남긴다.</b> 마지막 기록이 현재 상태이고, 철회해도 이전 기록은 지우지 않는다.</li><li>비밀번호는 BCrypt로 해시해 저장하고 응답·로그에 남기지 않는다.</li></ul><h4>저장소(DB)</h4><div class="chips"><span class=w>쓰기</span><span class="w">users</span><span class="w">user_consents</span> </div></div></details></section><section class="sec" id="F-02">
+<div class="hd"><span class="id">F-02</span><h3>로그인 · 자동 로그인 · 로그아웃</h3><span class="tag p1">MVP</span><span class="tag">3개</span></div>
+<p class="lede" style="margin-top:10px">이메일로 로그인하고, 앱을 다시 열어도 로그인이 유지된다. <a href="기능명세서.html#F-02">기능 명세 보기</a></p><details class="op" id="op-login" data-phase="1" open>
+<summary><span class="m POST">POST</span><span class="pth">/api/auth/login</span><span class="nm">이메일 로그인</span><span class="tag p1">MVP</span><span class="tag">로그인 없이</span><span class="when">로그인 버튼을 눌렀을 때</span></summary>
+<div class="bd"><h4>보내는 값</h4><div class="tw"><table><tr><th>이름</th><th>종류</th><th>어디에</th><th>설명</th></tr><tr><td class="k" style="padding-left:10px">email <span class=req>*</span></td><td class="t">이메일</td><td class="t">본문</td><td>이메일</td></tr><tr><td class="k" style="padding-left:10px">password <span class=req>*</span></td><td class="t">문자열 (1~64자)</td><td class="t">본문</td><td>비밀번호</td></tr></table></div><p style="font-size:12.5px;color:var(--muted)"><span class="req">*</span> 반드시 보내야 합니다. 나머지는 생략해도 됩니다.</p><h4>받는 값 · 성공 200</h4><div class="tw"><table><tr><th>이름</th><th>종류</th><th>설명</th></tr><tr><td class="k" style="padding-left:10px">access_token</td><td class="t">문자열</td><td>JWT. 이후 요청의 Authorization 헤더에 사용</td></tr><tr><td class="k" style="padding-left:10px">token_type</td><td class="t">Bearer</td><td>항상 Bearer</td></tr><tr><td class="k" style="padding-left:10px">expires_in</td><td class="t">정수</td><td>만료까지 남은 초 (7일)</td></tr><tr><td class="k" style="padding-left:10px">onboarding_completed</td><td class="t">예/아니오</td><td>false면 앱이 홈 대신 신체정보 입력 화면으로 이동</td></tr></table></div>
+<h4 class="fail">실패하면</h4><div class="tw"><table><tr><th>코드</th><th>어떤 때</th><th class="todo">앱이 할 일</th></tr><tr><td class="err">401 INVALID_CREDENTIALS</td><td>이메일 없음과 비밀번호 불일치를 구분하지 않음</td><td>"이메일 또는 비밀번호" 문구를 그대로 보여주고 입력은 유지한다. 어느 쪽이 틀렸는지는 알려주지 않는다.</td></tr></table></div><p style="font-size:12.5px;color:var(--muted)">모든 API 공통: 400 VALIDATION_FAILED</p>
+<h4>보내는 예시</h4><pre>{&quot;email&quot;: &quot;user@example.com&quot;, &quot;password&quot;: &quot;abcd1234&quot;}</pre><h4>받는 예시 (200)</h4><pre>{
+  &quot;access_token&quot;: &quot;eyJhbGciOiJIUzI1NiJ9.example.signature&quot;,
+  &quot;token_type&quot;: &quot;Bearer&quot;,
+  &quot;expires_in&quot;: 604800,
+  &quot;onboarding_completed&quot;: false
+}</pre><h4 class="rule">알아둘 것</h4><ul class="r"><li>이메일이 없는 경우와 비밀번호가 틀린 경우를 구분하지 않고 <code>INVALID_CREDENTIALS</code>.</li><li>토큰 유효 기간은 7일이고 재발급 API는 없다. 만료되면 <code>UNAUTHORIZED</code>가 오고 앱은 로그인 화면으로 이동한다.</li></ul><h4>저장소(DB)</h4><div class="chips"> <span>읽기</span><span class="">users</span></div></div></details><details class="op" id="op-logout" data-phase="1" open>
+<summary><span class="m POST">POST</span><span class="pth">/api/auth/logout</span><span class="nm">로그아웃</span><span class="tag p1">MVP</span><span class="tag">로그인 필요</span><span class="when">로그아웃을 눌렀을 때</span></summary>
+<div class="bd"><h4>보내는 값</h4><p style="color:var(--muted)">보내는 값이 없습니다.</p><h4>받는 값 · 성공 204</h4><p style="color:var(--muted)">돌려주는 내용이 없습니다(본문 없음).</p>
+<h4 class="fail">실패하면</h4><p style="color:var(--muted)">이 API만의 실패는 없습니다.</p><p style="font-size:12.5px;color:var(--muted)">모든 API 공통: 401 UNAUTHORIZED</p>
+<h4 class="rule">알아둘 것</h4><ul class="r"><li>서버는 상태를 갖지 않으므로 아무 처리도 하지 않고 <code>204</code>만 반환한다. 앱이 저장된 토큰을 삭제하면 로그아웃이 끝난다.</li><li>FCM 기기 토큰을 등록했다면 앱이 로그아웃 전에 삭제 요청을 보낸다(확장 단계).</li></ul></div></details><details class="op" id="op-getMe" data-phase="1" open>
+<summary><span class="m GET">GET</span><span class="pth">/api/users/me</span><span class="nm">내 정보 조회</span><span class="tag p1">MVP</span><span class="tag">로그인 필요</span><span class="when">앱 시작 때, 로그인 직후, 설정 화면에서</span></summary>
+<div class="bd"><h4>보내는 값</h4><p style="color:var(--muted)">보내는 값이 없습니다.</p><h4>받는 값 · 성공 200</h4><div class="tw"><table><tr><th>이름</th><th>종류</th><th>설명</th></tr><tr><td class="k" style="padding-left:10px">user_id</td><td class="t">정수</td><td>회원 ID</td></tr><tr><td class="k" style="padding-left:10px">email</td><td class="t">이메일</td><td>이메일</td></tr><tr><td class="k" style="padding-left:10px">nickname</td><td class="t">문자열</td><td>닉네임</td></tr><tr><td class="k" style="padding-left:10px">role</td><td class="t"><code>user</code> / <code>admin</code></td><td>권한</td></tr><tr><td class="k" style="padding-left:10px">onboarding_completed</td><td class="t">예/아니오</td><td>신체정보 입력 완료 여부</td></tr><tr><td class="k" style="padding-left:10px">consent_completed</td><td class="t">예/아니오</td><td>필수 동의 4종(약관·개인정보·사진·AI 처리)이 모두 true인지</td></tr><tr><td class="k" style="padding-left:10px">body_photo_agreed</td><td class="t">예/아니오</td><td>사진 동의 상태. false면 앱이 사진 업로드를 막고 설정으로 안내</td></tr><tr><td class="k" style="padding-left:10px">ai_processing_agreed</td><td class="t">예/아니오</td><td>AI 처리 동의 상태. false면 AI 분석·코치 요청을 막고 설정으로 안내</td></tr><tr><td class="k" style="padding-left:10px">created_at</td><td class="t">일시</td><td>가입 시각</td></tr></table></div>
+<h4 class="fail">실패하면</h4><p style="color:var(--muted)">이 API만의 실패는 없습니다.</p><p style="font-size:12.5px;color:var(--muted)">모든 API 공통: 401 UNAUTHORIZED</p>
+<h4>받는 예시 (200)</h4><pre>{
+  &quot;user_id&quot;: 12,
+  &quot;email&quot;: &quot;user@example.com&quot;,
+  &quot;nickname&quot;: &quot;지한&quot;,
+  &quot;role&quot;: &quot;user&quot;,
+  &quot;onboarding_completed&quot;: true,
+  &quot;consent_completed&quot;: true,
+  &quot;body_photo_agreed&quot;: true,
+  &quot;ai_processing_agreed&quot;: true,
+  &quot;created_at&quot;: &quot;2026-10-06T19:02:10+09:00&quot;
+}</pre><h4 class="rule">알아둘 것</h4><ul class="r"><li>앱은 로그인 직후와 실행 시 이 응답으로 첫 화면을 정한다: <code>consent_completed=false</code> → 동의 화면, <code>onboarding_completed=false</code> → 신체정보 입력, 그 외 홈.</li><li><code>body_photo_agreed=false</code>면 사진 업로드를, <code>ai_processing_agreed=false</code>면 AI 분석·코치를 막고 설정의 동의 화면으로 안내한다. 이미 저장된 기록·분석 결과는 계속 볼 수 있다.</li></ul><h4>저장소(DB)</h4><div class="chips"> <span>읽기</span><span class="">users</span><span class="">user_profiles</span><span class="">user_consents</span></div></div></details></section><section class="sec" id="F-03">
+<div class="hd"><span class="id">F-03</span><h3>신체정보 · 설문</h3><span class="tag p1">MVP</span><span class="tag">3개</span></div>
+<p class="lede" style="margin-top:10px">키, 몸무게, 나이, 운동 목적·횟수·경력을 입력한다. 값이 바뀌면 이력으로 쌓인다. <a href="기능명세서.html#F-03">기능 명세 보기</a></p><details class="op" id="op-createProfile" data-phase="1" open>
+<summary><span class="m POST">POST</span><span class="pth">/api/users/me/profile</span><span class="nm">신체정보 등록</span><span class="tag p1">MVP</span><span class="tag">로그인 필요</span><span class="when">신체정보를 처음 저장할 때</span></summary>
+<div class="bd"><h4>보내는 값</h4><div class="tw"><table><tr><th>이름</th><th>종류</th><th>어디에</th><th>설명</th></tr><tr><td class="k" style="padding-left:10px">height_cm <span class=req>*</span></td><td class="t">숫자 (100~250)</td><td class="t">본문</td><td>키 (소수 첫째 자리까지)</td></tr><tr><td class="k" style="padding-left:10px">weight_kg <span class=req>*</span></td><td class="t">숫자 (30~250)</td><td class="t">본문</td><td>몸무게 (소수 첫째 자리까지)</td></tr><tr><td class="k" style="padding-left:10px">age <span class=req>*</span></td><td class="t">정수 (10~100)</td><td class="t">본문</td><td>나이</td></tr><tr><td class="k" style="padding-left:10px">gender</td><td class="t"><code>male</code> / <code>female</code> / <code>none</code></td><td class="t">본문</td><td>성별. 시안에 입력 화면이 없으면 생략하고 서버가 none으로 저장</td></tr><tr><td class="k" style="padding-left:10px">goal_type <span class=req>*</span></td><td class="t"><code>muscle</code> / <code>diet</code> / <code>posture</code></td><td class="t">본문</td><td>운동 목적: 근육 키우기 / 체중 줄이기 / 자세 교정</td></tr><tr><td class="k" style="padding-left:10px">weekly_frequency <span class=req>*</span></td><td class="t">정수 (1~7)</td><td class="t">본문</td><td>주 운동 가능 횟수. 시안의 "6+"는 6으로 보냄</td></tr><tr><td class="k" style="padding-left:10px">experience_level <span class=req>*</span></td><td class="t"><code>under3m</code> / <code>under1y</code> / <code>over1y</code></td><td class="t">본문</td><td>운동 경력: 3개월 미만 / 1년 미만 / 1년 이상</td></tr></table></div><p style="font-size:12.5px;color:var(--muted)"><span class="req">*</span> 반드시 보내야 합니다. 나머지는 생략해도 됩니다.</p><h4>받는 값 · 성공 201</h4><div class="tw"><table><tr><th>이름</th><th>종류</th><th>설명</th></tr><tr><td class="k" style="padding-left:10px">profile_id</td><td class="t">정수</td><td>이력 행 ID</td></tr><tr><td class="k" style="padding-left:10px">height_cm</td><td class="t">숫자</td><td>키</td></tr><tr><td class="k" style="padding-left:10px">weight_kg</td><td class="t">숫자</td><td>몸무게</td></tr><tr><td class="k" style="padding-left:10px">age</td><td class="t">정수</td><td>나이</td></tr><tr><td class="k" style="padding-left:10px">gender</td><td class="t"><code>male</code> / <code>female</code> / <code>none</code></td><td>성별</td></tr><tr><td class="k" style="padding-left:10px">goal_type</td><td class="t"><code>muscle</code> / <code>diet</code> / <code>posture</code></td><td>운동 목적</td></tr><tr><td class="k" style="padding-left:10px">weekly_frequency</td><td class="t">정수</td><td>주 운동 가능 횟수</td></tr><tr><td class="k" style="padding-left:10px">experience_level</td><td class="t"><code>under3m</code> / <code>under1y</code> / <code>over1y</code></td><td>운동 경력</td></tr><tr><td class="k" style="padding-left:10px">measured_at</td><td class="t">일시</td><td>이 값이 기록된 시각</td></tr></table></div>
+<h4 class="fail">실패하면</h4><div class="tw"><table><tr><th>코드</th><th>어떤 때</th><th class="todo">앱이 할 일</th></tr><tr><td class="err">409 PROFILE_ALREADY_EXISTS</td><td>POST 재호출 → PATCH 사용</td><td><span style=color:var(--muted)>메시지를 그대로 보여준다</span></td></tr></table></div><p style="font-size:12.5px;color:var(--muted)">모든 API 공통: 400 VALIDATION_FAILED · 401 UNAUTHORIZED</p>
+<h4>보내는 예시</h4><pre>{
+  &quot;height_cm&quot;: 174.0,
+  &quot;weight_kg&quot;: 68.0,
+  &quot;age&quot;: 18,
+  &quot;gender&quot;: &quot;none&quot;,
+  &quot;goal_type&quot;: &quot;muscle&quot;,
+  &quot;weekly_frequency&quot;: 4,
+  &quot;experience_level&quot;: &quot;under3m&quot;
+}</pre><h4>받는 예시 (201)</h4><pre>{
+  &quot;profile_id&quot;: 5,
+  &quot;height_cm&quot;: 174.0,
+  &quot;weight_kg&quot;: 68.0,
+  &quot;age&quot;: 18,
+  &quot;gender&quot;: &quot;male&quot;,
+  &quot;goal_type&quot;: &quot;muscle&quot;,
+  &quot;weekly_frequency&quot;: 4,
+  &quot;experience_level&quot;: &quot;under3m&quot;,
+  &quot;measured_at&quot;: &quot;2026-10-06T19:02:10+09:00&quot;
+}</pre><h4 class="rule">알아둘 것</h4><ul class="r"><li>최초 등록이 성공하면 <code>onboarding_completed=true</code>로 바뀐다.</li><li>이미 등록된 경우 <code>PROFILE_ALREADY_EXISTS</code> → 수정은 <code>PATCH</code>.</li></ul><h4>저장소(DB)</h4><div class="chips"><span class=w>쓰기</span><span class="w">user_profiles</span> </div></div></details><details class="op" id="op-getProfile" data-phase="1" open>
+<summary><span class="m GET">GET</span><span class="pth">/api/users/me/profile</span><span class="nm">신체정보 조회</span><span class="tag p1">MVP</span><span class="tag">로그인 필요</span><span class="when">프로필 화면을 열 때</span></summary>
+<div class="bd"><h4>보내는 값</h4><p style="color:var(--muted)">보내는 값이 없습니다.</p><h4>받는 값 · 성공 200</h4><div class="tw"><table><tr><th>이름</th><th>종류</th><th>설명</th></tr><tr><td class="k" style="padding-left:10px">profile_id</td><td class="t">정수</td><td>이력 행 ID</td></tr><tr><td class="k" style="padding-left:10px">height_cm</td><td class="t">숫자</td><td>키</td></tr><tr><td class="k" style="padding-left:10px">weight_kg</td><td class="t">숫자</td><td>몸무게</td></tr><tr><td class="k" style="padding-left:10px">age</td><td class="t">정수</td><td>나이</td></tr><tr><td class="k" style="padding-left:10px">gender</td><td class="t"><code>male</code> / <code>female</code> / <code>none</code></td><td>성별</td></tr><tr><td class="k" style="padding-left:10px">goal_type</td><td class="t"><code>muscle</code> / <code>diet</code> / <code>posture</code></td><td>운동 목적</td></tr><tr><td class="k" style="padding-left:10px">weekly_frequency</td><td class="t">정수</td><td>주 운동 가능 횟수</td></tr><tr><td class="k" style="padding-left:10px">experience_level</td><td class="t"><code>under3m</code> / <code>under1y</code> / <code>over1y</code></td><td>운동 경력</td></tr><tr><td class="k" style="padding-left:10px">measured_at</td><td class="t">일시</td><td>이 값이 기록된 시각</td></tr></table></div>
+<h4 class="fail">실패하면</h4><div class="tw"><table><tr><th>코드</th><th>어떤 때</th><th class="todo">앱이 할 일</th></tr><tr><td class="err">404 PROFILE_NOT_FOUND</td><td>프로필 미등록</td><td><span style=color:var(--muted)>메시지를 그대로 보여준다</span></td></tr></table></div><p style="font-size:12.5px;color:var(--muted)">모든 API 공통: 401 UNAUTHORIZED</p>
+<h4>받는 예시 (200)</h4><pre>{
+  &quot;profile_id&quot;: 5,
+  &quot;height_cm&quot;: 174.0,
+  &quot;weight_kg&quot;: 68.0,
+  &quot;age&quot;: 18,
+  &quot;gender&quot;: &quot;male&quot;,
+  &quot;goal_type&quot;: &quot;muscle&quot;,
+  &quot;weekly_frequency&quot;: 4,
+  &quot;experience_level&quot;: &quot;under3m&quot;,
+  &quot;measured_at&quot;: &quot;2026-10-06T19:02:10+09:00&quot;
+}</pre><h4 class="rule">알아둘 것</h4><ul class="r"><li>가장 최근에 기록된 값을 반환한다.</li></ul><h4>저장소(DB)</h4><div class="chips"> <span>읽기</span><span class="">user_profiles</span></div></div></details><details class="op" id="op-patchProfile" data-phase="1" open>
+<summary><span class="m PATCH">PATCH</span><span class="pth">/api/users/me/profile</span><span class="nm">신체정보 수정</span><span class="tag p1">MVP</span><span class="tag">로그인 필요</span><span class="when">값을 고쳐 저장할 때</span></summary>
+<div class="bd"><h4>보내는 값</h4><div class="tw"><table><tr><th>이름</th><th>종류</th><th>어디에</th><th>설명</th></tr><tr><td class="k" style="padding-left:10px">height_cm</td><td class="t">숫자 (100~250)</td><td class="t">본문</td><td>키</td></tr><tr><td class="k" style="padding-left:10px">weight_kg</td><td class="t">숫자 (30~250)</td><td class="t">본문</td><td>몸무게</td></tr><tr><td class="k" style="padding-left:10px">age</td><td class="t">정수 (10~100)</td><td class="t">본문</td><td>나이</td></tr><tr><td class="k" style="padding-left:10px">gender</td><td class="t"><code>male</code> / <code>female</code> / <code>none</code></td><td class="t">본문</td><td>성별</td></tr><tr><td class="k" style="padding-left:10px">goal_type</td><td class="t"><code>muscle</code> / <code>diet</code> / <code>posture</code></td><td class="t">본문</td><td>운동 목적</td></tr><tr><td class="k" style="padding-left:10px">weekly_frequency</td><td class="t">정수 (1~7)</td><td class="t">본문</td><td>주 운동 가능 횟수</td></tr><tr><td class="k" style="padding-left:10px">experience_level</td><td class="t"><code>under3m</code> / <code>under1y</code> / <code>over1y</code></td><td class="t">본문</td><td>운동 경력</td></tr></table></div><p style="font-size:12.5px;color:var(--muted)"><span class="req">*</span> 반드시 보내야 합니다. 나머지는 생략해도 됩니다.</p><h4>받는 값 · 성공 200</h4><div class="tw"><table><tr><th>이름</th><th>종류</th><th>설명</th></tr><tr><td class="k" style="padding-left:10px">profile_id</td><td class="t">정수</td><td>이력 행 ID</td></tr><tr><td class="k" style="padding-left:10px">height_cm</td><td class="t">숫자</td><td>키</td></tr><tr><td class="k" style="padding-left:10px">weight_kg</td><td class="t">숫자</td><td>몸무게</td></tr><tr><td class="k" style="padding-left:10px">age</td><td class="t">정수</td><td>나이</td></tr><tr><td class="k" style="padding-left:10px">gender</td><td class="t"><code>male</code> / <code>female</code> / <code>none</code></td><td>성별</td></tr><tr><td class="k" style="padding-left:10px">goal_type</td><td class="t"><code>muscle</code> / <code>diet</code> / <code>posture</code></td><td>운동 목적</td></tr><tr><td class="k" style="padding-left:10px">weekly_frequency</td><td class="t">정수</td><td>주 운동 가능 횟수</td></tr><tr><td class="k" style="padding-left:10px">experience_level</td><td class="t"><code>under3m</code> / <code>under1y</code> / <code>over1y</code></td><td>운동 경력</td></tr><tr><td class="k" style="padding-left:10px">measured_at</td><td class="t">일시</td><td>이 값이 기록된 시각</td></tr><tr><td class="k" style="padding-left:10px">routine_refresh_recommended</td><td class="t">예/아니오</td><td>운동 목적·횟수·경력이 바뀌었으면 true. 앱이 루틴 다시 만들기를 안내</td></tr></table></div>
+<h4 class="fail">실패하면</h4><div class="tw"><table><tr><th>코드</th><th>어떤 때</th><th class="todo">앱이 할 일</th></tr><tr><td class="err">404 PROFILE_NOT_FOUND</td><td>프로필 미등록</td><td><span style=color:var(--muted)>메시지를 그대로 보여준다</span></td></tr></table></div><p style="font-size:12.5px;color:var(--muted)">모든 API 공통: 400 VALIDATION_FAILED · 401 UNAUTHORIZED</p>
+<h4>보내는 예시</h4><pre>{
+  &quot;height_cm&quot;: 174.0,
+  &quot;weight_kg&quot;: 68.0,
+  &quot;age&quot;: 18,
+  &quot;gender&quot;: &quot;none&quot;,
+  &quot;goal_type&quot;: &quot;muscle&quot;,
+  &quot;weekly_frequency&quot;: 4,
+  &quot;experience_level&quot;: &quot;under3m&quot;
+}</pre><h4>받는 예시 (200)</h4><pre>{
+  &quot;profile_id&quot;: 5,
+  &quot;height_cm&quot;: 174.0,
+  &quot;weight_kg&quot;: 68.0,
+  &quot;age&quot;: 18,
+  &quot;gender&quot;: &quot;male&quot;,
+  &quot;goal_type&quot;: &quot;muscle&quot;,
+  &quot;weekly_frequency&quot;: 4,
+  &quot;experience_level&quot;: &quot;under3m&quot;,
+  &quot;measured_at&quot;: &quot;2026-10-06T19:02:10+09:00&quot;,
+  &quot;routine_refresh_recommended&quot;: true
+}</pre><h4 class="rule">알아둘 것</h4><ul class="r"><li>값을 덮어쓰지 않고 <b>새 이력 행으로 저장</b>한다 (체중 변화 추적). 보내지 않은 필드는 직전 값을 이어받는다.</li><li><code>goal_type</code>, <code>weekly_frequency</code>, <code>experience_level</code> 중 하나라도 바뀌면 <code>routine_refresh_recommended=true</code>.</li></ul><h4>저장소(DB)</h4><div class="chips"><span class=w>쓰기</span><span class="w">user_profiles</span> </div></div></details></section><section class="sec" id="F-04">
+<div class="hd"><span class="id">F-04</span><h3>사진 촬영 · 업로드</h3><span class="tag p1">MVP</span><span class="tag">4개</span></div>
+<p class="lede" style="margin-top:10px">정면(필수)·측면(선택) 사진을 찍어 올린다. 지울 수도 있다. <a href="기능명세서.html#F-04">기능 명세 보기</a></p><details class="op" id="op-uploadPhoto" data-phase="1" open>
+<summary><span class="m POST">POST</span><span class="pth">/api/photos</span><span class="nm">사진 업로드</span><span class="tag p1">MVP</span><span class="tag">로그인 필요</span><span class="when">사진을 올릴 때</span></summary>
+<div class="bd"><h4>보내는 값</h4><div class="tw"><table><tr><th>이름</th><th>종류</th><th>어디에</th><th>설명</th></tr><tr><td class="k" style="padding-left:10px">image <span class=req>*</span></td><td class="t">파일</td><td class="t">폼</td><td>JPG 또는 PNG, 10MB 이하</td></tr><tr><td class="k" style="padding-left:10px">type <span class=req>*</span></td><td class="t"><code>current</code> / <code>goal</code></td><td class="t">폼</td><td>current 현재 체형 / goal 목표 체형</td></tr><tr><td class="k" style="padding-left:10px">side</td><td class="t"><code>front</code> / <code>side</code> / <code>back</code></td><td class="t">폼</td><td>촬영 방향 (기본 front)</td></tr></table></div><p style="font-size:12.5px;color:var(--muted)"><span class="req">*</span> 반드시 보내야 합니다. 나머지는 생략해도 됩니다.</p><h4>받는 값 · 성공 201</h4><div class="tw"><table><tr><th>이름</th><th>종류</th><th>설명</th></tr><tr><td class="k" style="padding-left:10px">photo_id</td><td class="t">정수</td><td>사진 ID</td></tr><tr><td class="k" style="padding-left:10px">type</td><td class="t"><code>current</code> / <code>goal</code></td><td>current 현재 체형 / goal 목표 체형</td></tr><tr><td class="k" style="padding-left:10px">side</td><td class="t"><code>front</code> / <code>side</code> / <code>back</code></td><td>촬영 방향</td></tr><tr><td class="k" style="padding-left:10px">url</td><td class="t">주소(URL)</td><td>접근 URL. 만료되는 서명 URL이므로 캐시하지 말고 만료 후 목록을 다시 조회</td></tr><tr><td class="k" style="padding-left:10px">url_expires_at</td><td class="t">일시</td><td>url 만료 시각 (URL을 발급한 시각 + 1시간)</td></tr><tr><td class="k" style="padding-left:10px">created_at</td><td class="t">일시</td><td>업로드 시각</td></tr></table></div>
+<h4 class="fail">실패하면</h4><div class="tw"><table><tr><th>코드</th><th>어떤 때</th><th class="todo">앱이 할 일</th></tr><tr><td class="err">403 CONSENT_REQUIRED</td><td>철회한 동의(<code>body_photo</code>·<code>ai_processing</code>)가 필요한 요청</td><td>설정의 동의 화면으로 안내한다. 이미 저장된 사진·결과는 계속 볼 수 있다.</td></tr><tr><td class="err">409 PHOTO_LIMIT_EXCEEDED</td><td>사용자당 사진 20장 초과</td><td>사진 정리(삭제) 화면으로 안내한다.</td></tr><tr><td class="err">413 IMAGE_TOO_LARGE</td><td>파일 10MB 초과</td><td>긴 변 1024px로 줄여 다시 업로드한다.</td></tr><tr><td class="err">415 IMAGE_INVALID_TYPE</td><td>JPG·PNG가 아니거나 손상된 파일</td><td><span style=color:var(--muted)>메시지를 그대로 보여준다</span></td></tr></table></div><p style="font-size:12.5px;color:var(--muted)">모든 API 공통: 400 VALIDATION_FAILED · 401 UNAUTHORIZED · 403 ONBOARDING_REQUIRED</p>
+<h4>받는 예시 (201)</h4><pre>{
+  &quot;photo_id&quot;: 12,
+  &quot;type&quot;: &quot;current&quot;,
+  &quot;side&quot;: &quot;front&quot;,
+  &quot;url&quot;: &quot;https://cdn.example.com/file.jpg&quot;,
+  &quot;url_expires_at&quot;: &quot;2026-10-06T20:02:10+09:00&quot;,
+  &quot;created_at&quot;: &quot;2026-10-06T18:40:00+09:00&quot;
+}</pre><h4 class="rule">알아둘 것</h4><ul class="r"><li>앱은 업로드 전에 긴 변을 1024px 이하로 줄이고, <b>촬영 방향(EXIF 회전)을 픽셀에 반영해서</b> JPG로 보낸다. 반영하지 않으면 사진이 옆으로 누운 채 분석되어 <code>NO_PERSON</code>·<code>NOT_FULL_BODY</code>가 나올 수 있다. 서버도 10MB를 넘으면 거부한다.</li><li>확장자가 아니라 <b>파일 내용(매직 바이트)</b>으로 JPG·PNG를 판별한다.</li><li>사용자당 최대 20장 (<code>PHOTO_LIMIT_EXCEEDED</code>). 사진은 비공개 저장소에 두고 <code>url</code>은 서명 URL(1시간)로 준다.</li><li><code>body_photo</code> 동의를 철회한 사용자는 <code>CONSENT_REQUIRED</code>.</li><li><b>목표 사진(<code>type=goal</code>)은 임시 파일이다.</b> 업로드 후 1시간 안에 <code>POST /goal-bodies</code>로 등록하지 않으면 서버가 삭제하고, 등록하면 AI가 특징을 뽑은 직후(성공·실패 모두) 삭제한다.</li></ul><h4>저장소(DB)</h4><div class="chips"><span class=w>쓰기</span><span class="w">photos</span> <span>읽기</span><span class="">user_consents</span></div></div></details><details class="op" id="op-listPhotos" data-phase="1" open>
+<summary><span class="m GET">GET</span><span class="pth">/api/photos</span><span class="nm">사진 목록</span><span class="tag p1">MVP</span><span class="tag">로그인 필요</span><span class="when">내 사진 목록을 볼 때</span></summary>
+<div class="bd"><h4>보내는 값</h4><div class="tw"><table><tr><th>이름</th><th>종류</th><th>어디에</th><th>설명</th></tr><tr><td class="k" style="padding-left:10px">type</td><td class="t"><code>current</code> / <code>goal</code></td><td class="t">주소 뒤(?)</td><td>지정하면 해당 종류만</td></tr><tr><td class="k" style="padding-left:10px">page</td><td class="t">정수 (1~)</td><td class="t">주소 뒤(?)</td><td>페이지 (1부터, 기본 1)</td></tr><tr><td class="k" style="padding-left:10px">page_size</td><td class="t">정수 (1~50)</td><td class="t">주소 뒤(?)</td><td>페이지 크기 (기본 20, 최대 50)</td></tr></table></div><p style="font-size:12.5px;color:var(--muted)"><span class="req">*</span> 반드시 보내야 합니다. 나머지는 생략해도 됩니다.</p><h4>받는 값 · 성공 200</h4><div class="tw"><table><tr><th>이름</th><th>종류</th><th>설명</th></tr><tr><td class="k" style="padding-left:10px">items</td><td class="t">객체 목록</td><td>목록</td></tr><tr><td class="k" style="padding-left:24px">items[].photo_id</td><td class="t">정수</td><td>사진 ID</td></tr><tr><td class="k" style="padding-left:24px">items[].type</td><td class="t"><code>current</code> / <code>goal</code></td><td>current 현재 체형 / goal 목표 체형</td></tr><tr><td class="k" style="padding-left:24px">items[].side</td><td class="t"><code>front</code> / <code>side</code> / <code>back</code></td><td>촬영 방향</td></tr><tr><td class="k" style="padding-left:24px">items[].url</td><td class="t">주소(URL)</td><td>접근 URL. 만료되는 서명 URL이므로 캐시하지 말고 만료 후 목록을 다시 조회</td></tr><tr><td class="k" style="padding-left:24px">items[].url_expires_at</td><td class="t">일시</td><td>url 만료 시각 (URL을 발급한 시각 + 1시간)</td></tr><tr><td class="k" style="padding-left:24px">items[].created_at</td><td class="t">일시</td><td>업로드 시각</td></tr><tr><td class="k" style="padding-left:10px">page</td><td class="t">정수</td><td>현재 페이지 (1부터)</td></tr><tr><td class="k" style="padding-left:10px">page_size</td><td class="t">정수</td><td>페이지 크기</td></tr><tr><td class="k" style="padding-left:10px">total</td><td class="t">정수</td><td>전체 개수</td></tr></table></div>
+<h4 class="fail">실패하면</h4><p style="color:var(--muted)">이 API만의 실패는 없습니다.</p><p style="font-size:12.5px;color:var(--muted)">모든 API 공통: 400 VALIDATION_FAILED · 401 UNAUTHORIZED · 403 ONBOARDING_REQUIRED</p>
+<h4>받는 예시 (200)</h4><pre>{
+  &quot;items&quot;: [
+    {
+      &quot;photo_id&quot;: 12,
+      &quot;type&quot;: &quot;current&quot;,
+      &quot;side&quot;: &quot;front&quot;,
+      &quot;url&quot;: &quot;https://cdn.example.com/file.jpg&quot;,
+      &quot;url_expires_at&quot;: &quot;2026-10-06T20:02:10+09:00&quot;,
+      &quot;created_at&quot;: &quot;2026-10-06T18:40:00+09:00&quot;
+    }
+  ],
+  &quot;page&quot;: 1,
+  &quot;page_size&quot;: 20,
+  &quot;total&quot;: 1
+}</pre><h4 class="rule">알아둘 것</h4><ul class="r"><li>최신순. 각 항목의 <code>url</code>은 조회 시점에 새로 발급한다.</li><li><code>type=goal</code> 사진은 처리가 끝나기 전까지만 목록에 보인다. 처리 후에는 삭제되어 나오지 않는다.</li></ul><h4>저장소(DB)</h4><div class="chips"> <span>읽기</span><span class="">photos</span></div></div></details><details class="op" id="op-deletePhoto" data-phase="1" open>
+<summary><span class="m DELETE">DELETE</span><span class="pth">/api/photos/{photo_id}</span><span class="nm">사진 삭제</span><span class="tag p1">MVP</span><span class="tag">로그인 필요</span><span class="when">사진 하나를 지울 때</span></summary>
+<div class="bd"><h4>보내는 값</h4><div class="tw"><table><tr><th>이름</th><th>종류</th><th>어디에</th><th>설명</th></tr><tr><td class="k" style="padding-left:10px">photo_id <span class=req>*</span></td><td class="t">정수</td><td class="t">주소</td><td>사진 ID</td></tr></table></div><p style="font-size:12.5px;color:var(--muted)"><span class="req">*</span> 반드시 보내야 합니다. 나머지는 생략해도 됩니다.</p><h4>받는 값 · 성공 204</h4><p style="color:var(--muted)">돌려주는 내용이 없습니다(본문 없음).</p>
+<h4 class="fail">실패하면</h4><div class="tw"><table><tr><th>코드</th><th>어떤 때</th><th class="todo">앱이 할 일</th></tr><tr><td class="err">404 NOT_FOUND</td><td>대상 없음. 남의 데이터도 동일하게 404</td><td><span style=color:var(--muted)>메시지를 그대로 보여준다</span></td></tr><tr><td class="err">409 PHOTO_IN_USE</td><td>분석 중(pending)인 목표 체형에 쓰이는 사진</td><td>처리 중인 목표 사진이라 지울 수 없다는 안내.</td></tr></table></div><p style="font-size:12.5px;color:var(--muted)">모든 API 공통: 400 VALIDATION_FAILED · 401 UNAUTHORIZED · 403 ONBOARDING_REQUIRED</p>
+<h4 class="rule">알아둘 것</h4><ul class="r"><li>원본 파일도 함께 삭제한다.</li><li>이 사진을 쓴 <b>분석 결과는 남기고</b> <code>photo_id</code>만 null로 바뀐다.</li><li>분석 중(<code>pending</code>)인 목표 체형이 쓰는 목표 사진이면 <code>PHOTO_IN_USE</code>. 처리가 끝난 목표 사진은 이미 삭제되어 <code>NOT_FOUND</code>.</li></ul><h4>저장소(DB)</h4><div class="chips"><span class=w>쓰기</span><span class="w">photos</span><span class="w">body_analyses</span> <span>읽기</spa... (353KB 남음)

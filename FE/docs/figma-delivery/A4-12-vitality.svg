@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1190" height="1684" viewBox="0 0 1190 1684"><defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8" fill="none" stroke="#7A8697"/></marker></defs><rect width="1190" height="1684" fill="white"/>
+<text x="48" y="91" font-family="Noto Sans KR, sans-serif" font-size="58" fill="#B4B8BD" font-weight="700">이재 3 대 500</text>
+<rect x="941" y="43" width="201" height="58" rx="29" fill="#D5FF64" stroke="#D5FF64"/>
+<text x="967" y="80" font-family="Noto Sans KR, sans-serif" font-size="24" fill="#20242A" font-weight="600">Project · 01</text>
+<text x="48" y="144" font-family="Noto Sans KR, sans-serif" font-size="23" fill="#59636F" font-weight="400">오늘을 기록하고, 변화를 증명하다</text>
+<text x="48" y="208" font-family="Noto Sans KR, sans-serif" font-size="25" fill="#20242A" font-weight="700">01  시스템 구성</text>
+<text x="48" y="240" font-family="Noto Sans KR, sans-serif" font-size="16" fill="#7A8697" font-weight="400">개발 목표 구조 · 서버 및 AI 연결 예정</text>
+<rect x="48" y="266" width="1094" height="332" rx="14" fill="#FAFBF8" stroke="#DEE2E6"/>
+<rect x="70" y="298" width="230" height="128" rx="12" fill="#FFFFFF" stroke="#7BAF1E"/>
+<text x="88" y="328" font-family="Noto Sans KR, sans-serif" font-size="19" fill="#7BAF1E" font-weight="600">Flutter / Dart</text>
+<text x="88" y="358" font-family="Noto Sans KR, sans-serif" font-size="15" fill="#576171" font-weight="400">회원가입 · 신체 정보</text>
+<text x="88" y="383" font-family="Noto Sans KR, sans-serif" font-size="15" fill="#576171" font-weight="400">사진 입력 · 운동 기록</text>
+<rect x="395" y="298" width="280" height="128" rx="12" fill="#FFFFFF" stroke="#7BAF1E"/>
+<text x="413" y="328" font-family="Noto Sans KR, sans-serif" font-size="19" fill="#7BAF1E" font-weight="600">Spring Boot API</text>
+<text x="413" y="358" font-family="Noto Sans KR, sans-serif" font-size="15" fill="#576171" font-weight="400">인증 · 프로필 · 운동 도메인</text>
+<text x="413" y="383" font-family="Noto Sans KR, sans-serif" font-size="15" fill="#576171" font-weight="400">이메일 인증 · JWT 7일</text>
+<rect x="770" y="298" width="342" height="128" rx="12" fill="#FFFFFF" stroke="#7BAF1E"/>
+<text x="788" y="328" font-family="Noto Sans KR, sans-serif" font-size="19" fill="#7BAF1E" font-weight="600">MySQL</text>
+<text x="788" y="358" font-family="Noto Sans KR, sans-serif" font-size="15" fill="#576171" font-weight="400">사용자 · 루틴 · 운동 기록</text>
+<text x="788" y="383" font-family="Noto Sans KR, sans-serif" font-size="15" fill="#576171" font-weight="400">분석 결과 · 목표 데이터</text>
+<path d="M300 360 L395 360" stroke="#7A8697" fill="none" stroke-width="2" marker-end="url(#arrow)"/>
+<path d="M675 360 L770 360" stroke="#7A8697" fill="none" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="395" y="467" width="280" height="103" rx="12" fill="#FFFFFF" stroke="#7BAF1E"/>
+<text x="413" y="497" font-family="Noto Sans KR, sans-serif" font-size="19" fill="#7BAF1E" font-weight="600">MediaPipe Pose / Qwen</text>
+<text x="413" y="527" font-family="Noto Sans KR, sans-serif" font-size="15" fill="#576171" font-weight="400">체형 비교 · 설명 · 추천</text>
+<rect x="770" y="467" width="342" height="103" rx="12" fill="#FFFFFF" stroke="#7BAF1E"/>
+<text x="788" y="497" font-family="Noto Sans KR, sans-serif" font-size="19" fill="#7BAF1E" font-weight="600">비공개 객체 저장소</text>
+<text x="788" y="527" font-family="Noto Sans KR, sans-serif" font-size="15" fill="#576171" font-weight="400">신체 사진 · 목표 사진 보관</text>
+<path d="M535 426 L535 467" stroke="#7A8697" fill="none" stroke-width="2" marker-end="url(#arrow)"/>
+<path d="M675 397 L770 492" stroke="#7A8697" fill="none" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="70" y="555" font-family="Noto Sans KR, sans-serif" font-size="16" fill="#576171" font-weight="400">앱 ↔ 서버: REST API</text>
+<text x="48" y="656" font-family="Noto Sans KR, sans-serif" font-size="25" fill="#20242A" font-weight="700">02  화면 · 컴포넌트 구조</text>
+<text x="48" y="688" font-family="Noto Sans KR, sans-serif" font-size="16" fill="#7A8697" font-weight="400">현재 구현과 이후 개발 화면을 구분한 프론트 구조</text>
+<rect x="48" y="722" width="205" height="125" rx="12" fill="#FFFFFF" stroke="#8B5CF6"/>
+<text x="66" y="752" font-family="Noto Sans KR, sans-serif" font-size="19" fill="#8B5CF6" font-weight="600">OnboardingFlow</text>
+<text x="66" y="782" font-family="Noto Sans KR, sans-serif" font-size="15" fill="#576171" font-weight="400">가입 3단계</text>
+<text x="66" y="807" font-family="Noto Sans KR, sans-serif" font-size="15" fill="#576171" font-weight="400">가입 완료 → 홈</text>
+<rect x="292" y="722" width="350" height="125" rx="12" fill="#FFFFFF" stroke="#8B5CF6"/>
+<text x="310" y="752" font-family="Noto Sans KR, sans-serif" font-size="19" fill="#8B5CF6" font-weight="600">SignupPage</text>
+<text x="310" y="782" font-family="Noto Sans KR, sans-serif" font-size="15" fill="#576171" font-weight="400">이메일 가입 · 입력 검증</text>
+<text x="310" y="807" font-family="Noto Sans KR, sans-serif" font-size="15" fill="#576171" font-weight="400">구글 로그인: 2차 기능</text>
+<rect x="292" y="863" width="350" height="125" rx="12" fill="#FFFFFF" stroke="#8B5CF6"/>
+<text x="310" y="893" font-family="Noto Sans KR, sans-serif" font-size="19" fill="#8B5CF6" font-weight="600">ProfileFormPage</text>
+<text x="310" y="923" font-family="Noto Sans KR, sans-serif" font-size="15" fill="#576171" font-weight="400">키 · 체중 · 나이 · 성별</text>
+<text x="310" y="948" font-family="Noto Sans KR, sans-serif" font-size="15" fill="#576171" font-weight="400">운동 목표 · 횟수 · 경험</text>
+<rect x="292" y="1004" width="350" height="125" rx="12" fill="#FFFFFF" stroke="#8B5CF6"/>
+<text x="310" y="1034" font-family="Noto Sans KR, sans-serif" font-size="19" fill="#8B5CF6" font-weight="600">OnboardingAnalysisPage</text>
+<text x="310" y="1064" font-family="Noto Sans KR, sans-serif" font-size="15" fill="#576171" font-weight="400">사진 / 글 입력 · 건너뛰기</text>
+<text x="310" y="1089" font-family="Noto Sans KR, sans-serif" font-size="15" fill="#576171" font-weight="400">사진 미리보기 · 삭제</text>
+<path d="M253 784H273V1066H292M273 925H292M273 784H292" fill="none" stroke="#7A8697" stroke-width="2"/>
+<rect x="691" y="722" width="451" height="125" rx="12" fill="#FFFFFF" stroke="#7BAF1E"/>
+<text x="709" y="752" font-family="Noto Sans KR, sans-serif" font-size="19" fill="#7BAF1E" font-weight="600">MainShell</text>
+<text x="709" y="782" font-family="Noto Sans KR, sans-serif" font-size="15" fill="#576171" font-weight="400">홈 · 체형 분석 · 운동 기록</text>
+<text x="709" y="807" font-family="Noto Sans KR, sans-serif" font-size="15" fill="#576171" font-weight="400">하단 탭 전환 · 로그아웃</text>
+<rect x="691" y="868" width="451" height="125" rx="12" fill="#FFFFFF" stroke="#7BAF1E"/>
+<text x="709" y="898" font-family="Noto Sans KR, sans-serif" font-size="19" fill="#7BAF1E" font-weight="600">현재 구현</text>
+<text x="709" y="928" font-family="Noto Sans KR, sans-serif" font-size="15" fill="#576171" font-weight="400">가입 / 신체 정보 / 분석 입력</text>
+<text x="709" y="953" font-family="Noto Sans KR, sans-serif" font-size="15" fill="#576171" font-weight="400">입력 검증 · 기기 저장 · 가입 상태 복원</text>
+<rect x="691" y="1014" width="451" height="115" rx="12" fill="#FFFFFF" stroke="#7BAF1E"/>
+<text x="709" y="1044" font-family="Noto Sans KR, sans-serif" font-size="19" fill="#7BAF1E" font-weight="600">서비스 연결 예정</text>
+<text x="709" y="1074" font-family="Noto Sans KR, sans-serif" font-size="15" fill="#576171" font-weight="400">실제 회원가입 / 로그인 · 토큰 인증</text>
+<text x="709" y="1099" font-family="Noto Sans KR, sans-serif" font-size="15" fill="#576171" font-weight="400">사진 업로드 · AI 분석 · 추천</text>
+<rect x="48" y="1170" width="205" height="126" rx="12" fill="#FFFFFF" stroke="#EA8B3A"/>
+<text x="66" y="1200" font-family="Noto Sans KR, sans-serif" font-size="19" fill="#EA8B3A" font-weight="600">추가 화면 계획</text>
+<text x="66" y="1230" font-family="Noto Sans KR, sans-serif" font-size="15" fill="#576171" font-weight="400">서비스 문서 · 디자인 기준</text>
+<text x="66" y="1255" font-family="Noto Sans KR, sans-serif" font-size="15" fill="#576171" font-weight="400">백엔드와 단계별 연결</text>
+<rect x="292" y="1170" width="350" height="126" rx="12" fill="#FFFFFF" stroke="#EA8B3A"/>
+<text x="310" y="1200" font-family="Noto Sans KR, sans-serif" font-size="19" fill="#EA8B3A" font-weight="600">운동 · 분석</text>
+<text x="310" y="1230" font-family="Noto Sans KR, sans-serif" font-size="15" fill="#576171" font-weight="400">목표 체형 · 맞춤 루틴</text>
+<text x="310" y="1255" font-family="Noto Sans KR, sans-serif" font-size="15" fill="#576171" font-weight="400">운동 수행 · 세트 기록 · 통계</text>
+<rect x="691" y="1170" width="451" height="126" rx="12" fill="#FFFFFF" stroke="#EA8B3A"/>
+<text x="709" y="1200" font-family="Noto Sans KR, sans-serif" font-size="19" fill="#EA8B3A" font-weight="600">확장 기능</text>
+<text x="709" y="1230" font-family="Noto Sans KR, sans-serif" font-size="15" fill="#576171" font-weight="400">AI 코치 · 자세 교정 · 맞춤 식단</text>
+<text x="709" y="1255" font-family="Noto Sans KR, sans-serif" font-size="15" fill="#576171" font-weight="400">커뮤니티 · 설정</text>
+<path d="M253 1233 L292 1233" stroke="#7A8697" fill="none" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="48" y="1352" font-family="Noto Sans KR, sans-serif" font-size="25" fill="#20242A" font-weight="700">03  공통 UI · 데이터 연결</text>
+<rect x="48" y="1380" width="530" height="137" rx="12" fill="#FFFFFF" stroke="#7BAF1E"/>
+<text x="66" y="1410" font-family="Noto Sans KR, sans-serif" font-size="19" fill="#7BAF1E" font-weight="600">공통 위젯</text>
+<text x="66" y="1440" font-family="Noto Sans KR, sans-serif" font-size="15" fill="#576171" font-weight="400">OnboardingFrame · AppTextField · PrimaryButton</text>
+<text x="66" y="1465" font-family="Noto Sans KR, sans-serif" font-size="15" fill="#576171" font-weight="400">ChoiceChipGroup · PhotoInputField</text>
+<text x="66" y="1490" font-family="Noto Sans KR, sans-serif" font-size="15" fill="#576171" font-weight="400">AppScaffold · AppBottomNav</text>
+<rect x="610" y="1380" width="532" height="137" rx="12" fill="#FFFFFF" stroke="#7BAF1E"/>
+<text x="628" y="1410" font-family="Noto Sans KR, sans-serif" font-size="19" fill="#7BAF1E" font-weight="600">상태 · 저장소</text>
+<text x="628" y="1440" font-family="Noto Sans KR, sans-serif" font-size="15" fill="#576171" font-weight="400">OnboardingViewModel → OnboardingRepository</text>
+<text x="628" y="1465" font-family="Noto Sans KR, sans-serif" font-size="15" fill="#576171" font-weight="400">현재: LocalOnboardingRepository</text>
+<text x="628" y="1490" font-family="Noto Sans KR, sans-serif" font-size="15" fill="#576171" font-weight="400">추후: 서버 인증 · API 구현으로 교체</text>
+<text x="48" y="1576" font-family="Noto Sans KR, sans-serif" font-size="17" fill="#576171" font-weight="400">구글·카카오 로그인: 2차 기능 / 실제 인증: 서버 연결 예정</text>
+<text x="48" y="1610" font-family="Noto Sans KR, sans-serif" font-size="15" fill="#7A8697" font-weight="400">구현 상태는 현재 Flutter 프로젝트 기준이며 시스템 구성은 개발 목표입니다.</text>
+</svg>
