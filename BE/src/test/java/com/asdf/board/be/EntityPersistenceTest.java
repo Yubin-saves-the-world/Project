@@ -44,7 +44,8 @@ class EntityPersistenceTest {
     @PersistenceContext
     EntityManager em;
 
-    private User newUser(String nickname) {
+    private User newUser(String name) {
+        String nickname = name + UUID.randomUUID().toString().substring(0, 8);
         User user = User.builder().email(nickname + "@example.com").passwordHash("h".repeat(60)).nickname(nickname).build();
         em.persist(user);
         return user;
@@ -70,8 +71,8 @@ class EntityPersistenceTest {
 
     @Test
     void user_닉네임_중복은_DB가_막는다() {
-        newUser("중복");
-        User dup = User.builder().email("other@example.com").nickname("중복").build();
+        User first = newUser("중복");
+        User dup = User.builder().email("other-" + UUID.randomUUID() + "@example.com").nickname(first.getNickname()).build();
         assertThatThrownBy(() -> {
             em.persist(dup);
             em.flush();
