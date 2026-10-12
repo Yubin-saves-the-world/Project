@@ -22,6 +22,15 @@ abstract final class ApiContract {
   // Multipart requests must let their transport set the boundary.
 }
 
+class ApiFieldError {
+  const ApiFieldError({required this.field, required this.reason});
+  final String field, reason;
+  factory ApiFieldError.fromJson(Map<String, dynamic> json) => ApiFieldError(
+    field: json['field'] as String,
+    reason: json['reason'] as String,
+  );
+}
+
 class ApiFailure implements Exception {
   const ApiFailure({
     required this.code,
@@ -31,13 +40,16 @@ class ApiFailure implements Exception {
   });
   final String code, message;
   final int status;
-  final Map<String, dynamic>? fields;
+  final List<ApiFieldError>? fields;
   factory ApiFailure.fromJson(Map<String, dynamic> json) => ApiFailure(
     code: json['code'] as String,
     message: json['message'] as String,
     status: json['status'] as int,
-    fields: json['fields'] == null
-        ? null
-        : Map<String, dynamic>.from(json['fields'] as Map),
+    fields: (json['fields'] as List<dynamic>?)
+        ?.map((e) => ApiFieldError.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList(),
   );
+
+  String get displayMessage =>
+      (fields != null && fields!.isNotEmpty) ? fields!.first.reason : message;
 }
