@@ -64,9 +64,13 @@ void main() {
       'code': 'VALIDATION_FAILED',
       'message': '입력 오류',
       'status': 400,
-      'fields': {'email': '잘못된 이메일'},
+      'fields': [
+        {'field': 'email', 'reason': '잘못된 이메일'},
+      ],
     });
-    expect(error.fields?['email'], '잘못된 이메일');
+    expect(error.fields?.first.field, 'email');
+    expect(error.fields?.first.reason, '잘못된 이메일');
+    expect(error.displayMessage, '잘못된 이메일');
     expect(
       ApiContract.jsonHeaders(session.accessToken)['Authorization'],
       'Bearer token',
