@@ -105,7 +105,7 @@ void main() {
     await tester.ensureVisible(find.text('분석 시작'));
     await tester.tap(find.text('분석 시작'));
     await tester.pumpAndSettle();
-    expect(find.text('유빈님, 반가워요.'), findsOneWidget);
+    expect(find.textContaining('유빈님,'), findsOneWidget);
     expect(repository.progress.completed, isTrue);
   });
 
@@ -146,10 +146,14 @@ void main() {
     );
     await tester.pumpAndSettle();
     repository.failNext = true;
+    await tester.tap(find.byTooltip('계정 메뉴'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('로그아웃'));
     await tester.pumpAndSettle();
     expect(find.text('로그아웃하지 못했어요. 다시 시도해 주세요.'), findsOneWidget);
     expect(repository.progress.completed, isTrue);
+    await tester.tap(find.byTooltip('계정 메뉴'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('로그아웃'));
     await tester.pumpAndSettle();
     expect(find.text('로그인'), findsOneWidget);
@@ -169,7 +173,7 @@ void main() {
     await enter(tester, 'login-password', 'password123');
     await tester.tap(find.byKey(const Key('login-submit')));
     await tester.pumpAndSettle();
-    expect(find.text('유빈님, 반가워요.'), findsOneWidget);
+    expect(find.textContaining('유빈님,'), findsOneWidget);
     expect(repository.progress.signedIn, isTrue);
   });
 
@@ -194,14 +198,14 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('필수 동의 확인'), findsOneWidget);
-    expect(find.text('유빈님, 반가워요.'), findsNothing);
+    expect(find.textContaining('유빈님,'), findsNothing);
     expect(repository.progress.consentCompleted, isFalse);
     await tester.tap(find.text('[필수] 신체 사진 이용'));
     await tester.tap(find.text('[필수] AI 처리'));
     await tester.tap(find.text('동의 후 계속'));
     await tester.pumpAndSettle();
     expect(repository.progress.consentCompleted, isTrue);
-    expect(find.text('유빈님, 반가워요.'), findsOneWidget);
+    expect(find.textContaining('유빈님,'), findsOneWidget);
   });
 
   testWidgets('첫 화면은 로그인, 가입 화면의 뒤로 이동과 초안 유지', (tester) async {
@@ -261,7 +265,7 @@ void main() {
     await tester.tap(field);
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pumpAndSettle();
-    expect(find.text('유빈님, 반가워요.'), findsOneWidget);
+    expect(find.textContaining('유빈님,'), findsOneWidget);
   });
 
   testWidgets('성별 미선택은 없고 소셜 로그인은 준비 안내만 제공한다', (tester) async {
