@@ -1,12 +1,12 @@
 import 'dart:math' as math;
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../../auth/data/models/onboarding_progress.dart';
 import '../../../../ui/core/widgets/design_reference_page.dart';
 import '../../data/home_preview_repository.dart';
 import '../home_view_model.dart';
+import 'workout_calendar_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({
@@ -105,6 +105,24 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       ],
     ),
   );
+  Widget _restButton() => TextButton.icon(
+    key: const Key('home-rest-toggle'),
+    onPressed: !model.canWrite
+        ? null
+        : () => model.setRestDay(
+            model.selectedDate,
+            rest: model.planned(model.selectedDate),
+          ),
+    style: TextButton.styleFrom(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      minimumSize: const Size(44, 32),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      textStyle: _text(12),
+    ),
+    icon: const Icon(Icons.hotel_outlined, size: 16),
+    label: Text(model.planned(model.selectedDate) ? '휴식일 지정' : '휴식일 해제'),
+  );
+
   Future<void> _routine() async {
     await showModalBottomSheet<void>(
       context: context,
@@ -209,74 +227,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
-  void _calendar() => showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    showDragHandle: true,
-    builder: (context) => SafeArea(
-      child: SizedBox(
-        height: 430,
-        child: Localizations.override(
-          context: context,
-          locale: const Locale('ko', 'KR'),
-          delegates: GlobalMaterialLocalizations.delegates,
-          child: CalendarDatePicker(
-            initialDate:
-                model.selectedDate.isBefore(DateTime(model.today.year - 1))
-                ? DateTime(model.today.year - 1)
-                : model.selectedDate.isAfter(
-                    model.monday.add(const Duration(days: 6)),
-                  )
-                ? model.monday.add(const Duration(days: 6))
-                : model.selectedDate,
-            firstDate: DateTime(model.today.year - 1),
-            lastDate: model.monday.add(const Duration(days: 6)),
-            onDateChanged: (day) {
-              model.select(day);
-              Navigator.pop(context);
-            },
-          ),
-        ),
-      ),
-    ),
-  );
-  void _records() => showModalBottomSheet<void>(
-    context: context,
-    showDragHandle: true,
-    isScrollControlled: true,
-    builder: (context) => SafeArea(
-      child: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                '${model.selectedDate.month}월 ${model.selectedDate.day}일 운동 기록',
-                style: _text(20, bold: true),
-              ),
-              const SizedBox(height: 16),
-              if (model.dayWorkouts.isEmpty)
-                Text(
-                  '아직 완료한 운동이 없어요.',
-                  style: _text(14, color: ReferenceStyle.muted),
-                ),
-              for (final w in model.dayWorkouts)
-                ListTile(
-                  title: Text(HomeViewModel.exercises[w.exercise].name),
-                  subtitle: Text('${w.weight}kg · ${w.reps}회 · ${w.sets}세트'),
-                  trailing: Text('${w.volume.toStringAsFixed(0)}kg'),
-                ),
-              Text(
-                '기기 내 미리보기 기록입니다.',
-                style: _text(11, color: ReferenceStyle.muted),
-              ),
-            ],
-          ),
-        ),
-      ),
-    ),
+  void _records() => Navigator.of(context).push<void>(
+    MaterialPageRoute(builder: (_) => WorkoutCalendarPage(model: model)),
   );
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
@@ -387,20 +339,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         ),
                     ],
                   ),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          '이번 주',
-                          style: _text(12, color: ReferenceStyle.muted),
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: model.isToday ? null : model.goToday,
-                        child: const Text('오늘로'),
-                      ),
-                    ],
-                  ),
+                  const SizedBox(height: 16),
                   Container(
                     padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
@@ -558,10 +497,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                 ),
                               ),
                             ),
-                            Text(
-                              '예시',
-                              style: _text(10, color: ReferenceStyle.muted),
-                            ),
+                            _restButton(),
                           ],
                         ),
                         const SizedBox(height: 2),
@@ -582,9 +518,24 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                               ),
                             ),
                             if (model.planned(model.selectedDate))
-                              Text(
-                                '52분',
-                                style: _text(11, color: ReferenceStyle.muted),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    '예시',
+                                    style: _text(
+                                      10,
+                                      color: ReferenceStyle.muted,
+                                    ),
+                                  ),
+                                  Text(
+                                    '52분',
+                                    style: _text(
+                                      11,
+                                      color: ReferenceStyle.muted,
+                                    ),
+                                  ),
+                                ],
                               ),
                           ],
                         ),
@@ -594,7 +545,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             padding: const EdgeInsets.only(bottom: 12),
                             child: Text(
                               model.selectedDate.isBefore(model.today)
-                                  ? '지난 날짜는 루틴과 기록만 확인할 수 있어요.'
+                                  ? '지난 날짜의 운동은 기록만 조회할 수 있어요.'
                                   : '예정 루틴은 미리보기만 가능해요. 운동은 오늘 시작해 주세요.',
                               style: _text(12, color: ReferenceStyle.muted),
                             ),
@@ -761,50 +712,35 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         Row(
           children: [
             Expanded(child: Text('운동 기록', style: _text(14, bold: true))),
-            TextButton(onPressed: _calendar, child: const Text('달력 보기')),
+            TextButton(
+              onPressed: _records,
+              style: TextButton.styleFrom(
+                minimumSize: const Size(44, 32),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: const Text('보기'),
+            ),
           ],
         ),
         Text(
-          '${model.selectedDate.month}월 ${model.selectedDate.day}일 · ${model.totalSets}세트 · 총 볼륨 ${model.volume.toStringAsFixed(0)}kg',
+          '${model.selectedDate.month}월 ${model.selectedDate.day}일',
           style: _text(12, color: ReferenceStyle.muted),
         ),
         const SizedBox(height: 8),
-        Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: [
-            for (final day in model.week)
-              InkWell(
-                onTap: () {
-                  model.select(day);
-                  _records();
-                },
-                child: Container(
-                  width: 34,
-                  height: 34,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: completedDay(day)
-                        ? ReferenceStyle.blue
-                        : const Color(0xFFF5F6FA),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    '${day.day}',
-                    style: _text(
-                      12,
-                      color: completedDay(day)
-                          ? Colors.white
-                          : ReferenceStyle.ink,
-                    ),
-                  ),
-                ),
-              ),
-          ],
+        Text(
+          model.loading
+              ? '기록을 불러오는 중이에요.'
+              : !model.loaded
+              ? '기록을 불러온 뒤 요약을 확인할 수 있어요.'
+              : model.dayWorkouts.isEmpty
+              ? '아직 완료한 운동이 없어요.'
+              : '${model.doneCount}종목 · ${model.totalSets}세트 · 총 볼륨 ${model.volume.toStringAsFixed(0)}kg',
+          style: _text(14),
         ),
-        TextButton(onPressed: _records, child: const Text('선택한 날짜 기록 보기')),
       ],
     ),
+    padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
   );
   bool completedDay(DateTime day) =>
       model.completed.any((w) => sameDate(w.date, day));

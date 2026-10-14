@@ -30,11 +30,22 @@ class VitalityApp extends StatelessWidget {
       theme: AppTheme.light,
       initialRoute: initialRoute,
       routes: routes,
+      onGenerateRoute: (settings) => AppRouter.passwordResetRoute(
+        settings,
+        repository: onboardingRepository,
+      ),
       onGenerateInitialRoutes: (route) => [
-        MaterialPageRoute<void>(
-          settings: RouteSettings(name: route),
-          builder: routes[route]!,
-        ),
+        if (AppRouter.passwordResetRoute(
+              RouteSettings(name: route),
+              repository: onboardingRepository,
+            )
+            case final resetRoute?)
+          resetRoute
+        else
+          MaterialPageRoute<void>(
+            settings: RouteSettings(name: route),
+            builder: routes[route]!,
+          ),
       ],
     );
   }

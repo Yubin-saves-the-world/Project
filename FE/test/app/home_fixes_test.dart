@@ -237,7 +237,7 @@ void main() {
     expect(find.text('10월 12일 운동 기록'), findsOneWidget);
     expect(repo.workouts.length, 4);
   });
-  testWidgets('조회 재시도와 미래 조회 전용·오늘로 복귀', (tester) async {
+  testWidgets('조회 재시도와 미래 조회 전용·오늘 요일로 복귀', (tester) async {
     final repo = FakeHomeRepository()..failLoad = true;
     await tester.pumpWidget(
       MaterialApp(
@@ -263,8 +263,8 @@ void main() {
     expect(repo.workouts, isEmpty);
     Navigator.of(tester.element(find.text('하체 집중 · 예시 루틴'))).pop();
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('오늘로'));
-    await tester.tap(find.text('오늘로'));
+    await tester.ensureVisible(find.byKey(const ValueKey('home-weekday-0')));
+    await tester.tap(find.byKey(const ValueKey('home-weekday-0')));
     await tester.pumpAndSettle();
     expect(find.text('오늘의 루틴'), findsOneWidget);
   });

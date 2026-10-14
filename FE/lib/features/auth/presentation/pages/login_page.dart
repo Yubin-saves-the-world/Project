@@ -3,6 +3,8 @@ import '../../../../app/onboarding/onboarding_view_model.dart';
 import '../../../../core/validation/input_validators.dart';
 import '../../../../ui/core/widgets/design_reference_page.dart';
 import '../widgets/auth_support_actions.dart';
+import '../../data/local_onboarding_repository.dart';
+import 'password_reset_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key, required this.model});
@@ -45,10 +47,15 @@ class _LoginPageState extends State<LoginPage> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 96),
-              const ReferenceTitle(
-                '이재 3 대 500',
-                sourceX: 113,
-                sourceWidth: 168,
+              Text(
+                'MOVID',
+                textAlign: TextAlign.center,
+                style: ReferenceStyle.text(
+                  30,
+                  39,
+                  weight: FontWeight.w500,
+                  spacing: -.7,
+                ),
               ),
               const SizedBox(height: 73),
               Padding(
@@ -88,7 +95,17 @@ class _LoginPageState extends State<LoginPage> {
                     Align(
                       alignment: Alignment.centerRight,
                       child: GestureDetector(
-                        onTap: () => showAuthComingSoon(context, '비밀번호 찾기'),
+                        onTap: widget.model.busy
+                            ? null
+                            : () => Navigator.of(context).push<void>(
+                                MaterialPageRoute(
+                                  builder: (_) => PasswordResetPage(
+                                    preview:
+                                        widget.model.repository
+                                            is LocalOnboardingRepository,
+                                  ),
+                                ),
+                              ),
                         child: Text(
                           '비밀번호 찾기',
                           style: ReferenceStyle.text(

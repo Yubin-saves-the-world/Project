@@ -33,11 +33,13 @@ class ReferencePage extends StatelessWidget {
     this.backAsset,
     this.onBack,
     this.footer,
+    this.alignment = Alignment.center,
   });
   final Widget Function(BuildContext, double, double) builder;
   final String? backAsset;
   final VoidCallback? onBack;
   final Widget? footer;
+  final AlignmentGeometry alignment;
   @override
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: Colors.white,
@@ -85,7 +87,8 @@ class ReferencePage extends StatelessWidget {
             ),
           ),
         );
-        return Center(
+        return Align(
+          alignment: alignment,
           child: SizedBox(
             width: width,
             child: footer == null

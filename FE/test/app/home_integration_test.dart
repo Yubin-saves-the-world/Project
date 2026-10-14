@@ -18,8 +18,8 @@ void main() {
     await tester.pumpAndSettle();
     final pageContext = tester.element(find.byType(HomePage));
     expect(Localizations.localeOf(pageContext).languageCode, 'en');
-    await tester.ensureVisible(find.text('달력 보기'));
-    await tester.tap(find.text('달력 보기'));
+    await tester.ensureVisible(find.text('보기'));
+    await tester.tap(find.text('보기'));
     await tester.pumpAndSettle();
     expect(find.byType(CalendarDatePicker), findsOneWidget);
     final calendarContext = tester.element(find.byType(CalendarDatePicker));

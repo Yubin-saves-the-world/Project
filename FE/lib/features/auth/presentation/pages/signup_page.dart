@@ -2,9 +2,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../../app/onboarding/onboarding_view_model.dart';
 import '../../../../core/validation/input_validators.dart';
-import '../../../../features/auth/data/development_email_verification.dart';
 import '../../../../ui/core/widgets/design_reference_page.dart';
 import '../widgets/auth_support_actions.dart';
+import '../widgets/verification_sent_dialog.dart';
 
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key, required this.model});
@@ -65,22 +65,7 @@ class _SignupPageState extends State<SignupPage> {
     model.issueVerification();
     _startCountdown();
     setState(() {});
-    showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        scrollable: true,
-        title: const Text('개발용 이메일 인증'),
-        content: const Text(
-          '실제 이메일은 발송되지 않습니다. 테스트 인증번호: ${DevelopmentEmailVerification.code}\n유효 시간은 5분이며, 5회 틀리면 다시 받아야 합니다.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('확인'),
-          ),
-        ],
-      ),
-    );
+    showVerificationSentDialog(context, email: model.email);
   }
 
   Future<void> _submit() async {

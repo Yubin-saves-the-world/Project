@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fe/app/vitality_app.dart';
+import 'package:fe/features/auth/presentation/pages/password_reset_page.dart';
 import 'package:fe/app/router/route_paths.dart';
 import 'package:fe/app/onboarding/onboarding_view_model.dart';
 import 'package:fe/features/body_analysis/presentation/pages/onboarding_analysis_page.dart';
@@ -61,7 +62,7 @@ void main() {
     await enter(tester, 'signup-email', 'yubin@example.com');
     await tester.tap(find.text('인증번호 받기'));
     await tester.pumpAndSettle();
-    expect(find.text('개발용 이메일 인증'), findsOneWidget);
+    expect(find.text('인증번호를 보냈어요'), findsOneWidget);
     await tester.tap(find.text('확인'));
     await tester.pumpAndSettle();
     await enter(tester, 'signup-code', '000000');
@@ -310,96 +311,109 @@ void main() {
     'source',
     'text',
   ]) {
-    testWidgets('$modal: 추가 창도 현재 디자인으로 렌더한다', (tester) async {
-      tester.view.physicalSize = const Size(393, 852);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-      final model = OnboardingViewModel(
-        repository: FakeOnboardingRepository(
-          const OnboardingProgress(
-            account: previewAccount,
-            profile: previewProfile,
+    testWidgets(
+      modal == 'forgot'
+          ? '비밀번호 찾기는 별도 페이지로 이동하고 로그인으로 돌아온다'
+          : '$modal: 추가 창도 현재 디자인으로 렌더한다',
+      (tester) async {
+        tester.view.physicalSize = const Size(393, 852);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final model = OnboardingViewModel(
+          repository: FakeOnboardingRepository(
+            const OnboardingProgress(
+              account: previewAccount,
+              profile: previewProfile,
+            ),
           ),
-        ),
-        photoPicker: FakePhotoPicker(),
-      );
-      await model.initialize();
-      addTearDown(model.dispose);
-      if (['photos', 'goal', 'source', 'text'].contains(modal)) {
-        await tester.pumpWidget(
-          MaterialApp(
-            debugShowCheckedModeBanner: false,
-            theme: AppTheme.light,
-            home: OnboardingAnalysisPage(model: model, onCompleted: () {}),
-          ),
+          photoPicker: FakePhotoPicker(),
         );
-      } else {
-        await tester.pumpWidget(
-          VitalityApp(
-            onboardingRepository: FakeOnboardingRepository(),
-            photoPicker: FakePhotoPicker(),
-          ),
-        );
-      }
-      await tester.pumpAndSettle();
-      switch (modal) {
-        case 'google':
-          await tester.tap(find.text('구글로 계속하기'));
-        case 'forgot':
-          await tester.tap(find.text('비밀번호 찾기'));
-        case 'otp':
-          await tester.tap(find.text('회원가입'));
-          await tester.pumpAndSettle();
-          await enter(tester, 'signup-email', 'yubin@example.com');
-          await tester.tap(find.text('인증번호 받기'));
-        case 'consent':
-          await tester.tap(find.text('회원가입'));
-          await tester.pumpAndSettle();
-          await enter(tester, 'signup-nickname', '유빈');
-          await enter(tester, 'signup-email', 'yubin@example.com');
-          await tester.tap(find.text('인증번호 받기'));
-          await tester.pumpAndSettle();
-          await tester.tap(find.text('확인'));
-          await tester.pumpAndSettle();
-          await enter(tester, 'signup-code', '123456');
-          await enter(tester, 'signup-password', 'password123');
-          await tester.tap(find.text('다음'));
-          await tester.pumpAndSettle();
-          await tester.tap(find.text('전체 동의'));
-        case 'photos':
-          await tester.tap(find.text('사진으로 분석'));
-        case 'goal':
-          await tester.tap(find.text('목표 체형 사진'));
-        case 'source':
-          await tester.tap(find.text('사진으로 분석'));
-          await tester.pumpAndSettle();
-          await tester.tap(
-            find.descendant(
-              of: find.byKey(const Key('front-photo')),
-              matching: find.text('사진 추가'),
+        await model.initialize();
+        addTearDown(model.dispose);
+        if (['photos', 'goal', 'source', 'text'].contains(modal)) {
+          await tester.pumpWidget(
+            MaterialApp(
+              debugShowCheckedModeBanner: false,
+              theme: AppTheme.light,
+              home: OnboardingAnalysisPage(model: model, onCompleted: () {}),
             ),
           );
-        case 'text':
-          await tester.tap(find.text('글로 설명하기'));
-      }
-      await tester.pumpAndSettle();
-      await tester.pump(const Duration(milliseconds: 100));
-      expect(tester.takeException(), isNull);
-      final target = modal == 'otp'
-          ? find.byType(AlertDialog)
-          : modal == 'consent'
-          ? find.byType(BottomSheet)
-          : find.byType(MaterialApp);
-      await expectLater(
-        target,
-        matchesGoldenFile(
-          '../../docs/frontend-architecture/previews/modals/$modal.png',
-        ),
-      );
-      await tester.pumpWidget(const SizedBox());
-      await tester.pumpAndSettle();
-    });
+        } else {
+          await tester.pumpWidget(
+            VitalityApp(
+              onboardingRepository: FakeOnboardingRepository(),
+              photoPicker: FakePhotoPicker(),
+            ),
+          );
+        }
+        await tester.pumpAndSettle();
+        switch (modal) {
+          case 'google':
+            await tester.tap(find.text('구글로 계속하기'));
+          case 'forgot':
+            await tester.tap(find.text('비밀번호 찾기'));
+          case 'otp':
+            await tester.tap(find.text('회원가입'));
+            await tester.pumpAndSettle();
+            await enter(tester, 'signup-email', 'yubin@example.com');
+            await tester.tap(find.text('인증번호 받기'));
+          case 'consent':
+            await tester.tap(find.text('회원가입'));
+            await tester.pumpAndSettle();
+            await enter(tester, 'signup-nickname', '유빈');
+            await enter(tester, 'signup-email', 'yubin@example.com');
+            await tester.tap(find.text('인증번호 받기'));
+            await tester.pumpAndSettle();
+            await tester.tap(find.text('확인'));
+            await tester.pumpAndSettle();
+            await enter(tester, 'signup-code', '123456');
+            await enter(tester, 'signup-password', 'password123');
+            await tester.tap(find.text('다음'));
+            await tester.pumpAndSettle();
+            await tester.tap(find.text('전체 동의'));
+          case 'photos':
+            await tester.tap(find.text('사진으로 분석'));
+          case 'goal':
+            await tester.tap(find.text('목표 체형 사진'));
+          case 'source':
+            await tester.tap(find.text('사진으로 분석'));
+            await tester.pumpAndSettle();
+            await tester.tap(
+              find.descendant(
+                of: find.byKey(const Key('front-photo')),
+                matching: find.text('사진 추가'),
+              ),
+            );
+          case 'text':
+            await tester.tap(find.text('글로 설명하기'));
+        }
+        await tester.pumpAndSettle();
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(tester.takeException(), isNull);
+        final target = modal == 'otp'
+            ? find.byType(Dialog)
+            : modal == 'consent'
+            ? find.byType(BottomSheet)
+            : find.byType(MaterialApp);
+        if (modal == 'forgot') {
+          expect(find.byType(PasswordResetPage), findsOneWidget);
+          expect(find.byType(AlertDialog), findsNothing);
+          Navigator.of(tester.element(find.byType(PasswordResetPage))).pop();
+          await tester.pumpAndSettle();
+          expect(find.text('로그인'), findsOneWidget);
+        } else {
+          await expectLater(
+            target,
+            matchesGoldenFile(
+              '../../docs/frontend-architecture/previews/modals/$modal.png',
+            ),
+          );
+        }
+        await tester.pumpWidget(const SizedBox());
+        await tester.pumpAndSettle();
+      },
+    );
   }
 
   testWidgets('신체정보 카드 전체를 눌러 직접 입력하고 입력값을 저장한다', (tester) async {

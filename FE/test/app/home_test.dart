@@ -118,10 +118,10 @@ void main() {
     await tester.tap(find.text('종목 완료'));
     await tester.pumpAndSettle();
     expect(find.text('1 / 4종목 완료'), findsOneWidget);
-    await tester.ensureVisible(find.text('선택한 날짜 기록 보기'));
-    await tester.tap(find.text('선택한 날짜 기록 보기'));
+    await tester.ensureVisible(find.text('보기'));
+    await tester.tap(find.text('보기'));
     await tester.pumpAndSettle();
-    expect(find.text('960kg'), findsOneWidget);
+    expect(find.text('총 볼륨 960kg'), findsOneWidget);
   });
   testWidgets('홈의 작은 화면·큰 글꼴에서도 넘치지 않는다', (tester) async {
     tester.view.physicalSize = const Size(320, 640);

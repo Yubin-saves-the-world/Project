@@ -3,6 +3,8 @@ abstract final class ApiContract {
   static const prefix = '/api';
   static const users = '$prefix/users';
   static const login = '$prefix/auth/login';
+  static const passwordResetRequest = '$prefix/auth/password/reset-request';
+  static const passwordReset = '$prefix/auth/password/reset';
   static const logout = '$prefix/auth/logout';
   static const googleLogin = '$prefix/auth/oauth/google';
   static const kakaoLogin = '$prefix/auth/oauth/kakao';
@@ -46,7 +48,9 @@ class ApiFailure implements Exception {
     message: json['message'] as String,
     status: json['status'] as int,
     fields: (json['fields'] as List<dynamic>?)
-        ?.map((e) => ApiFieldError.fromJson(Map<String, dynamic>.from(e as Map)))
+        ?.map(
+          (e) => ApiFieldError.fromJson(Map<String, dynamic>.from(e as Map)),
+        )
         .toList(),
   );
 

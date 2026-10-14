@@ -4,6 +4,16 @@ class FakeHomeRepository implements HomePreviewRepository {
   List<PreviewWorkout> workouts = [];
   bool fail = false, failLoad = false;
   int writes = 0;
+  Map<String, bool> dayOverrides = {};
+  bool failSchedule = false;
+  @override
+  Future<Map<String, bool>> loadDayOverrides() async => Map.of(dayOverrides);
+  @override
+  Future<void> saveDayOverrides(Map<String, bool> overrides) async {
+    if (failSchedule) throw StateError('schedule save failed');
+    dayOverrides = Map.of(overrides);
+  }
+
   @override
   Future<List<PreviewWorkout>> load() async {
     if (failLoad) throw StateError('load failed');

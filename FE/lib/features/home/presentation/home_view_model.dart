@@ -52,10 +52,42 @@ class HomeViewModel extends ChangeNotifier {
   DateTime get monday => today.subtract(Duration(days: today.weekday - 1));
   List<DateTime> get week =>
       List.generate(7, (i) => monday.add(Duration(days: i)));
-  bool planned(DateTime day) => List.generate(
-    frequency,
-    (i) => i * 7 ~/ frequency,
-  ).contains(day.weekday - 1);
+  Map<String, bool> _dayOverrides = {};
+  static String dateKey(DateTime day) =>
+      '${day.year.toString().padLeft(4, '0')}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
+  bool planned(DateTime day) => _dayOverrides.containsKey(dateKey(day))
+      ? !_dayOverrides[dateKey(day)]!
+      : List.generate(
+          frequency,
+          (i) => i * 7 ~/ frequency,
+        ).contains(day.weekday - 1);
+
+  Future<bool> setRestDay(DateTime day, {required bool rest}) async {
+    await refreshClock();
+    if (!canWrite) return false;
+    final date = DateTime(day.year, day.month, day.day);
+    if (rest && active != null && sameDate(active!.date, date)) {
+      error = '진행 중인 운동을 완료하거나 취소한 뒤 휴식일로 지정해 주세요.';
+      _notify();
+      return false;
+    }
+    final next = {..._dayOverrides, dateKey(date): rest};
+    busy = true;
+    error = null;
+    _notify();
+    try {
+      await repository.saveDayOverrides(next);
+      _dayOverrides = next;
+      return true;
+    } catch (_) {
+      error = '운동 일정을 저장하지 못했어요. 다시 시도해 주세요.';
+      return false;
+    } finally {
+      busy = false;
+      _notify();
+    }
+  }
+
   List<PreviewWorkout> get completed =>
       workouts.where((w) => w.completed && !w.aborted).toList();
   List<PreviewWorkout> get dayWorkouts =>
@@ -138,11 +170,19 @@ class HomeViewModel extends ChangeNotifier {
     try {
       final saved = await repository.load();
       _validate(saved);
+      final schedule = await repository.loadDayOverrides();
+      for (final key in schedule.keys) {
+        final date = DateTime.tryParse(key);
+        if (date == null || dateKey(date) != key) {
+          throw const FormatException('Invalid schedule date');
+        }
+      }
       final next = _expire(saved);
       if (next.asMap().entries.any((e) => !identical(e.value, saved[e.key]))) {
         await repository.save(next);
       }
       workouts = next;
+      _dayOverrides = schedule;
       loaded = true;
     } catch (_) {
       error = '기록을 불러오지 못했어요. 다시 불러온 뒤 운동을 시작해 주세요.';
@@ -216,6 +256,11 @@ class HomeViewModel extends ChangeNotifier {
     if (!canWrite) return false;
     if (!isToday) {
       error = '운동은 오늘 날짜에서만 시작할 수 있어요.';
+      _notify();
+      return false;
+    }
+    if (!planned(today)) {
+      error = '휴식일을 해제한 뒤 운동을 시작해 주세요.';
       _notify();
       return false;
     }

@@ -52,6 +52,8 @@ class PreviewWorkout {
 abstract interface class HomePreviewRepository {
   Future<List<PreviewWorkout>> load();
   Future<void> save(List<PreviewWorkout> workouts);
+  Future<Map<String, bool>> loadDayOverrides();
+  Future<void> saveDayOverrides(Map<String, bool> overrides);
 }
 
 /// Device-only demonstration records, separate from production API data.
@@ -60,6 +62,17 @@ class LocalHomePreviewRepository implements HomePreviewRepository {
     : _key = 'vitality.home.preview.v1.$owner';
   final String _key;
   SharedPreferencesAsync get _preferences => SharedPreferencesAsync();
+  @override
+  Future<Map<String, bool>> loadDayOverrides() async {
+    final raw = await _preferences.getString('$_key.schedule');
+    if (raw == null) return {};
+    return Map<String, bool>.from(jsonDecode(raw) as Map);
+  }
+
+  @override
+  Future<void> saveDayOverrides(Map<String, bool> overrides) =>
+      _preferences.setString('$_key.schedule', jsonEncode(overrides));
+
   @override
   Future<List<PreviewWorkout>> load() async {
     final raw = await _preferences.getString(_key);
