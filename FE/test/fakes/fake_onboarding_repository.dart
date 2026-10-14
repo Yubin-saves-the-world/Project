@@ -19,6 +19,19 @@ class FakeOnboardingRepository implements OnboardingRepository {
   }
 
   @override
+  bool get usesRealEmailVerification => false;
+  @override
+  Future<void> sendEmailCode(String email) async {}
+  @override
+  Future<String> confirmEmailCode({
+    required String email,
+    required String code,
+  }) async {
+    if (code != '123456') throw StateError('인증번호가 일치하지 않아요.');
+    return 'fake-token';
+  }
+
+  @override
   Future<void> signOut() async {
     _checkFailure();
     progress = progress.copyWith(signedIn: false);

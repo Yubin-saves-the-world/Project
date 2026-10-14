@@ -56,10 +56,33 @@ class _SignupPageState extends State<SignupPage> {
     });
   }
 
-  void _issue() {
+  Future<void> _issue() async {
     model.email = _email.text;
     if (InputValidators.email(model.email) != null) {
       _form.currentState!.validate();
+      return;
+    }
+    if (model.usesRealEmailVerification) {
+      final sent = await model.sendVerification();
+      if (!mounted || !sent) return;
+      _startCountdown();
+      setState(() {});
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          scrollable: true,
+          title: const Text('인증번호를 보냈어요'),
+          content: Text(
+            '${model.email.trim()}로 6자리 인증번호를 보냈어요.\n메일이 보이지 않으면 스팸함도 확인해 주세요. 유효 시간은 5분이며, 5회 틀리면 다시 받아야 합니다.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('확인'),
+            ),
+          ],
+        ),
+      );
       return;
     }
     model.issueVerification();
@@ -95,7 +118,8 @@ class _SignupPageState extends State<SignupPage> {
     final verification =
         (model.progress.account != null && model.progress.signedIn)
         ? null
-        : model.emailVerification.validate(_email.text, _code.text);
+        : await model.verifyEmailCode(_email.text, _code.text);
+    if (!mounted) return;
     if (verification != null) {
       model.showError(verification);
       return;
@@ -243,8 +267,7 @@ class _SignupPageState extends State<SignupPage> {
                       onChanged: (v) {
                         if (model.email.trim().toLowerCase() !=
                             v.trim().toLowerCase()) {
-                          model.emailVerification.clear();
-                          model.verificationCode = '';
+                          model.resetEmailVerification();
                           _code.clear();
                           _countdown?.cancel();
                         }

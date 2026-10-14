@@ -1,5 +1,6 @@
 package com.asdf.board.be.user.service;
 
+import com.asdf.board.be.auth.service.EmailVerificationService;
 import com.asdf.board.be.global.exception.ApiException;
 import com.asdf.board.be.global.exception.ErrorCode;
 import com.asdf.board.be.user.dto.SignupRequest;
@@ -30,6 +31,7 @@ public class UserService {
     private final UserProfileRepository userProfileRepository;
     private final PasswordEncoder passwordEncoder;
     private final EntityManager entityManager;
+    private final EmailVerificationService emailVerificationService;
 
     @Value("${vitality.policy-version}")
     private String currentPolicyVersion;
@@ -39,6 +41,7 @@ public class UserService {
         if (!request.allConsentsAgreed()) {
             throw new ApiException(ErrorCode.TERMS_REQUIRED);
         }
+        emailVerificationService.assertVerified(request.email(), request.emailVerificationToken());
         if (userRepository.existsByEmail(request.email())) {
             throw new ApiException(ErrorCode.EMAIL_DUPLICATED);
         }
@@ -65,6 +68,7 @@ public class UserService {
                         .build())
                 .toList();
         userConsentRepository.saveAll(consents);
+        emailVerificationService.consume(request.email());
 
         return UserCreatedResponse.from(user);
     }

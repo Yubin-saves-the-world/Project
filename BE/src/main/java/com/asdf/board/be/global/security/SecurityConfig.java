@@ -86,6 +86,8 @@ public class SecurityConfig {
         return new RequestMatcher[] {
                 PathPatternRequestMatcher.pathPattern(HttpMethod.POST, "/api/users"),
                 PathPatternRequestMatcher.pathPattern(HttpMethod.POST, "/api/auth/login"),
+                PathPatternRequestMatcher.pathPattern(HttpMethod.POST, "/api/auth/email-verifications"),
+                PathPatternRequestMatcher.pathPattern(HttpMethod.POST, "/api/auth/email-verifications/confirm"),
                 PathPatternRequestMatcher.pathPattern("/actuator/health"),
                 PathPatternRequestMatcher.pathPattern("/swagger-ui.html"),
                 PathPatternRequestMatcher.pathPattern("/swagger-ui/**"),

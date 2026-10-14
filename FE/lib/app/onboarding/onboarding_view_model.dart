@@ -32,6 +32,59 @@ class OnboardingViewModel extends ChangeNotifier {
     _notify();
   }
 
+  String? emailVerificationToken;
+  String? _verifiedEmail;
+
+  bool get usesRealEmailVerification => repository.usesRealEmailVerification;
+
+  /// 서버로 인증번호를 보낸다. 성공하면 남은 시간 표시를 위해 로컬 타이머도 시작한다.
+  Future<bool> sendVerification() async {
+    final target = email.trim().toLowerCase();
+    final ok = await _run(() => repository.sendEmailCode(target));
+    if (ok) {
+      emailVerification.issue(email);
+      emailVerificationToken = null;
+      _verifiedEmail = null;
+    }
+    return ok;
+  }
+
+  /// 인증번호를 확인한다. 통과하면 null, 아니면 화면에 보여 줄 문구를 돌려준다.
+  Future<String?> verifyEmailCode(String emailInput, String code) async {
+    if (!repository.usesRealEmailVerification) {
+      return emailVerification.validate(emailInput, code);
+    }
+    final target = emailInput.trim().toLowerCase();
+    if (emailVerificationToken != null && _verifiedEmail == target) {
+      return null;
+    }
+    busy = true;
+    error = null;
+    _notify();
+    try {
+      emailVerificationToken = await repository.confirmEmailCode(
+        email: target,
+        code: code,
+      );
+      _verifiedEmail = target;
+      return null;
+    } on StateError catch (failure) {
+      return failure.message;
+    } catch (_) {
+      return '인증번호를 확인하지 못했어요. 다시 시도해 주세요.';
+    } finally {
+      busy = false;
+      _notify();
+    }
+  }
+
+  void resetEmailVerification() {
+    emailVerification.clear();
+    verificationCode = '';
+    emailVerificationToken = null;
+    _verifiedEmail = null;
+  }
+
   String nickname = '', email = '', password = '', passwordConfirmation = '';
   bool termsAgreed = false, privacyAgreed = false;
   bool bodyPhotoAgreed = false, aiProcessingAgreed = false;
@@ -212,8 +265,16 @@ class OnboardingViewModel extends ChangeNotifier {
         return;
       }
       if (!_registrationPendingLogin) {
+        final token = usesRealEmailVerification &&
+                _verifiedEmail == email.trim().toLowerCase()
+            ? emailVerificationToken
+            : null;
+        if (usesRealEmailVerification && token == null) {
+          throw StateError('이메일 인증을 먼저 완료해 주세요.');
+        }
         progress = await repository.register(
           SignupRequest(
+            emailVerificationToken: token,
             nickname: nickname,
             email: email,
             password: password,
@@ -415,8 +476,7 @@ class OnboardingViewModel extends ChangeNotifier {
   void _clearDraft() {
     analysis = const AnalysisInput();
     nickname = email = password = passwordConfirmation = '';
-    verificationCode = '';
-    emailVerification.clear();
+    resetEmailVerification();
     _registrationPendingLogin = false;
     termsAgreed = privacyAgreed = bodyPhotoAgreed = aiProcessingAgreed = false;
     height = weight = age = '';
@@ -430,8 +490,7 @@ class OnboardingViewModel extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     password = passwordConfirmation = '';
-    verificationCode = '';
-    emailVerification.clear();
+    resetEmailVerification();
     super.dispose();
   }
 }

@@ -209,4 +209,56 @@ void main() {
     await repo.signOut();
     expect(await tokens.read(), isNull);
   });
+
+  test('인증번호 요청은 정규화한 이메일만 보내고 로그인 토큰을 붙이지 않는다', () async {
+    await tokens.write('tok');
+    final repo = build((r) async {
+      expect(r.method, 'POST');
+      expect(r.url.path, '/api/auth/email-verifications');
+      expect(r.headers.containsKey('Authorization'), isFalse);
+      expect(jsonDecode(r.body), {'email': 'user@example.com'});
+      return http.Response('', 204);
+    });
+    await repo.sendEmailCode(' User@Example.com ');
+    expect(calls, hasLength(1));
+  });
+
+  test('인증번호 확인은 가입에 쓸 토큰을 돌려준다', () async {
+    final repo = build((r) async {
+      expect(r.url.path, '/api/auth/email-verifications/confirm');
+      expect(jsonDecode(r.body), {'email': 'user@example.com', 'code': '123456'});
+      return _json(200, {'verification_token': 'tok-abc', 'expires_in': 1800});
+    });
+    final token = await repo.confirmEmailCode(email: 'User@example.com', code: ' 123456 ');
+    expect(token, 'tok-abc');
+  });
+
+  test('틀린 인증번호와 너무 잦은 요청은 서버 문구를 그대로 보여 준다', () async {
+    var status = 400;
+    final repo = build((r) async => status == 400
+        ? _json(400, _error(400, 'EMAIL_CODE_INVALID', '인증번호가 일치하지 않아요.'))
+        : _json(429, _error(429, 'EMAIL_CODE_TOO_FREQUENT', '잠시 후에 다시 요청해 주세요.')));
+    await expectLater(
+      repo.confirmEmailCode(email: 'a@b.com', code: '000000'),
+      throwsA(isA<StateError>().having((e) => e.message, 'message', '인증번호가 일치하지 않아요.')),
+    );
+    status = 429;
+    await expectLater(
+      repo.sendEmailCode('a@b.com'),
+      throwsA(isA<StateError>().having((e) => e.message, 'message', '잠시 후에 다시 요청해 주세요.')),
+    );
+  });
+
+  test('회원가입 요청에 이메일 인증 토큰이 들어간다', () async {
+    final repo = build((r) async {
+      final body = jsonDecode(r.body) as Map<String, dynamic>;
+      expect(body['email_verification_token'], 'tok-abc');
+      return _json(201, {'user_id': 7, 'email': 'user@example.com', 'nickname': '유빈', 'created_at': '2026-10-12T10:00:00+09:00'});
+    });
+    await repo.register(const SignupRequest(
+      nickname: '유빈', email: 'user@example.com', password: 'abcd1234',
+      termsAgreed: true, privacyAgreed: true, bodyPhotoAgreed: true, aiProcessingAgreed: true,
+      emailVerificationToken: 'tok-abc',
+    ));
+  });
 }
