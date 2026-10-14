@@ -20,6 +20,7 @@ public enum ErrorCode {
     EMAIL_CODE_TOO_FREQUENT(HttpStatus.TOO_MANY_REQUESTS, "잠시 후에 다시 요청해 주세요."),
     EMAIL_CODE_LOCKED(HttpStatus.TOO_MANY_REQUESTS, "입력 횟수를 초과했어요. 인증번호를 다시 받아 주세요."),
     EMAIL_SEND_FAILED(HttpStatus.SERVICE_UNAVAILABLE, "인증 메일을 보내지 못했어요. 잠시 후 다시 시도해 주세요."),
+    RESET_TOKEN_INVALID(HttpStatus.BAD_REQUEST, "비밀번호 재설정이 만료되었거나 올바르지 않아요. 처음부터 다시 진행해 주세요."),
     PROFILE_NOT_FOUND(HttpStatus.NOT_FOUND, "신체정보가 아직 없어요."),
     EMAIL_DUPLICATED(HttpStatus.CONFLICT, "이미 가입된 이메일이에요."),
     NICKNAME_DUPLICATED(HttpStatus.CONFLICT, "이미 사용 중인 닉네임이에요."),
