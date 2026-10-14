@@ -89,7 +89,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       ),
       borderRadius: BorderRadius.circular(radius),
     ),
-    child: child,
+    child: Material(type: MaterialType.transparency, child: child),
   );
   void _info(String title, String body) => showDialog<void>(
     context: context,

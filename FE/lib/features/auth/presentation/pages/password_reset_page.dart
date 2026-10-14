@@ -31,6 +31,7 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
   late final PasswordResetViewModel model;
   Timer? timer;
   bool get preview => model.repository.isPreview;
+  bool get codeMode => preview || widget.initialToken == null;
 
   @override
   void initState() {
@@ -72,7 +73,7 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
 
   String? get _timeLeft {
     final remaining = model.verification.remaining;
-    if (!preview || remaining == null) return null;
+    if (remaining == null) return null;
     final seconds = (remaining.inMilliseconds / 1000).ceil();
     return '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
   }
@@ -83,18 +84,16 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
     if (!await model.request(email.text) || !mounted) return;
     code.clear();
     timer?.cancel();
-    if (preview) {
-      timer = Timer.periodic(const Duration(seconds: 1), (_) {
-        if (!mounted) return;
-        setState(() {});
-        if (model.verification.remaining == Duration.zero) timer?.cancel();
-      });
-    }
+    timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() {});
+      if (model.verification.remaining == Duration.zero) timer?.cancel();
+    });
     await showVerificationSentDialog(
       context,
       email: email.text,
       preview: preview,
-      code: preview,
+      code: codeMode,
     );
   }
 
@@ -108,6 +107,12 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
     final bool success;
     if (preview) {
       success = await model.resetWithCode(email.text, code.text, password.text);
+    } else if (widget.initialToken == null) {
+      success = await model.resetWithServerCode(
+        email.text,
+        code.text,
+        password.text,
+      );
     } else {
       model.openLink(code.text);
       if (model.step != PasswordResetStep.password) return;
@@ -130,9 +135,10 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
       !model.busy &&
       password.text.isNotEmpty &&
       code.text.isNotEmpty &&
-      (!preview ||
-          (model.verification.remaining != null &&
-              model.verification.remaining != Duration.zero));
+      (preview
+          ? (model.verification.remaining != null &&
+                model.verification.remaining != Duration.zero)
+          : model.verification.remaining != Duration.zero);
 
   Widget _complete() => Scaffold(
     backgroundColor: Colors.white,
@@ -216,7 +222,7 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
               ),
               const SizedBox(height: 12),
               Text(
-                preview
+                codeMode
                     ? '가입한 이메일로 인증번호를 보내드려요.\n번호를 확인한 뒤 새 비밀번호를 정해 주세요.'
                     : '가입한 이메일로 재설정 링크를 보내드려요.\n메일의 링크를 확인한 뒤 새 비밀번호를 정해 주세요.',
                 textAlign: TextAlign.center,
@@ -263,7 +269,7 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
                           child: Text(
                             model.step == PasswordResetStep.sent
                                 ? '재전송'
-                                : preview
+                                : codeMode
                                 ? '인증번호 받기'
                                 : '링크 받기',
                           ),
@@ -285,16 +291,16 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
                         children: [
                           ReferenceField(
                             key: const Key('reset-code'),
-                            label: preview ? '인증번호' : '재설정 링크',
+                            label: codeMode ? '인증번호' : '재설정 링크',
                             controller: code,
-                            hint: preview
+                            hint: codeMode
                                 ? '인증번호를 입력하세요.'
                                 : '메일의 링크를 붙여 넣어 주세요',
                             enabled: !model.busy,
-                            keyboardType: preview
+                            keyboardType: codeMode
                                 ? TextInputType.number
                                 : TextInputType.url,
-                            validator: (value) => preview
+                            validator: (value) => codeMode
                                 ? RegExp(r'^\d{6}$').hasMatch(value ?? '')
                                       ? null
                                       : '6자리 인증번호를 입력해 주세요.'
@@ -306,7 +312,7 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
                                 : '메일의 재설정 링크를 확인해 주세요.',
                           ),
                           if (model.codeError != null ||
-                              (preview && _timeLeft == '0:00')) ...[
+                              (codeMode && _timeLeft == '0:00')) ...[
                             const SizedBox(height: 6),
                             Text(
                               _timeLeft == '0:00'
