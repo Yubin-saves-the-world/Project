@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../body_analysis/data/models/analysis_input.dart';
 import '../../profile/data/models/body_profile.dart';
+import 'development_email_verification.dart';
 import 'models/onboarding_progress.dart';
 import 'models/signup_request.dart';
 import 'onboarding_repository.dart';
@@ -14,6 +15,23 @@ class LocalOnboardingRepository implements OnboardingRepository {
     : _preferences = preferences ?? SharedPreferencesAsync();
   final SharedPreferencesAsync _preferences;
   static const storageKey = 'vitality.onboarding.preview.v1';
+
+  @override
+  bool get usesRealEmailVerification => false;
+
+  @override
+  Future<void> sendEmailCode(String email) async {}
+
+  @override
+  Future<String> confirmEmailCode({
+    required String email,
+    required String code,
+  }) async {
+    if (code != DevelopmentEmailVerification.code) {
+      throw StateError('인증번호가 일치하지 않아요.');
+    }
+    return 'local-preview-token';
+  }
 
   @override
   Future<void> signOut() async {

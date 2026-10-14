@@ -35,6 +35,33 @@ class ServerOnboardingRepository implements OnboardingRepository {
   bool _analysisPrepared = false;
 
   @override
+  bool get usesRealEmailVerification => true;
+
+  @override
+  Future<void> sendEmailCode(String email) async {
+    await _send(
+      'POST',
+      ApiContract.emailVerifications,
+      body: {'email': email.trim().toLowerCase()},
+      authorized: false,
+    );
+  }
+
+  @override
+  Future<String> confirmEmailCode({
+    required String email,
+    required String code,
+  }) async {
+    final json = await _send(
+      'POST',
+      ApiContract.emailVerificationConfirm,
+      body: {'email': email.trim().toLowerCase(), 'code': code.trim()},
+      authorized: false,
+    );
+    return json!['verification_token'] as String;
+  }
+
+  @override
   Future<OnboardingProgress> register(SignupRequest request) async {
     await _send('POST', ApiContract.users, body: request.toJson());
     return OnboardingProgress(

@@ -8,11 +8,16 @@ import com.asdf.board.be.user.entity.UserProfile;
 import com.asdf.board.be.user.repository.UserConsentRepository;
 import com.asdf.board.be.user.repository.UserProfileRepository;
 import com.asdf.board.be.user.repository.UserRepository;
+import com.asdf.board.be.support.CapturingMailSender;
+import com.asdf.board.be.support.EmailTokens;
+import com.asdf.board.be.support.MutableClock;
+import com.asdf.board.be.support.TestMailConfig;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
@@ -31,6 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@Import(TestMailConfig.class)
 @Transactional
 @EnabledIfEnvironmentVariable(named = "DB_URL", matches = ".+")
 class AuthApiTest {
@@ -43,12 +49,16 @@ class AuthApiTest {
     @Autowired UserProfileRepository profileRepository;
     @Autowired PasswordEncoder passwordEncoder;
     @Autowired TokenService tokenService;
+    @Autowired CapturingMailSender mailSender;
+    @Autowired MutableClock clock;
 
-    private static String signupBody(String email, String password, String nickname, boolean terms) {
+    private String signupBody(String email, String password, String nickname, boolean terms) throws Exception {
+        String token = EmailTokens.verifiedToken(mvc, mailSender, clock, email);
         return """
                 {"email":"%s","password":"%s","nickname":"%s",
-                 "terms_agreed":%s,"privacy_agreed":true,"body_photo_agreed":true,"ai_processing_agreed":true}
-                """.formatted(email, password, nickname, terms);
+                 "terms_agreed":%s,"privacy_agreed":true,"body_photo_agreed":true,"ai_processing_agreed":true,
+                 "email_verification_token":"%s"}
+                """.formatted(email, password, nickname, terms, token);
     }
 
     private ResultActions signup(String body) throws Exception {
@@ -94,8 +104,9 @@ class AuthApiTest {
         signup("""
                 {"email":"v%s@example.com","password":"abcd1234","nickname":"버전%s",
                  "terms_agreed":true,"privacy_agreed":true,"body_photo_agreed":true,"ai_processing_agreed":true,
-                 "policy_version":"2026-12-01"}
-                """.formatted(RUN, RUN)).andExpect(status().isCreated());
+                 "policy_version":"2026-12-01","email_verification_token":"%s"}
+                """.formatted(RUN, RUN, EmailTokens.verifiedToken(mvc, mailSender, clock, "v" + RUN + "@example.com")))
+                .andExpect(status().isCreated());
         assertThat(consentRepository.findAll()).extracting(UserConsent::getPolicyVersion).contains("2026-12-01");
     }
 
@@ -139,7 +150,8 @@ class AuthApiTest {
     @Test
     void duplicateEmailIsConflictEvenWithDifferentCase() throws Exception {
         signup(signupBody("dup" + RUN + "@example.com", "abcd1234", "첫째" + RUN, true)).andExpect(status().isCreated());
-        signup(signupBody("DUP" + RUN + "@example.com", "abcd1234", "둘째" + RUN, true))
+        mvc.perform(post("/api/auth/email-verifications").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"DUP" + RUN + "@example.com\"}"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("EMAIL_DUPLICATED"));
     }

@@ -5,8 +5,16 @@ import 'package:fe/features/auth/data/server_onboarding_repository.dart';
 import 'package:fe/features/auth/data/token_store.dart';
 import 'package:fe/features/profile/data/models/body_profile.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
 
 final _baseUrl = Platform.environment['LIVE_API_BASE_URL'];
+final _mailPeekUrl = Platform.environment['LIVE_MAIL_PEEK_URL'];
+
+/// 테스트용 메일 서버가 마지막으로 받은 인증번호를 읽는다.
+Future<String> _codeFor(String email) async {
+  final res = await http.get(Uri.parse('$_mailPeekUrl/last?to=$email'));
+  return res.body.trim();
+}
 
 void main() {
   final run = DateTime.now().millisecondsSinceEpoch.toRadixString(36);
@@ -18,6 +26,13 @@ void main() {
     ServerOnboardingRepository repo() =>
         ServerOnboardingRepository(baseUrl: _baseUrl!, tokenStore: tokens);
 
+    await repo().sendEmailCode(email);
+    await expectLater(
+      repo().confirmEmailCode(email: email, code: '000000'),
+      throwsA(isA<StateError>().having((e) => e.message, 'message', '인증번호가 일치하지 않아요.')),
+    );
+    final token = await repo().confirmEmailCode(email: email, code: await _codeFor(email));
+
     final registered = await repo().register(SignupRequest(
       nickname: '라이브$run'.substring(0, 8),
       email: email,
@@ -26,20 +41,25 @@ void main() {
       privacyAgreed: true,
       bodyPhotoAgreed: true,
       aiProcessingAgreed: true,
+      emailVerificationToken: token,
     ));
     expect(registered.signedIn, isFalse);
 
     await expectLater(
+      repo().sendEmailCode(email.toUpperCase()),
+      throwsA(isA<StateError>().having((e) => e.message, 'message', '이미 가입된 이메일이에요.')),
+    );
+    await expectLater(
       repo().register(SignupRequest(
-        nickname: '다른$run'.substring(0, 8),
-        email: email.toUpperCase(),
+        nickname: '무토큰$run'.substring(0, 8),
+        email: 'other$run@example.com',
         password: password,
         termsAgreed: true,
         privacyAgreed: true,
         bodyPhotoAgreed: true,
         aiProcessingAgreed: true,
       )),
-      throwsA(isA<StateError>().having((e) => e.message, 'message', '이미 가입된 이메일이에요.')),
+      throwsA(isA<StateError>()),
     );
 
     await expectLater(
@@ -82,5 +102,5 @@ void main() {
     ));
     expect(edited.profile!.weightKg, 71.0);
     expect(edited.profile!.goalType, GoalType.diet);
-  }, skip: _baseUrl == null ? 'LIVE_API_BASE_URL을 지정하면 실제 서버로 실행한다' : false);
+  }, skip: (_baseUrl == null || _mailPeekUrl == null) ? 'LIVE_API_BASE_URL, LIVE_MAIL_PEEK_URL을 지정하면 실제 서버로 실행한다' : false);
 }

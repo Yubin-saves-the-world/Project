@@ -7,11 +7,16 @@ import com.asdf.board.be.user.repository.UserProfileRepository;
 import com.asdf.board.be.user.repository.UserRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import com.asdf.board.be.support.CapturingMailSender;
+import com.asdf.board.be.support.EmailTokens;
+import com.asdf.board.be.support.MutableClock;
+import com.asdf.board.be.support.TestMailConfig;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
@@ -28,6 +33,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@Import(TestMailConfig.class)
 @Transactional
 @EnabledIfEnvironmentVariable(named = "DB_URL", matches = ".+")
 class ProfileApiTest {
@@ -43,13 +49,17 @@ class ProfileApiTest {
     @Autowired UserRepository userRepository;
     @Autowired UserProfileRepository profileRepository;
     @Autowired TokenService tokenService;
+    @Autowired CapturingMailSender mailSender;
+    @Autowired MutableClock clock;
 
     private String newUserToken() throws Exception {
         String run = UUID.randomUUID().toString().substring(0, 8);
         mvc.perform(post("/api/users").contentType(MediaType.APPLICATION_JSON).content("""
                 {"email":"p%s@example.com","password":"abcd1234","nickname":"설문%s",
-                 "terms_agreed":true,"privacy_agreed":true,"body_photo_agreed":true,"ai_processing_agreed":true}
-                """.formatted(run, run))).andExpect(status().isCreated());
+                 "terms_agreed":true,"privacy_agreed":true,"body_photo_agreed":true,"ai_processing_agreed":true,
+                 "email_verification_token":"%s"}
+                """.formatted(run, run, EmailTokens.verifiedToken(mvc, mailSender, clock, "p" + run + "@example.com"))))
+                .andExpect(status().isCreated());
         User user = userRepository.findByEmail("p" + run + "@example.com").orElseThrow();
         return tokenService.issue(user).value();
     }
@@ -248,8 +258,10 @@ class ProfileApiTest {
         String email = "flow" + run + "@example.com";
         mvc.perform(post("/api/users").contentType(MediaType.APPLICATION_JSON).content("""
                 {"email":"%s","password":"abcd1234","nickname":"흐름%s",
-                 "terms_agreed":true,"privacy_agreed":true,"body_photo_agreed":true,"ai_processing_agreed":true}
-                """.formatted(email, run))).andExpect(status().isCreated());
+                 "terms_agreed":true,"privacy_agreed":true,"body_photo_agreed":true,"ai_processing_agreed":true,
+                 "email_verification_token":"%s"}
+                """.formatted(email, run, EmailTokens.verifiedToken(mvc, mailSender, clock, email))))
+                .andExpect(status().isCreated());
 
         String loginBody = "{\"email\":\"%s\",\"password\":\"abcd1234\"}".formatted(email);
         String token = com.jayway.jsonpath.JsonPath.read(
@@ -271,8 +283,9 @@ class ProfileApiTest {
         String createdAt = com.jayway.jsonpath.JsonPath.read(
                 mvc.perform(post("/api/users").contentType(MediaType.APPLICATION_JSON).content("""
                                 {"email":"%s","password":"abcd1234","nickname":"시각%s",
-                                 "terms_agreed":true,"privacy_agreed":true,"body_photo_agreed":true,"ai_processing_agreed":true}
-                                """.formatted(email, run)))
+                                 "terms_agreed":true,"privacy_agreed":true,"body_photo_agreed":true,"ai_processing_agreed":true,
+                                 "email_verification_token":"%s"}
+                                """.formatted(email, run, EmailTokens.verifiedToken(mvc, mailSender, clock, email))))
                         .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString(),
                 "$.created_at");
         String token = tokenService.issue(userRepository.findByEmail(email).orElseThrow()).value();

@@ -40,7 +40,11 @@ public record SignupRequest(
 
         @Size(min = 1, max = 30, message = "약관 버전은 1~30자여야 합니다.")
         @Schema(description = "동의한 약관 버전. 생략하면 서버의 현재 버전", example = "2026-10-01")
-        String policyVersion
+        String policyVersion,
+
+        @Schema(description = "이메일 인증번호 확인 응답의 verification_token. 한 번만 쓸 수 있음")
+        @NotBlank(message = "이메일 인증을 먼저 완료해 주세요.")
+        String emailVerificationToken
 ) {
 
     public SignupRequest {
