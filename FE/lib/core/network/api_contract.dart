@@ -5,6 +5,8 @@ abstract final class ApiContract {
   static const login = '$prefix/auth/login';
   static const passwordResetRequest = '$prefix/auth/password/reset-request';
   static const passwordReset = '$prefix/auth/password/reset';
+  static const passwordResetVerification =
+      '$prefix/auth/password/reset-verification';
   static const logout = '$prefix/auth/logout';
   static const emailVerifications = '$prefix/auth/email-verifications';
   static const emailVerificationConfirm = '$emailVerifications/confirm';

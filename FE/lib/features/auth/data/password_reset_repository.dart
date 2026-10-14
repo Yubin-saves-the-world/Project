@@ -6,6 +6,8 @@ import '../../../core/network/api_contract.dart';
 
 abstract class PasswordResetRepository {
   Future<void> request(String email);
+  Future<String> verify(String email, String code) async =>
+      throw StateError('이 환경에서는 인증번호 확인을 사용할 수 없어요.');
   Future<void> reset(String token, String newPassword);
   bool get isPreview => false;
   String? get previewToken => null;
@@ -33,13 +35,26 @@ class ServerPasswordResetRepository extends PasswordResetRepository {
     {'email': email.trim().toLowerCase()},
   );
   @override
+  Future<String> verify(String email, String code) async {
+    final json = await _send('POST', ApiContract.passwordResetVerification, {
+      'email': email.trim().toLowerCase(),
+      'code': code.trim(),
+    });
+    final token = json?['reset_token'];
+    if (token is! String || token.isEmpty) {
+      throw StateError('인증번호 확인 응답이 올바르지 않아요. 다시 시도해 주세요.');
+    }
+    return token;
+  }
+
+  @override
   Future<void> reset(String token, String newPassword) => _send(
     'PATCH',
     ApiContract.passwordReset,
     {'token': token, 'new_password': newPassword},
   );
 
-  Future<void> _send(
+  Future<Map<String, dynamic>?> _send(
     String method,
     String path,
     Map<String, String> body,
@@ -57,9 +72,12 @@ class ServerPasswordResetRepository extends PasswordResetRepository {
     } on http.ClientException {
       throw StateError('서버에 연결하지 못했어요. 잠시 후 다시 시도해 주세요.');
     }
-    if (response.statusCode == 204) return;
+    if (response.statusCode == 204) return null;
     try {
       final json = jsonDecode(utf8.decode(response.bodyBytes));
+      if (response.statusCode == 200 && json is Map<String, dynamic>) {
+        return json;
+      }
       if (json is Map<String, dynamic> && json['code'] is String) {
         throw StateError(ApiFailure.fromJson(json).displayMessage);
       }

@@ -51,6 +51,28 @@ class PasswordResetViewModel extends ChangeNotifier {
     return success;
   }
 
+  Future<bool> resetWithServerCode(
+    String email,
+    String code,
+    String password,
+  ) async {
+    if (busy) return false;
+    codeError = RegExp(r'^\d{6}$').hasMatch(code.trim())
+        ? null
+        : '6자리 인증번호를 입력해 주세요.';
+    error = codeError ?? InputValidators.password(password);
+    if (error != null) {
+      _notify();
+      return false;
+    }
+    return _run(() async {
+      final token = await repository.verify(email, code);
+      await repository.reset(token, password);
+      verification.clear();
+      step = PasswordResetStep.complete;
+    });
+  }
+
   PasswordResetStep step = PasswordResetStep.email;
   bool busy = false, _disposed = false;
   String? error;
@@ -104,7 +126,7 @@ class PasswordResetViewModel extends ChangeNotifier {
     }
     return _run(() async {
       await repository.request(email);
-      if (repository.isPreview) verification.issue(email);
+      verification.issue(email);
       codeError = null;
       step = PasswordResetStep.sent;
     });
