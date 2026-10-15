@@ -1,0 +1,42 @@
+{
+  "status": "done",
+  "measurementVersion": "mediapipe-seg-v1",
+  "posture": {
+    "shoulderTiltDeg": 2.7,
+    "pelvisTiltDeg": 2.6,
+    "neckForwardDeg": null,
+    "balanceScore": 82,
+    "metrics": {}
+  },
+  "bodyShape": {
+    "bodyType": "UPPER_DOMINANT",
+    "shoulderHipRatio": 1.79,
+    "torsoLegRatio": 0.67,
+    "waistChestRatio": 0.93,
+    "waistHipRatio": 1.03,
+    "abdomenChestRatio": 0.92,
+    "thighWaistRatio": 0.69,
+    "metrics": {}
+  },
+  "judgements": [
+    {
+      "key": "shoulder_tilt",
+      "label": "어깨 기울기",
+      "value": 2.7,
+      "severity": "medium",
+      "message": "어깨 기울기 값을 확인할 필요가 있습니다."
+    }
+  ],
+  "priorityParts": [
+    {
+      "targetIssue": "shoulder_tilt",
+      "severity": "medium",
+      "reason": "어깨 기울기가 반복적으로 나타납니다."
+    }
+  ],
+  "comparisonSummary": "27장 기준 UPPER_DOMINANT 경향, 어깨 2.7도/골반 2.6도 정렬 이슈를 확인했습니다.",
+  "comparisonDetail": "여러 사진의 평균, 범위, 표준편차를 기반으로 골격 정렬과 segmentation 실루엣 비율을 계산했습니다.",
+  "textSummary": null,
+  "debugImages": [],
+  "raw": {}
+}
