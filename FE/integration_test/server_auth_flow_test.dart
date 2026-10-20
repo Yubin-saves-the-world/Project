@@ -23,7 +23,11 @@ Future<void> _enter(WidgetTester tester, String key, String text) async {
 Future<void> _tap(WidgetTester tester, Finder finder) async {
   await tester.ensureVisible(finder);
   await tester.tap(finder);
-  await tester.pumpAndSettle(const Duration(milliseconds: 100), EnginePhase.sendSemanticsUpdate, const Duration(seconds: 20));
+  await tester.pumpAndSettle(
+    const Duration(milliseconds: 100),
+    EnginePhase.sendSemanticsUpdate,
+    const Duration(seconds: 20),
+  );
 }
 
 Future<void> _settleNetwork(WidgetTester tester) async {
@@ -66,7 +70,11 @@ void main() {
     await _tap(tester, find.text('동의하고 계속'));
     await _settleNetwork(tester);
 
-    expect(find.text('신체 정보'), findsOneWidget, reason: '가입·로그인 직후 설문(신체정보) 화면으로 이동해야 한다');
+    expect(
+      find.text('신체 정보'),
+      findsOneWidget,
+      reason: '가입·로그인 직후 설문(신체정보) 화면으로 이동해야 한다',
+    );
     expect(await tokens.read(), isNotNull, reason: '로그인 토큰이 저장되어야 한다');
 
     await _enter(tester, 'profile-height', '175');
@@ -79,7 +87,11 @@ void main() {
     await _tap(tester, find.text('다음'));
     await _settleNetwork(tester);
 
-    expect(find.text('체형 분석'), findsOneWidget, reason: '신체정보 저장 후 체형분석 단계로 이동해야 한다');
+    expect(
+      find.text('체형 분석'),
+      findsOneWidget,
+      reason: '신체정보 저장 후 체형분석 단계로 이동해야 한다',
+    );
   });
 
   testWidgets('이미 가입된 이메일로 가입하면 서버 문구가 화면에 보인다', (tester) async {
