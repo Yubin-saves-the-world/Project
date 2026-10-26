@@ -78,7 +78,7 @@ public class PasswordResetService {
             codes.verify(email, code);
             User user = userRepository.findByEmail(email)
                     .filter(this::canResetPassword)
-                    .orElseThrow(() -> new ApiException(ErrorCode.EMAIL_CODE_EXPIRED));
+                    .orElseThrow(ApiException.of(ErrorCode.EMAIL_CODE_EXPIRED));
             LocalDateTime now = LocalDateTime.now(clock);
             closeOpenTokens(user, now);
             String token = OneTimeCodes.randomToken(32);
@@ -96,7 +96,7 @@ public class PasswordResetService {
         LocalDateTime now = LocalDateTime.now(clock);
         PasswordResetToken entry = tokenRepository.findByTokenHashForUpdate(OneTimeCodes.sha256(token))
                 .filter(found -> found.getUsedAt() == null && found.getExpiresAt().isAfter(now))
-                .orElseThrow(() -> new ApiException(ErrorCode.RESET_TOKEN_INVALID));
+                .orElseThrow(ApiException.of(ErrorCode.RESET_TOKEN_INVALID));
         User user = entry.getUser();
         if (!canResetPassword(user)) {
             throw new ApiException(ErrorCode.RESET_TOKEN_INVALID);

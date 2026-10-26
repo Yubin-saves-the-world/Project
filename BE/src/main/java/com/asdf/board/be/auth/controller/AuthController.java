@@ -49,4 +49,10 @@ public class AuthController {
     public EmailVerificationTokenResponse confirmEmailCode(@Valid @RequestBody EmailCodeConfirmRequest request) {
         return emailVerificationService.confirm(request.email(), request.code());
     }
+
+    @Operation(summary = "로그아웃", description = "서버는 상태를 갖지 않으므로 아무 처리도 하지 않고 204만 반환합니다. 앱이 저장된 토큰을 삭제하면 로그아웃이 끝납니다.")
+    @PostMapping("/logout")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void logout() {
+    }
 }

@@ -1,10 +1,9 @@
 package com.asdf.board.be.user.dto;
 
+import com.asdf.board.be.global.time.Times;
 import com.asdf.board.be.user.entity.User;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.OffsetDateTime;
-import java.time.ZoneId;
-import java.time.temporal.ChronoUnit;
 
 public record UserMeResponse(
         Long userId,
@@ -20,7 +19,6 @@ public record UserMeResponse(
         OffsetDateTime createdAt
 ) {
 
-    private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
 
     public static UserMeResponse of(
             User user, boolean onboardingCompleted, boolean consentCompleted,
@@ -34,6 +32,6 @@ public record UserMeResponse(
                 consentCompleted,
                 bodyPhotoAgreed,
                 aiProcessingAgreed,
-                user.getCreatedAt().truncatedTo(ChronoUnit.SECONDS).atZone(SEOUL).toOffsetDateTime());
+                Times.offset(user.getCreatedAt()));
     }
 }
