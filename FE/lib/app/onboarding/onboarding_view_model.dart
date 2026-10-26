@@ -5,13 +5,20 @@ import '../../core/validation/input_validators.dart';
 import '../../features/auth/data/models/onboarding_progress.dart';
 import '../../features/auth/data/models/signup_request.dart';
 import '../../features/auth/data/onboarding_repository.dart';
+import '../../features/auth/data/server_onboarding_repository.dart';
 import '../../features/auth/data/development_email_verification.dart';
+import '../../features/auth/data/email_verification_state.dart';
 import '../../features/body_analysis/data/models/analysis_input.dart';
 import '../../features/photos/data/models/selected_photo.dart';
 import '../../features/profile/data/models/body_profile.dart';
 
 class OnboardingViewModel extends ChangeNotifier {
-  OnboardingViewModel({required this.repository, required this.photoPicker});
+  OnboardingViewModel({
+    required this.repository,
+    required this.photoPicker,
+    DateTime Function()? now,
+  }) : _now = now ?? DateTime.now;
+  final DateTime Function() _now;
   final OnboardingRepository repository;
   final PhotoPicker photoPicker;
 
@@ -24,13 +31,103 @@ class OnboardingViewModel extends ChangeNotifier {
   String? error;
   bool showLogin = false;
   bool _registrationPendingLogin = false;
-  final emailVerification = DevelopmentEmailVerification();
+  late final EmailVerificationState emailVerification =
+      usesRealEmailVerification
+      ? EmailVerificationState(now: _now)
+      : DevelopmentEmailVerification(now: _now);
   String verificationCode = '';
-  void issueVerification() {
-    emailVerification.issue(email);
-    error = null;
-    _notify();
+  bool issueVerification() {
+    try {
+      emailVerification.issue(email);
+      error = null;
+      _notify();
+      return true;
+    } on StateError catch (e) {
+      showError(e.message);
+      return false;
+    }
   }
+
+  String? emailVerificationToken;
+  String? _verifiedEmail;
+  DateTime? _verificationExpiresAt;
+  String? verificationError;
+  Map<String, String> fieldErrors = {};
+  bool get usesRealEmailVerification => repository.usesRealEmailVerification;
+
+  Future<bool> sendVerification() async {
+    if (busy || loading) return false;
+    final target = email.trim().toLowerCase();
+    final invalid =
+        InputValidators.email(target) ?? emailVerification.requestError(target);
+    if (invalid != null) {
+      showError(invalid);
+      return false;
+    }
+    if (!usesRealEmailVerification) return issueVerification();
+    return _run(() async {
+      await repository.sendEmailCode(target);
+      resetEmailVerification();
+      emailVerification.issue(target);
+    });
+  }
+
+  Future<String?> verifyEmailCode(String emailInput, String code) async {
+    if (busy || loading) return '처리 중이에요. 잠시만 기다려 주세요.';
+    verificationError = null;
+    final target = emailInput.trim().toLowerCase();
+    if (!usesRealEmailVerification) {
+      return verificationError =
+          (emailVerification as DevelopmentEmailVerification).validate(
+            target,
+            code,
+          );
+    }
+    if (emailVerificationToken != null &&
+        _verifiedEmail == target &&
+        _verificationExpiresAt != null &&
+        _now().isBefore(_verificationExpiresAt!)) {
+      return null;
+    }
+    emailVerificationToken = null;
+    if (!RegExp(r'^\d{6}$').hasMatch(code.trim())) {
+      return verificationError = '인증번호 6자리를 입력해 주세요.';
+    }
+    final success = await _run(() async {
+      emailVerificationToken = await repository.confirmEmailCode(
+        email: target,
+        code: code.trim(),
+      );
+      _verifiedEmail = target;
+      _verificationExpiresAt = _now().add(const Duration(minutes: 30));
+    });
+    if (!success) verificationError = error;
+    return verificationError;
+  }
+
+  void resetEmailVerification() {
+    if (error == verificationError || fieldErrors.containsValue(error)) {
+      error = null;
+    }
+    emailVerification.clear();
+    verificationCode = '';
+    emailVerificationToken = null;
+    _verifiedEmail = null;
+    _verificationExpiresAt = null;
+    verificationError = null;
+    fieldErrors = {};
+  }
+
+  void clearFieldError(String field) {
+    final previous = fieldErrors.remove(field);
+    if (previous != null) {
+      if (error == previous) error = null;
+      _notify();
+    }
+  }
+
+  int loginFailures = 0;
+  bool get suggestPasswordReset => loginFailures >= 5;
 
   String nickname = '', email = '', password = '', passwordConfirmation = '';
   bool termsAgreed = false, privacyAgreed = false;
@@ -172,11 +269,28 @@ class OnboardingViewModel extends ChangeNotifier {
     if (busy || loading) return false;
     busy = true;
     error = null;
+    fieldErrors = {};
     _notify();
     try {
       await action();
       return true;
     } catch (failure) {
+      if (failure is ServerRequestError) {
+        fieldErrors = {
+          for (final item in failure.failure.fields ?? [])
+            item.field: item.reason,
+        };
+        final field = switch (failure.code) {
+          'EMAIL_DUPLICATED' => 'email',
+          'NICKNAME_DUPLICATED' => 'nickname',
+          _ => null,
+        };
+        if (field != null) fieldErrors[field] = failure.message;
+        if (failure.code == 'EMAIL_NOT_VERIFIED') {
+          emailVerificationToken = null;
+          _verificationExpiresAt = null;
+        }
+      }
       error = failure is PhotoPickerException
           ? failure.message
           : failure is StateError
@@ -212,8 +326,18 @@ class OnboardingViewModel extends ChangeNotifier {
         return;
       }
       if (!_registrationPendingLogin) {
+        if (usesRealEmailVerification &&
+            (emailVerificationToken == null ||
+                _verifiedEmail != email.trim().toLowerCase() ||
+                _verificationExpiresAt == null ||
+                !_now().isBefore(_verificationExpiresAt!))) {
+          throw StateError('이메일 인증을 먼저 완료해 주세요.');
+        }
         progress = await repository.register(
           SignupRequest(
+            emailVerificationToken: usesRealEmailVerification
+                ? emailVerificationToken
+                : null,
             nickname: nickname,
             email: email,
             password: password,
@@ -234,8 +358,20 @@ class OnboardingViewModel extends ChangeNotifier {
 
   Future<bool> submitProfile() async {
     final validation =
-        InputValidators.metric(height, label: '키', min: 100, max: 250) ??
-        InputValidators.metric(weight, label: '몸무게', min: 30, max: 250) ??
+        InputValidators.metric(
+          height,
+          label: '키',
+          min: 100,
+          max: 250,
+          decimalPlaces: 1,
+        ) ??
+        InputValidators.metric(
+          weight,
+          label: '몸무게',
+          min: 30,
+          max: 250,
+          decimalPlaces: 1,
+        ) ??
         InputValidators.metric(
           age,
           label: '나이',
@@ -355,12 +491,23 @@ class OnboardingViewModel extends ChangeNotifier {
       return false;
     }
     final success = await _run(() async {
-      progress = await repository.login(
-        email: emailInput,
-        password: passwordInput,
-      );
+      try {
+        progress = await repository.login(
+          email: emailInput,
+          password: passwordInput,
+        );
+      } on ServerRequestError catch (e) {
+        if (e.code == 'INVALID_CREDENTIALS') loginFailures++;
+        rethrow;
+      } on StateError catch (e) {
+        if (e.message.contains('이메일') && e.message.contains('비밀번호')) {
+          loginFailures++;
+        }
+        rethrow;
+      }
     });
     if (success) {
+      loginFailures = 0;
       await initialize();
       if (progress.onboardingCompleted) {
         progress = progress.copyWith(completed: true);
@@ -415,8 +562,7 @@ class OnboardingViewModel extends ChangeNotifier {
   void _clearDraft() {
     analysis = const AnalysisInput();
     nickname = email = password = passwordConfirmation = '';
-    verificationCode = '';
-    emailVerification.clear();
+    resetEmailVerification();
     _registrationPendingLogin = false;
     termsAgreed = privacyAgreed = bodyPhotoAgreed = aiProcessingAgreed = false;
     height = weight = age = '';
@@ -430,8 +576,7 @@ class OnboardingViewModel extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     password = passwordConfirmation = '';
-    verificationCode = '';
-    emailVerification.clear();
+    resetEmailVerification();
     super.dispose();
   }
 }

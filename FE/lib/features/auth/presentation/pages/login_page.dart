@@ -126,6 +126,18 @@ class _LoginPageState extends State<LoginPage> {
                           style: ReferenceStyle.text(12, 18, color: Colors.red),
                         ),
                       ),
+                    if (widget.model.suggestPasswordReset)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Text(
+                          '로그인이 5회 이상 실패했어요. 비밀번호 찾기로 재설정해 주세요.',
+                          style: ReferenceStyle.text(
+                            12,
+                            18,
+                            color: ReferenceStyle.blue,
+                          ),
+                        ),
+                      ),
                     ReferenceButton(
                       '로그인',
                       key: const Key('login-submit'),

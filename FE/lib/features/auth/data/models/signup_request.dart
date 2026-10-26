@@ -8,6 +8,7 @@ class SignupRequest {
     required this.bodyPhotoAgreed,
     required this.aiProcessingAgreed,
     this.policyVersion,
+    this.emailVerificationToken,
   });
 
   final String nickname;
@@ -18,6 +19,7 @@ class SignupRequest {
   final bool bodyPhotoAgreed;
   final bool aiProcessingAgreed;
   final String? policyVersion;
+  final String? emailVerificationToken;
 
   Map<String, dynamic> toJson() => {
     'nickname': nickname.trim(),
@@ -28,5 +30,7 @@ class SignupRequest {
     'body_photo_agreed': bodyPhotoAgreed,
     'ai_processing_agreed': aiProcessingAgreed,
     if (policyVersion != null) 'policy_version': policyVersion,
+    if (emailVerificationToken != null)
+      'email_verification_token': emailVerificationToken,
   };
 }

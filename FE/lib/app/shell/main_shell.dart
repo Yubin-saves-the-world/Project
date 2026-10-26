@@ -53,17 +53,11 @@ class _MainShellState extends State<MainShell> {
           const WorkoutHistoryPage(),
           const AppScaffold(
             title: '인공지능 코치',
-            body: EmptyView(
-              title: '인공지능 코치 준비 중',
-              description: '분석과 서버 연결 후 질문과 루틴 수정 제안을 받을 수 있어요.',
-            ),
+            body: EmptyView(title: '인공지능 코치 준비 중', description: '곧 만나요.'),
           ),
           const AppScaffold(
             title: '커뮤니티',
-            body: EmptyView(
-              title: '커뮤니티 준비 중',
-              description: '게시글과 댓글 기능은 서비스 연결 후 제공됩니다.',
-            ),
+            body: EmptyView(title: '커뮤니티 준비 중', description: '곧 만나요.'),
           ),
         ],
       ),

@@ -1,31 +1,20 @@
-/// Local preview only. No email is sent and no server verification proof is issued.
-class DevelopmentEmailVerification {
-  DevelopmentEmailVerification({DateTime Function()? now})
-    : _now = now ?? DateTime.now;
-  final DateTime Function() _now;
+import 'email_verification_state.dart';
+
+/// 로컬 미리보기에서만 사용하는 고정 인증번호 검사다.
+class DevelopmentEmailVerification extends EmailVerificationState {
+  DevelopmentEmailVerification({super.now});
   static const code = '123456';
-  String? _email;
-  DateTime? _issuedAt;
   int _attempts = 0;
+
+  @override
   void issue(String email) {
-    _email = email.trim().toLowerCase();
-    _issuedAt = _now();
+    super.issue(email);
     _attempts = 0;
   }
 
-  Duration? get remaining {
-    if (_issuedAt == null) return null;
-    final duration = const Duration(minutes: 5) - _now().difference(_issuedAt!);
-    return duration.isNegative ? Duration.zero : duration;
-  }
-
   String? validate(String email, String value) {
-    if (_email != email.trim().toLowerCase() || _issuedAt == null) {
-      return '이메일 입력칸에서 인증번호를 받아 주세요.';
-    }
-    if (_now().difference(_issuedAt!) > const Duration(minutes: 5)) {
-      return '인증번호가 만료됐어요. 다시 받아 주세요.';
-    }
+    final invalid = validateContext(email);
+    if (invalid != null) return invalid;
     if (_attempts >= 5) return '입력 횟수를 초과했어요. 인증번호를 다시 받아 주세요.';
     if (value != code) {
       _attempts++;
@@ -34,9 +23,9 @@ class DevelopmentEmailVerification {
     return null;
   }
 
+  @override
   void clear() {
-    _email = null;
-    _issuedAt = null;
+    super.clear();
     _attempts = 0;
   }
 }

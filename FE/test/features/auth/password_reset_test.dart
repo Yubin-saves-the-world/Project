@@ -73,8 +73,6 @@ void main() {
     final repository = PreviewPasswordResetRepository(now: () => now);
     await repository.request('user@example.com');
     final token = repository.previewToken!;
-    await repository.request('user@example.com');
-    expect(repository.previewToken, token);
     expect(
       PasswordResetViewModel.parseToken(
         'https://example.com/password-reset?token=$token',
@@ -113,6 +111,7 @@ void main() {
       isFalse,
     );
     expect(model.codeError, contains('입력 횟수'));
+    now = now.add(const Duration(seconds: 60));
     await model.request('user@example.com');
     now = now.add(const Duration(minutes: 5));
     expect(
@@ -178,7 +177,7 @@ void main() {
     await tester.ensureVisible(find.text('비밀번호 변경'));
     await tester.tap(find.text('비밀번호 변경'));
     await tester.pumpAndSettle();
-    expect(find.text('비밀번호 변경 미리보기 완료'), findsOneWidget);
+    expect(find.text('비밀번호 변경 요청 완료'), findsOneWidget);
     expect(find.text('로그인하러 가기'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -230,5 +229,191 @@ void main() {
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('비밀번호 변경'));
     expect(tester.takeException(), isNull);
+  });
+
+  MockClient serverClient(
+    List<http.Request> requests, {
+    int verifyStatus = 200,
+    Map<String, dynamic>? verifyBody,
+  }) => MockClient((request) async {
+    requests.add(request);
+    if (request.url.path == '/api/auth/password/reset-verification') {
+      return http.Response(
+        jsonEncode(
+          verifyBody ??
+              {
+                'reset_token': 'AbCdEfGhIjKlMnOpQrStUvWxYz0123456789abcdefg',
+                'expires_in': 1800,
+              },
+        ),
+        verifyStatus,
+        headers: {'content-type': 'application/json; charset=utf-8'},
+      );
+    }
+    return http.Response('', 204);
+  });
+  test('서버 인증번호 확인은 이메일·번호를 보내고 재설정 토큰을 돌려받는다', () async {
+    final requests = <http.Request>[];
+    final repository = ServerPasswordResetRepository(
+      baseUrl: 'http://localhost:8080',
+      client: serverClient(requests),
+    );
+    final token = await repository.verify(' USER@EXAMPLE.COM ', ' 123456 ');
+    expect(token, 'AbCdEfGhIjKlMnOpQrStUvWxYz0123456789abcdefg');
+    expect(requests.single.method, 'POST');
+    expect(requests.single.url.path, '/api/auth/password/reset-verification');
+    expect(jsonDecode(requests.single.body), {
+      'email': 'user@example.com',
+      'code': '123456',
+    });
+    expect(requests.single.headers.containsKey('Authorization'), isFalse);
+  });
+  test('서버 인증번호로 변경하면 확인 후 받은 토큰으로 비밀번호를 바꾼다', () async {
+    final requests = <http.Request>[];
+    final model = PasswordResetViewModel(
+      ServerPasswordResetRepository(
+        baseUrl: 'http://localhost:8080',
+        client: serverClient(requests),
+      ),
+    );
+    expect(
+      await model.resetWithServerCode('user@example.com', '123456', 'abcd1234'),
+      isTrue,
+    );
+    expect(requests.map((r) => '${r.method} ${r.url.path}').toList(), [
+      'POST /api/auth/password/reset-verification',
+      'PATCH /api/auth/password/reset',
+    ]);
+    expect(jsonDecode(requests[1].body), {
+      'token': 'AbCdEfGhIjKlMnOpQrStUvWxYz0123456789abcdefg',
+      'new_password': 'abcd1234',
+    });
+    expect(model.step, PasswordResetStep.complete);
+    model.dispose();
+  });
+  test('서버 인증번호가 틀리면 변경 요청을 보내지 않고 서버 문구를 보여준다', () async {
+    final requests = <http.Request>[];
+    final model = PasswordResetViewModel(
+      ServerPasswordResetRepository(
+        baseUrl: 'http://localhost:8080',
+        client: serverClient(
+          requests,
+          verifyStatus: 400,
+          verifyBody: {
+            'code': 'EMAIL_CODE_INVALID',
+            'message': '인증번호가 일치하지 않아요.',
+            'status': 400,
+            'fields': null,
+          },
+        ),
+      ),
+    );
+    expect(
+      await model.resetWithServerCode('user@example.com', '000000', 'abcd1234'),
+      isFalse,
+    );
+    expect(model.error, '인증번호가 일치하지 않아요.');
+    expect(requests.length, 1);
+    expect(model.step, isNot(PasswordResetStep.complete));
+    expect(
+      await model.resetWithServerCode('user@example.com', '12', 'abcd1234'),
+      isFalse,
+    );
+    expect(model.codeError, '6자리 인증번호를 입력해 주세요.');
+    expect(requests.length, 1);
+    model.dispose();
+  });
+  testWidgets('서버 연결 화면도 인증번호를 입력해 한 번에 비밀번호를 바꾼다', (tester) async {
+    final requests = <http.Request>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: PasswordResetPage(
+          repository: ServerPasswordResetRepository(
+            baseUrl: 'http://localhost:8080',
+            client: serverClient(requests),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('인증번호 받기'), findsOneWidget);
+    expect(find.text('재설정 링크'), findsNothing);
+    await tester.enterText(
+      find.descendant(
+        of: find.byKey(const Key('reset-email')),
+        matching: find.byType(TextFormField),
+      ),
+      'user@example.com',
+    );
+    await tester.tap(find.text('인증번호 받기'));
+    await tester.pumpAndSettle();
+    expect(find.text('인증번호를 보냈어요'), findsOneWidget);
+    expect(find.textContaining('개발용'), findsNothing);
+    await tester.tap(find.text('확인'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.descendant(
+        of: find.byKey(const Key('reset-code')),
+        matching: find.byType(TextFormField),
+      ),
+      '482916',
+    );
+    await tester.enterText(
+      find.descendant(
+        of: find.byKey(const Key('reset-password')),
+        matching: find.byType(TextFormField),
+      ),
+      'abcd1234',
+    );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('비밀번호 변경'));
+    await tester.tap(find.text('비밀번호 변경'));
+    await tester.pumpAndSettle();
+    expect(requests.map((r) => r.url.path).toList(), [
+      '/api/auth/password/reset-request',
+      '/api/auth/password/reset-verification',
+      '/api/auth/password/reset',
+    ]);
+    expect(jsonDecode(requests[1].body)['code'], '482916');
+    expect(find.text('비밀번호가 변경됐어요'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+  test('비밀번호 저장 응답이 끊기면 확인 토큰을 보존하고 변경 요청만 다시 보낸다', () async {
+    var confirms = 0, resets = 0;
+    final model = PasswordResetViewModel(
+      ServerPasswordResetRepository(
+        baseUrl: 'http://server.test',
+        client: MockClient((request) async {
+          if (request.url.path.endsWith('/reset-verification')) {
+            confirms++;
+            return http.Response(
+              jsonEncode({
+                'reset_token': 'server-reset-token-123456789',
+                'expires_in': 1800,
+              }),
+              200,
+            );
+          }
+          if (++resets == 1) throw http.ClientException('connection lost');
+          expect(
+            jsonDecode(request.body)['token'],
+            'server-reset-token-123456789',
+          );
+          return http.Response('', 204);
+        }),
+      ),
+    );
+    expect(
+      await model.resetWithServerCode('user@example.com', '482916', 'abcd1234'),
+      false,
+    );
+    expect(
+      await model.resetWithServerCode('user@example.com', '482916', 'abcd1234'),
+      true,
+    );
+    expect(confirms, 1);
+    expect(resets, 2);
+    model.dispose();
   });
 }

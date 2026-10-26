@@ -10,10 +10,7 @@ class WorkoutHistoryPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return const AppScaffold(
       title: '운동 기록',
-      body: EmptyView(
-        title: '기록 화면 개발 준비',
-        description: '날짜별 운동 기록과 상세 기록을 연결할 화면입니다.',
-      ),
+      body: EmptyView(title: '운동 기록 준비 중', description: '곧 만나요.'),
     );
   }
 }

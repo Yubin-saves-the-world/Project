@@ -13,12 +13,12 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.center_focus_strong_outlined));
     await tester.pumpAndSettle();
-    expect(find.text('분석 화면 개발 준비'), findsOneWidget);
+    expect(find.text('체형 분석 준비 중'), findsOneWidget);
     expect(find.text('오늘의 루틴'), findsNothing);
 
     await tester.tap(find.byIcon(Icons.fitness_center_outlined));
     await tester.pumpAndSettle();
-    expect(find.text('기록 화면 개발 준비'), findsOneWidget);
+    expect(find.text('운동 기록 준비 중'), findsOneWidget);
 
     await tester.tap(find.byIcon(Icons.chat_bubble_outline_rounded));
     await tester.pumpAndSettle();

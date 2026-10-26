@@ -104,7 +104,8 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('home-weekday-0')));
     await tester.pumpAndSettle();
     expect(find.text('오늘의 루틴'), findsOneWidget);
-    expect(find.text('예시'), findsOneWidget);
+    expect(find.text('예시'), findsNothing);
+    expect(find.text('일정 수정'), findsOneWidget);
     await expectLater(
       find.byType(MaterialApp),
       matchesGoldenFile('../../docs/frontend-architecture/previews/home.png'),

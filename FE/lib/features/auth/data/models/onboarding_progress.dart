@@ -36,6 +36,7 @@ class OnboardingProgress {
     this.completed = false,
     this.analysisPrepared = false,
     this.signedIn = true,
+    this.serverConsentCompleted,
   });
   final OnboardingAccount? account;
   final BodyProfile? profile;
@@ -43,11 +44,13 @@ class OnboardingProgress {
   final bool completed;
   final bool analysisPrepared;
   final bool signedIn;
+  final bool? serverConsentCompleted;
   bool get onboardingCompleted => profile != null;
   bool get consentCompleted =>
-      account != null &&
-      account!.bodyPhotoAgreed &&
-      account!.aiProcessingAgreed;
+      serverConsentCompleted ??
+      (account != null &&
+          account!.bodyPhotoAgreed &&
+          account!.aiProcessingAgreed);
   int get nextStep => profile != null
       ? 2
       : account != null
@@ -68,6 +71,7 @@ class OnboardingProgress {
     completed: completed ?? this.completed,
     analysisPrepared: analysisPrepared ?? this.analysisPrepared,
     signedIn: signedIn ?? this.signedIn,
+    serverConsentCompleted: serverConsentCompleted,
   );
 
   // 비밀번호·토큰은 로컬 미리보기 데이터에 저장하지 않는다.

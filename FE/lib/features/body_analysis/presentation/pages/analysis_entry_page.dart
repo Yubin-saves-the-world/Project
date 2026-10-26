@@ -10,10 +10,7 @@ class AnalysisEntryPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return const AppScaffold(
       title: '체형 분석',
-      body: EmptyView(
-        title: '분석 화면 개발 준비',
-        description: '사진 입력과 분석 진행·결과를 연결할 화면입니다.',
-      ),
+      body: EmptyView(title: '체형 분석 준비 중', description: '곧 만나요.'),
     );
   }
 }

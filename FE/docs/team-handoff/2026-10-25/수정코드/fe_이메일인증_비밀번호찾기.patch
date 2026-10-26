@@ -1,0 +1,1070 @@
+diff --git a/FE/lib/app/onboarding/onboarding_view_model.dart b/FE/lib/app/onboarding/onboarding_view_model.dart
+index 7bf9528..4628261 100644
+--- a/FE/lib/app/onboarding/onboarding_view_model.dart
++++ b/FE/lib/app/onboarding/onboarding_view_model.dart
+@@ -32,6 +32,59 @@ class OnboardingViewModel extends ChangeNotifier {
+     _notify();
+   }
+ 
++  String? emailVerificationToken;
++  String? _verifiedEmail;
++
++  bool get usesRealEmailVerification => repository.usesRealEmailVerification;
++
++  /// 서버로 인증번호를 보낸다. 성공하면 남은 시간 표시를 위해 로컬 타이머도 시작한다.
++  Future<bool> sendVerification() async {
++    final target = email.trim().toLowerCase();
++    final ok = await _run(() => repository.sendEmailCode(target));
++    if (ok) {
++      emailVerification.issue(email);
++      emailVerificationToken = null;
++      _verifiedEmail = null;
++    }
++    return ok;
++  }
++
++  /// 인증번호를 확인한다. 통과하면 null, 아니면 화면에 보여 줄 문구를 돌려준다.
++  Future<String?> verifyEmailCode(String emailInput, String code) async {
++    if (!repository.usesRealEmailVerification) {
++      return emailVerification.validate(emailInput, code);
++    }
++    final target = emailInput.trim().toLowerCase();
++    if (emailVerificationToken != null && _verifiedEmail == target) {
++      return null;
++    }
++    busy = true;
++    error = null;
++    _notify();
++    try {
++      emailVerificationToken = await repository.confirmEmailCode(
++        email: target,
++        code: code,
++      );
++      _verifiedEmail = target;
++      return null;
++    } on StateError catch (failure) {
++      return failure.message;
++    } catch (_) {
++      return '인증번호를 확인하지 못했어요. 다시 시도해 주세요.';
++    } finally {
++      busy = false;
++      _notify();
++    }
++  }
++
++  void resetEmailVerification() {
++    emailVerification.clear();
++    verificationCode = '';
++    emailVerificationToken = null;
++    _verifiedEmail = null;
++  }
++
+   String nickname = '', email = '', password = '', passwordConfirmation = '';
+   bool termsAgreed = false, privacyAgreed = false;
+   bool bodyPhotoAgreed = false, aiProcessingAgreed = false;
+@@ -212,8 +265,16 @@ class OnboardingViewModel extends ChangeNotifier {
+         return;
+       }
+       if (!_registrationPendingLogin) {
++        final token = usesRealEmailVerification &&
++                _verifiedEmail == email.trim().toLowerCase()
++            ? emailVerificationToken
++            : null;
++        if (usesRealEmailVerification && token == null) {
++          throw StateError('이메일 인증을 먼저 완료해 주세요.');
++        }
+         progress = await repository.register(
+           SignupRequest(
++            emailVerificationToken: token,
+             nickname: nickname,
+             email: email,
+             password: password,
+@@ -415,8 +476,7 @@ class OnboardingViewModel extends ChangeNotifier {
+   void _clearDraft() {
+     analysis = const AnalysisInput();
+     nickname = email = password = passwordConfirmation = '';
+-    verificationCode = '';
+-    emailVerification.clear();
++    resetEmailVerification();
+     _registrationPendingLogin = false;
+     termsAgreed = privacyAgreed = bodyPhotoAgreed = aiProcessingAgreed = false;
+     height = weight = age = '';
+@@ -430,8 +490,7 @@ class OnboardingViewModel extends ChangeNotifier {
+   void dispose() {
+     _disposed = true;
+     password = passwordConfirmation = '';
+-    verificationCode = '';
+-    emailVerification.clear();
++    resetEmailVerification();
+     super.dispose();
+   }
+ }
+diff --git a/FE/lib/core/network/api_contract.dart b/FE/lib/core/network/api_contract.dart
+index 0cd9bd9..d93d748 100644
+--- a/FE/lib/core/network/api_contract.dart
++++ b/FE/lib/core/network/api_contract.dart
+@@ -5,7 +5,11 @@ abstract final class ApiContract {
+   static const login = '$prefix/auth/login';
+   static const passwordResetRequest = '$prefix/auth/password/reset-request';
+   static const passwordReset = '$prefix/auth/password/reset';
++  static const passwordResetVerification =
++      '$prefix/auth/password/reset-verification';
+   static const logout = '$prefix/auth/logout';
++  static const emailVerifications = '$prefix/auth/email-verifications';
++  static const emailVerificationConfirm = '$emailVerifications/confirm';
+   static const googleLogin = '$prefix/auth/oauth/google';
+   static const kakaoLogin = '$prefix/auth/oauth/kakao';
+   static const me = '$prefix/users/me';
+diff --git a/FE/lib/features/auth/data/local_onboarding_repository.dart b/FE/lib/features/auth/data/local_onboarding_repository.dart
+index d85a18a..16cfa2c 100644
+--- a/FE/lib/features/auth/data/local_onboarding_repository.dart
++++ b/FE/lib/features/auth/data/local_onboarding_repository.dart
+@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
+ 
+ import '../../body_analysis/data/models/analysis_input.dart';
+ import '../../profile/data/models/body_profile.dart';
++import 'development_email_verification.dart';
+ import 'models/onboarding_progress.dart';
+ import 'models/signup_request.dart';
+ import 'onboarding_repository.dart';
+@@ -15,6 +16,23 @@ class LocalOnboardingRepository implements OnboardingRepository {
+   final SharedPreferencesAsync _preferences;
+   static const storageKey = 'vitality.onboarding.preview.v1';
+ 
++  @override
++  bool get usesRealEmailVerification => false;
++
++  @override
++  Future<void> sendEmailCode(String email) async {}
++
++  @override
++  Future<String> confirmEmailCode({
++    required String email,
++    required String code,
++  }) async {
++    if (code != DevelopmentEmailVerification.code) {
++      throw StateError('인증번호가 일치하지 않아요.');
++    }
++    return 'local-preview-token';
++  }
++
+   @override
+   Future<void> signOut() async {
+     await _save((await load()).copyWith(signedIn: false));
+diff --git a/FE/lib/features/auth/data/models/signup_request.dart b/FE/lib/features/auth/data/models/signup_request.dart
+index 492fbb9..a87c445 100644
+--- a/FE/lib/features/auth/data/models/signup_request.dart
++++ b/FE/lib/features/auth/data/models/signup_request.dart
+@@ -8,6 +8,7 @@ class SignupRequest {
+     required this.bodyPhotoAgreed,
+     required this.aiProcessingAgreed,
+     this.policyVersion,
++    this.emailVerificationToken,
+   });
+ 
+   final String nickname;
+@@ -18,6 +19,7 @@ class SignupRequest {
+   final bool bodyPhotoAgreed;
+   final bool aiProcessingAgreed;
+   final String? policyVersion;
++  final String? emailVerificationToken;
+ 
+   Map<String, dynamic> toJson() => {
+     'nickname': nickname.trim(),
+@@ -28,5 +30,7 @@ class SignupRequest {
+     'body_photo_agreed': bodyPhotoAgreed,
+     'ai_processing_agreed': aiProcessingAgreed,
+     if (policyVersion != null) 'policy_version': policyVersion,
++    if (emailVerificationToken != null)
++      'email_verification_token': emailVerificationToken,
+   };
+ }
+diff --git a/FE/lib/features/auth/data/onboarding_repository.dart b/FE/lib/features/auth/data/onboarding_repository.dart
+index f65a36c..2dd335c 100644
+--- a/FE/lib/features/auth/data/onboarding_repository.dart
++++ b/FE/lib/features/auth/data/onboarding_repository.dart
+@@ -19,4 +19,16 @@ abstract interface class OnboardingRepository {
+   Future<OnboardingProgress> saveProfile(BodyProfile profile);
+   Future<OnboardingProgress> saveAnalysis(AnalysisInput input);
+   Future<OnboardingProgress> complete({required bool prepareAnalysis});
++
++  /// true면 서버가 실제 메일로 인증번호를 보낸다. false면 앱 안의 개발용 인증을 쓴다.
++  bool get usesRealEmailVerification;
++
++  /// 이메일로 6자리 인증번호를 보낸다.
++  Future<void> sendEmailCode(String email);
++
++  /// 인증번호를 확인하고, 회원가입 요청에 넣을 일회용 토큰을 돌려준다.
++  Future<String> confirmEmailCode({
++    required String email,
++    required String code,
++  });
+ }
+diff --git a/FE/lib/features/auth/data/password_reset_repository.dart b/FE/lib/features/auth/data/password_reset_repository.dart
+index fc1682b..6748ea0 100644
+--- a/FE/lib/features/auth/data/password_reset_repository.dart
++++ b/FE/lib/features/auth/data/password_reset_repository.dart
+@@ -6,6 +6,8 @@ import '../../../core/network/api_contract.dart';
+ 
+ abstract class PasswordResetRepository {
+   Future<void> request(String email);
++  Future<String> verify(String email, String code) async =>
++      throw StateError('이 환경에서는 인증번호 확인을 사용할 수 없어요.');
+   Future<void> reset(String token, String newPassword);
+   bool get isPreview => false;
+   String? get previewToken => null;
+@@ -32,6 +34,19 @@ class ServerPasswordResetRepository extends PasswordResetRepository {
+     ApiContract.passwordResetRequest,
+     {'email': email.trim().toLowerCase()},
+   );
++  @override
++  Future<String> verify(String email, String code) async {
++    final json = await _send('POST', ApiContract.passwordResetVerification, {
++      'email': email.trim().toLowerCase(),
++      'code': code.trim(),
++    });
++    final token = json?['reset_token'];
++    if (token is! String || token.isEmpty) {
++      throw StateError('인증번호 확인 응답이 올바르지 않아요. 다시 시도해 주세요.');
++    }
++    return token;
++  }
++
+   @override
+   Future<void> reset(String token, String newPassword) => _send(
+     'PATCH',
+@@ -39,7 +54,7 @@ class ServerPasswordResetRepository extends PasswordResetRepository {
+     {'token': token, 'new_password': newPassword},
+   );
+ 
+-  Future<void> _send(
++  Future<Map<String, dynamic>?> _send(
+     String method,
+     String path,
+     Map<String, String> body,
+@@ -57,9 +72,12 @@ class ServerPasswordResetRepository extends PasswordResetRepository {
+     } on http.ClientException {
+       throw StateError('서버에 연결하지 못했어요. 잠시 후 다시 시도해 주세요.');
+     }
+-    if (response.statusCode == 204) return;
++    if (response.statusCode == 204) return null;
+     try {
+       final json = jsonDecode(utf8.decode(response.bodyBytes));
++      if (response.statusCode == 200 && json is Map<String, dynamic>) {
++        return json;
++      }
+       if (json is Map<String, dynamic> && json['code'] is String) {
+         throw StateError(ApiFailure.fromJson(json).displayMessage);
+       }
+diff --git a/FE/lib/features/auth/data/server_onboarding_repository.dart b/FE/lib/features/auth/data/server_onboarding_repository.dart
+index 40d5fd7..0c27290 100644
+--- a/FE/lib/features/auth/data/server_onboarding_repository.dart
++++ b/FE/lib/features/auth/data/server_onboarding_repository.dart
+@@ -34,6 +34,33 @@ class ServerOnboardingRepository implements OnboardingRepository {
+   bool _completed = false;
+   bool _analysisPrepared = false;
+ 
++  @override
++  bool get usesRealEmailVerification => true;
++
++  @override
++  Future<void> sendEmailCode(String email) async {
++    await _send(
++      'POST',
++      ApiContract.emailVerifications,
++      body: {'email': email.trim().toLowerCase()},
++      authorized: false,
++    );
++  }
++
++  @override
++  Future<String> confirmEmailCode({
++    required String email,
++    required String code,
++  }) async {
++    final json = await _send(
++      'POST',
++      ApiContract.emailVerificationConfirm,
++      body: {'email': email.trim().toLowerCase(), 'code': code.trim()},
++      authorized: false,
++    );
++    return json!['verification_token'] as String;
++  }
++
+   @override
+   Future<OnboardingProgress> register(SignupRequest request) async {
+     await _send('POST', ApiContract.users, body: request.toJson());
+diff --git a/FE/lib/features/auth/presentation/pages/password_reset_page.dart b/FE/lib/features/auth/presentation/pages/password_reset_page.dart
+index 45c803c..0435771 100644
+--- a/FE/lib/features/auth/presentation/pages/password_reset_page.dart
++++ b/FE/lib/features/auth/presentation/pages/password_reset_page.dart
+@@ -31,6 +31,7 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
+   late final PasswordResetViewModel model;
+   Timer? timer;
+   bool get preview => model.repository.isPreview;
++  bool get codeMode => preview || widget.initialToken == null;
+ 
+   @override
+   void initState() {
+@@ -72,7 +73,7 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
+ 
+   String? get _timeLeft {
+     final remaining = model.verification.remaining;
+-    if (!preview || remaining == null) return null;
++    if (remaining == null) return null;
+     final seconds = (remaining.inMilliseconds / 1000).ceil();
+     return '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
+   }
+@@ -83,18 +84,16 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
+     if (!await model.request(email.text) || !mounted) return;
+     code.clear();
+     timer?.cancel();
+-    if (preview) {
+-      timer = Timer.periodic(const Duration(seconds: 1), (_) {
+-        if (!mounted) return;
+-        setState(() {});
+-        if (model.verification.remaining == Duration.zero) timer?.cancel();
+-      });
+-    }
++    timer = Timer.periodic(const Duration(seconds: 1), (_) {
++      if (!mounted) return;
++      setState(() {});
++      if (model.verification.remaining == Duration.zero) timer?.cancel();
++    });
+     await showVerificationSentDialog(
+       context,
+       email: email.text,
+       preview: preview,
+-      code: preview,
++      code: codeMode,
+     );
+   }
+ 
+@@ -108,6 +107,12 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
+     final bool success;
+     if (preview) {
+       success = await model.resetWithCode(email.text, code.text, password.text);
++    } else if (widget.initialToken == null) {
++      success = await model.resetWithServerCode(
++        email.text,
++        code.text,
++        password.text,
++      );
+     } else {
+       model.openLink(code.text);
+       if (model.step != PasswordResetStep.password) return;
+@@ -130,9 +135,10 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
+       !model.busy &&
+       password.text.isNotEmpty &&
+       code.text.isNotEmpty &&
+-      (!preview ||
+-          (model.verification.remaining != null &&
+-              model.verification.remaining != Duration.zero));
++      (preview
++          ? (model.verification.remaining != null &&
++                model.verification.remaining != Duration.zero)
++          : model.verification.remaining != Duration.zero);
+ 
+   Widget _complete() => Scaffold(
+     backgroundColor: Colors.white,
+@@ -216,7 +222,7 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
+               ),
+               const SizedBox(height: 12),
+               Text(
+-                preview
++                codeMode
+                     ? '가입한 이메일로 인증번호를 보내드려요.\n번호를 확인한 뒤 새 비밀번호를 정해 주세요.'
+                     : '가입한 이메일로 재설정 링크를 보내드려요.\n메일의 링크를 확인한 뒤 새 비밀번호를 정해 주세요.',
+                 textAlign: TextAlign.center,
+@@ -263,7 +269,7 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
+                           child: Text(
+                             model.step == PasswordResetStep.sent
+                                 ? '재전송'
+-                                : preview
++                                : codeMode
+                                 ? '인증번호 받기'
+                                 : '링크 받기',
+                           ),
+@@ -285,16 +291,16 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
+                         children: [
+                           ReferenceField(
+                             key: const Key('reset-code'),
+-                            label: preview ? '인증번호' : '재설정 링크',
++                            label: codeMode ? '인증번호' : '재설정 링크',
+                             controller: code,
+-                            hint: preview
++                            hint: codeMode
+                                 ? '인증번호를 입력하세요.'
+                                 : '메일의 링크를 붙여 넣어 주세요',
+                             enabled: !model.busy,
+-                            keyboardType: preview
++                            keyboardType: codeMode
+                                 ? TextInputType.number
+                                 : TextInputType.url,
+-                            validator: (value) => preview
++                            validator: (value) => codeMode
+                                 ? RegExp(r'^\d{6}$').hasMatch(value ?? '')
+                                       ? null
+                                       : '6자리 인증번호를 입력해 주세요.'
+@@ -306,7 +312,7 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
+                                 : '메일의 재설정 링크를 확인해 주세요.',
+                           ),
+                           if (model.codeError != null ||
+-                              (preview && _timeLeft == '0:00')) ...[
++                              (codeMode && _timeLeft == '0:00')) ...[
+                             const SizedBox(height: 6),
+                             Text(
+                               _timeLeft == '0:00'
+diff --git a/FE/lib/features/auth/presentation/pages/signup_page.dart b/FE/lib/features/auth/presentation/pages/signup_page.dart
+index 2358c32..e62af21 100644
+--- a/FE/lib/features/auth/presentation/pages/signup_page.dart
++++ b/FE/lib/features/auth/presentation/pages/signup_page.dart
+@@ -56,12 +56,35 @@ class _SignupPageState extends State<SignupPage> {
+     });
+   }
+ 
+-  void _issue() {
++  Future<void> _issue() async {
+     model.email = _email.text;
+     if (InputValidators.email(model.email) != null) {
+       _form.currentState!.validate();
+       return;
+     }
++    if (model.usesRealEmailVerification) {
++      final sent = await model.sendVerification();
++      if (!mounted || !sent) return;
++      _startCountdown();
++      setState(() {});
++      await showDialog<void>(
++        context: context,
++        builder: (context) => AlertDialog(
++          scrollable: true,
++          title: const Text('인증번호를 보냈어요'),
++          content: Text(
++            '${model.email.trim()}로 6자리 인증번호를 보냈어요.\n메일이 보이지 않으면 스팸함도 확인해 주세요. 유효 시간은 5분이며, 5회 틀리면 다시 받아야 합니다.',
++          ),
++          actions: [
++            TextButton(
++              onPressed: () => Navigator.pop(context),
++              child: const Text('확인'),
++            ),
++          ],
++        ),
++      );
++      return;
++    }
+     model.issueVerification();
+     _startCountdown();
+     setState(() {});
+@@ -80,7 +103,8 @@ class _SignupPageState extends State<SignupPage> {
+     final verification =
+         (model.progress.account != null && model.progress.signedIn)
+         ? null
+-        : model.emailVerification.validate(_email.text, _code.text);
++        : await model.verifyEmailCode(_email.text, _code.text);
++    if (!mounted) return;
+     if (verification != null) {
+       model.showError(verification);
+       return;
+@@ -228,8 +252,7 @@ class _SignupPageState extends State<SignupPage> {
+                       onChanged: (v) {
+                         if (model.email.trim().toLowerCase() !=
+                             v.trim().toLowerCase()) {
+-                          model.emailVerification.clear();
+-                          model.verificationCode = '';
++                          model.resetEmailVerification();
+                           _code.clear();
+                           _countdown?.cancel();
+                         }
+diff --git a/FE/lib/features/auth/presentation/password_reset_view_model.dart b/FE/lib/features/auth/presentation/password_reset_view_model.dart
+index d1d4082..8051abd 100644
+--- a/FE/lib/features/auth/presentation/password_reset_view_model.dart
++++ b/FE/lib/features/auth/presentation/password_reset_view_model.dart
+@@ -51,6 +51,28 @@ class PasswordResetViewModel extends ChangeNotifier {
+     return success;
+   }
+ 
++  Future<bool> resetWithServerCode(
++    String email,
++    String code,
++    String password,
++  ) async {
++    if (busy) return false;
++    codeError = RegExp(r'^\d{6}$').hasMatch(code.trim())
++        ? null
++        : '6자리 인증번호를 입력해 주세요.';
++    error = codeError ?? InputValidators.password(password);
++    if (error != null) {
++      _notify();
++      return false;
++    }
++    return _run(() async {
++      final token = await repository.verify(email, code);
++      await repository.reset(token, password);
++      verification.clear();
++      step = PasswordResetStep.complete;
++    });
++  }
++
+   PasswordResetStep step = PasswordResetStep.email;
+   bool busy = false, _disposed = false;
+   String? error;
+@@ -104,7 +126,7 @@ class PasswordResetViewModel extends ChangeNotifier {
+     }
+     return _run(() async {
+       await repository.request(email);
+-      if (repository.isPreview) verification.issue(email);
++      verification.issue(email);
+       codeError = null;
+       step = PasswordResetStep.sent;
+     });
+diff --git a/FE/lib/features/home/presentation/pages/home_page.dart b/FE/lib/features/home/presentation/pages/home_page.dart
+index 807d21a..cdc81e1 100644
+--- a/FE/lib/features/home/presentation/pages/home_page.dart
++++ b/FE/lib/features/home/presentation/pages/home_page.dart
+@@ -89,7 +89,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
+       ),
+       borderRadius: BorderRadius.circular(radius),
+     ),
+-    child: child,
++    child: Material(type: MaterialType.transparency, child: child),
+   );
+   void _info(String title, String body) => showDialog<void>(
+     context: context,
+diff --git a/FE/test/fakes/fake_onboarding_repository.dart b/FE/test/fakes/fake_onboarding_repository.dart
+index 3430602..8f50197 100644
+--- a/FE/test/fakes/fake_onboarding_repository.dart
++++ b/FE/test/fakes/fake_onboarding_repository.dart
+@@ -18,6 +18,19 @@ class FakeOnboardingRepository implements OnboardingRepository {
+     }
+   }
+ 
++  @override
++  bool get usesRealEmailVerification => false;
++  @override
++  Future<void> sendEmailCode(String email) async {}
++  @override
++  Future<String> confirmEmailCode({
++    required String email,
++    required String code,
++  }) async {
++    if (code != '123456') throw StateError('인증번호가 일치하지 않아요.');
++    return 'fake-token';
++  }
++
+   @override
+   Future<void> signOut() async {
+     _checkFailure();
+diff --git a/FE/test/features/auth/password_reset_test.dart b/FE/test/features/auth/password_reset_test.dart
+index b26b452..a277c31 100644
+--- a/FE/test/features/auth/password_reset_test.dart
++++ b/FE/test/features/auth/password_reset_test.dart
+@@ -231,4 +231,153 @@ void main() {
+     await tester.ensureVisible(find.text('비밀번호 변경'));
+     expect(tester.takeException(), isNull);
+   });
++
++  MockClient serverClient(
++    List<http.Request> requests, {
++    int verifyStatus = 200,
++    Map<String, dynamic>? verifyBody,
++  }) => MockClient((request) async {
++    requests.add(request);
++    if (request.url.path == '/api/auth/password/reset-verification') {
++      return http.Response(
++        jsonEncode(
++          verifyBody ??
++              {
++                'reset_token': 'AbCdEfGhIjKlMnOpQrStUvWxYz0123456789abcdefg',
++                'expires_in': 1800,
++              },
++        ),
++        verifyStatus,
++        headers: {'content-type': 'application/json; charset=utf-8'},
++      );
++    }
++    return http.Response('', 204);
++  });
++  test('서버 인증번호 확인은 이메일·번호를 보내고 재설정 토큰을 돌려받는다', () async {
++    final requests = <http.Request>[];
++    final repository = ServerPasswordResetRepository(
++      baseUrl: 'http://localhost:8080',
++      client: serverClient(requests),
++    );
++    final token = await repository.verify(' USER@EXAMPLE.COM ', ' 123456 ');
++    expect(token, 'AbCdEfGhIjKlMnOpQrStUvWxYz0123456789abcdefg');
++    expect(requests.single.method, 'POST');
++    expect(requests.single.url.path, '/api/auth/password/reset-verification');
++    expect(jsonDecode(requests.single.body), {
++      'email': 'user@example.com',
++      'code': '123456',
++    });
++    expect(requests.single.headers.containsKey('Authorization'), isFalse);
++  });
++  test('서버 인증번호로 변경하면 확인 후 받은 토큰으로 비밀번호를 바꾼다', () async {
++    final requests = <http.Request>[];
++    final model = PasswordResetViewModel(
++      ServerPasswordResetRepository(
++        baseUrl: 'http://localhost:8080',
++        client: serverClient(requests),
++      ),
++    );
++    expect(
++      await model.resetWithServerCode('user@example.com', '123456', 'abcd1234'),
++      isTrue,
++    );
++    expect(requests.map((r) => '${r.method} ${r.url.path}').toList(), [
++      'POST /api/auth/password/reset-verification',
++      'PATCH /api/auth/password/reset',
++    ]);
++    expect(jsonDecode(requests[1].body), {
++      'token': 'AbCdEfGhIjKlMnOpQrStUvWxYz0123456789abcdefg',
++      'new_password': 'abcd1234',
++    });
++    expect(model.step, PasswordResetStep.complete);
++    model.dispose();
++  });
++  test('서버 인증번호가 틀리면 변경 요청을 보내지 않고 서버 문구를 보여준다', () async {
++    final requests = <http.Request>[];
++    final model = PasswordResetViewModel(
++      ServerPasswordResetRepository(
++        baseUrl: 'http://localhost:8080',
++        client: serverClient(
++          requests,
++          verifyStatus: 400,
++          verifyBody: {
++            'code': 'EMAIL_CODE_INVALID',
++            'message': '인증번호가 일치하지 않아요.',
++            'status': 400,
++            'fields': null,
++          },
++        ),
++      ),
++    );
++    expect(
++      await model.resetWithServerCode('user@example.com', '000000', 'abcd1234'),
++      isFalse,
++    );
++    expect(model.error, '인증번호가 일치하지 않아요.');
++    expect(requests.length, 1);
++    expect(model.step, isNot(PasswordResetStep.complete));
++    expect(
++      await model.resetWithServerCode('user@example.com', '12', 'abcd1234'),
++      isFalse,
++    );
++    expect(model.codeError, '6자리 인증번호를 입력해 주세요.');
++    expect(requests.length, 1);
++    model.dispose();
++  });
++  testWidgets('서버 연결 화면도 인증번호를 입력해 한 번에 비밀번호를 바꾼다', (tester) async {
++    final requests = <http.Request>[];
++    await tester.pumpWidget(
++      MaterialApp(
++        theme: AppTheme.light,
++        home: PasswordResetPage(
++          repository: ServerPasswordResetRepository(
++            baseUrl: 'http://localhost:8080',
++            client: serverClient(requests),
++          ),
++        ),
++      ),
++    );
++    await tester.pumpAndSettle();
++    expect(find.text('인증번호 받기'), findsOneWidget);
++    expect(find.text('재설정 링크'), findsNothing);
++    await tester.enterText(
++      find.descendant(
++        of: find.byKey(const Key('reset-email')),
++        matching: find.byType(TextFormField),
++      ),
++      'user@example.com',
++    );
++    await tester.tap(find.text('인증번호 받기'));
++    await tester.pumpAndSettle();
++    expect(find.text('인증번호를 보냈어요'), findsOneWidget);
++    expect(find.textContaining('개발용'), findsNothing);
++    await tester.tap(find.text('확인'));
++    await tester.pumpAndSettle();
++    await tester.enterText(
++      find.descendant(
++        of: find.byKey(const Key('reset-code')),
++        matching: find.byType(TextFormField),
++      ),
++      '482916',
++    );
++    await tester.enterText(
++      find.descendant(
++        of: find.byKey(const Key('reset-password')),
++        matching: find.byType(TextFormField),
++      ),
++      'abcd1234',
++    );
++    await tester.pumpAndSettle();
++    await tester.ensureVisible(find.text('비밀번호 변경'));
++    await tester.tap(find.text('비밀번호 변경'));
++    await tester.pumpAndSettle();
++    expect(requests.map((r) => r.url.path).toList(), [
++      '/api/auth/password/reset-request',
++      '/api/auth/password/reset-verification',
++      '/api/auth/password/reset',
++    ]);
++    expect(jsonDecode(requests[1].body)['code'], '482916');
++    expect(find.text('비밀번호가 변경됐어요'), findsOneWidget);
++    expect(tester.takeException(), isNull);
++  });
+ }
+diff --git a/FE/test/features/auth/server_onboarding_repository_test.dart b/FE/test/features/auth/server_onboarding_repository_test.dart
+index 253eedd..b47a21d 100644
+--- a/FE/test/features/auth/server_onboarding_repository_test.dart
++++ b/FE/test/features/auth/server_onboarding_repository_test.dart
+@@ -209,4 +209,56 @@ void main() {
+     await repo.signOut();
+     expect(await tokens.read(), isNull);
+   });
++
++  test('인증번호 요청은 정규화한 이메일만 보내고 로그인 토큰을 붙이지 않는다', () async {
++    await tokens.write('tok');
++    final repo = build((r) async {
++      expect(r.method, 'POST');
++      expect(r.url.path, '/api/auth/email-verifications');
++      expect(r.headers.containsKey('Authorization'), isFalse);
++      expect(jsonDecode(r.body), {'email': 'user@example.com'});
++      return http.Response('', 204);
++    });
++    await repo.sendEmailCode(' User@Example.com ');
++    expect(calls, hasLength(1));
++  });
++
++  test('인증번호 확인은 가입에 쓸 토큰을 돌려준다', () async {
++    final repo = build((r) async {
++      expect(r.url.path, '/api/auth/email-verifications/confirm');
++      expect(jsonDecode(r.body), {'email': 'user@example.com', 'code': '123456'});
++      return _json(200, {'verification_token': 'tok-abc', 'expires_in': 1800});
++    });
++    final token = await repo.confirmEmailCode(email: 'User@example.com', code: ' 123456 ');
++    expect(token, 'tok-abc');
++  });
++
++  test('틀린 인증번호와 너무 잦은 요청은 서버 문구를 그대로 보여 준다', () async {
++    var status = 400;
++    final repo = build((r) async => status == 400
++        ? _json(400, _error(400, 'EMAIL_CODE_INVALID', '인증번호가 일치하지 않아요.'))
++        : _json(429, _error(429, 'EMAIL_CODE_TOO_FREQUENT', '잠시 후에 다시 요청해 주세요.')));
++    await expectLater(
++      repo.confirmEmailCode(email: 'a@b.com', code: '000000'),
++      throwsA(isA<StateError>().having((e) => e.message, 'message', '인증번호가 일치하지 않아요.')),
++    );
++    status = 429;
++    await expectLater(
++      repo.sendEmailCode('a@b.com'),
++      throwsA(isA<StateError>().having((e) => e.message, 'message', '잠시 후에 다시 요청해 주세요.')),
++    );
++  });
++
++  test('회원가입 요청에 이메일 인증 토큰이 들어간다', () async {
++    final repo = build((r) async {
++      final body = jsonDecode(r.body) as Map<String, dynamic>;
++      expect(body['email_verification_token'], 'tok-abc');
++      return _json(201, {'user_id': 7, 'email': 'user@example.com', 'nickname': '유빈', 'created_at': '2026-10-12T10:00:00+09:00'});
++    });
++    await repo.register(const SignupRequest(
++      nickname: '유빈', email: 'user@example.com', password: 'abcd1234',
++      termsAgreed: true, privacyAgreed: true, bodyPhotoAgreed: true, aiProcessingAgreed: true,
++      emailVerificationToken: 'tok-abc',
++    ));
++  });
+ }
+diff --git a/FE/test/live/server_live_test.dart b/FE/test/live/server_live_test.dart
+index 835eb75..30819dd 100644
+--- a/FE/test/live/server_live_test.dart
++++ b/FE/test/live/server_live_test.dart
+@@ -1,86 +1,219 @@
+ import 'dart:io';
+ 
+ import 'package:fe/features/auth/data/models/signup_request.dart';
++import 'package:fe/features/auth/data/password_reset_repository.dart';
++import 'package:fe/features/auth/presentation/password_reset_view_model.dart';
+ import 'package:fe/features/auth/data/server_onboarding_repository.dart';
+ import 'package:fe/features/auth/data/token_store.dart';
+ import 'package:fe/features/profile/data/models/body_profile.dart';
+ import 'package:flutter_test/flutter_test.dart';
++import 'package:http/http.dart' as http;
+ 
+ final _baseUrl = Platform.environment['LIVE_API_BASE_URL'];
++final _mailPeekUrl = Platform.environment['LIVE_MAIL_PEEK_URL'];
++
++/// 테스트용 메일 서버가 마지막으로 받은 인증번호를 읽는다.
++Future<String> _codeFor(String email) async {
++  final res = await http.get(Uri.parse('$_mailPeekUrl/last?to=$email'));
++  return res.body.trim();
++}
++
++Future<String> _newCodeFor(String email, String previous) async {
++  for (var i = 0; i < 60; i++) {
++    final code = await _codeFor(email);
++    if (code.isNotEmpty && code != previous) return code;
++    await Future<void>.delayed(const Duration(milliseconds: 100));
++  }
++  throw StateError('새 인증번호 메일이 오지 않았어요.');
++}
+ 
+ void main() {
+   final run = DateTime.now().millisecondsSinceEpoch.toRadixString(36);
+   final email = 'live$run@example.com';
+   const password = 'abcd1234';
+ 
+-  test('가입 → 로그인 → 설문 저장 → 재시작 후 홈 상태를 실제 서버와 확인한다', () async {
+-    final tokens = MemoryTokenStore();
+-    ServerOnboardingRepository repo() =>
+-        ServerOnboardingRepository(baseUrl: _baseUrl!, tokenStore: tokens);
+-
+-    final registered = await repo().register(SignupRequest(
+-      nickname: '라이브$run'.substring(0, 8),
+-      email: email,
+-      password: password,
+-      termsAgreed: true,
+-      privacyAgreed: true,
+-      bodyPhotoAgreed: true,
+-      aiProcessingAgreed: true,
+-    ));
+-    expect(registered.signedIn, isFalse);
+-
+-    await expectLater(
+-      repo().register(SignupRequest(
+-        nickname: '다른$run'.substring(0, 8),
+-        email: email.toUpperCase(),
+-        password: password,
+-        termsAgreed: true,
+-        privacyAgreed: true,
+-        bodyPhotoAgreed: true,
+-        aiProcessingAgreed: true,
+-      )),
+-      throwsA(isA<StateError>().having((e) => e.message, 'message', '이미 가입된 이메일이에요.')),
+-    );
+-
+-    await expectLater(
+-      repo().login(email: email, password: 'wrong1234'),
+-      throwsA(isA<StateError>().having((e) => e.message, 'message', '이메일 또는 비밀번호가 올바르지 않아요.')),
+-    );
+-
+-    final loggedIn = await repo().login(email: email, password: password);
+-    expect(loggedIn.signedIn, isTrue);
+-    expect(loggedIn.consentCompleted, isTrue);
+-    expect(loggedIn.onboardingCompleted, isFalse);
+-    expect(loggedIn.nextStep, 1);
+-
+-    final saved = await repo().saveProfile(const BodyProfile(
+-      heightCm: 175,
+-      weightKg: 73.5,
+-      age: 18,
+-      gender: Gender.male,
+-      goalType: GoalType.muscle,
+-      weeklyFrequency: 5,
+-      experienceLevel: ExperienceLevel.over1y,
+-    ));
+-    expect(saved.onboardingCompleted, isTrue);
+-    expect(saved.profile!.weightKg, 73.5);
+-
+-    final restarted = await repo().load();
+-    expect(restarted.signedIn, isTrue);
+-    expect(restarted.onboardingCompleted, isTrue);
+-    expect(restarted.profile!.heightCm, 175.0);
+-    expect(restarted.nextStep, 2);
+-
+-    final edited = await repo().saveProfile(const BodyProfile(
+-      heightCm: 175,
+-      weightKg: 71,
+-      age: 18,
+-      gender: Gender.male,
+-      goalType: GoalType.diet,
+-      weeklyFrequency: 3,
+-      experienceLevel: ExperienceLevel.over1y,
+-    ));
+-    expect(edited.profile!.weightKg, 71.0);
+-    expect(edited.profile!.goalType, GoalType.diet);
+-  }, skip: _baseUrl == null ? 'LIVE_API_BASE_URL을 지정하면 실제 서버로 실행한다' : false);
++  test(
++    '가입 → 로그인 → 설문 저장 → 재시작 후 홈 상태를 실제 서버와 확인한다',
++    () async {
++      final tokens = MemoryTokenStore();
++      ServerOnboardingRepository repo() =>
++          ServerOnboardingRepository(baseUrl: _baseUrl!, tokenStore: tokens);
++
++      await repo().sendEmailCode(email);
++      await expectLater(
++        repo().confirmEmailCode(email: email, code: '000000'),
++        throwsA(
++          isA<StateError>().having(
++            (e) => e.message,
++            'message',
++            '인증번호가 일치하지 않아요.',
++          ),
++        ),
++      );
++      final token = await repo().confirmEmailCode(
++        email: email,
++        code: await _codeFor(email),
++      );
++
++      final registered = await repo().register(
++        SignupRequest(
++          nickname: '라이브$run'.substring(0, 8),
++          email: email,
++          password: password,
++          termsAgreed: true,
++          privacyAgreed: true,
++          bodyPhotoAgreed: true,
++          aiProcessingAgreed: true,
++          emailVerificationToken: token,
++        ),
++      );
++      expect(registered.signedIn, isFalse);
++
++      await expectLater(
++        repo().sendEmailCode(email.toUpperCase()),
++        throwsA(
++          isA<StateError>().having(
++            (e) => e.message,
++            'message',
++            '이미 가입된 이메일이에요.',
++          ),
++        ),
++      );
++      await expectLater(
++        repo().register(
++          SignupRequest(
++            nickname: '무토큰$run'.substring(0, 8),
++            email: 'other$run@example.com',
++            password: password,
++            termsAgreed: true,
++            privacyAgreed: true,
++            bodyPhotoAgreed: true,
++            aiProcessingAgreed: true,
++          ),
++        ),
++        throwsA(isA<StateError>()),
++      );
++
++      await expectLater(
++        repo().login(email: email, password: 'wrong1234'),
++        throwsA(
++          isA<StateError>().having(
++            (e) => e.message,
++            'message',
++            '이메일 또는 비밀번호가 올바르지 않아요.',
++          ),
++        ),
++      );
++
++      final loggedIn = await repo().login(email: email, password: password);
++      expect(loggedIn.signedIn, isTrue);
++      expect(loggedIn.consentCompleted, isTrue);
++      expect(loggedIn.onboardingCompleted, isFalse);
++      expect(loggedIn.nextStep, 1);
++
++      final saved = await repo().saveProfile(
++        const BodyProfile(
++          heightCm: 175,
++          weightKg: 73.5,
++          age: 18,
++          gender: Gender.male,
++          goalType: GoalType.muscle,
++          weeklyFrequency: 5,
++          experienceLevel: ExperienceLevel.over1y,
++        ),
++      );
++      expect(saved.onboardingCompleted, isTrue);
++      expect(saved.profile!.weightKg, 73.5);
++
++      final restarted = await repo().load();
++      expect(restarted.signedIn, isTrue);
++      expect(restarted.onboardingCompleted, isTrue);
++      expect(restarted.profile!.heightCm, 175.0);
++      expect(restarted.nextStep, 2);
++
++      final edited = await repo().saveProfile(
++        const BodyProfile(
++          heightCm: 175,
++          weightKg: 71,
++          age: 18,
++          gender: Gender.male,
++          goalType: GoalType.diet,
++          weeklyFrequency: 3,
++          experienceLevel: ExperienceLevel.over1y,
++        ),
++      );
++      expect(edited.profile!.weightKg, 71.0);
++      expect(edited.profile!.goalType, GoalType.diet);
++    },
++    skip: (_baseUrl == null || _mailPeekUrl == null)
++        ? 'LIVE_API_BASE_URL, LIVE_MAIL_PEEK_URL을 지정하면 실제 서버로 실행한다'
++        : false,
++  );
++
++  test(
++    '비밀번호 찾기: 인증번호 확인 → 새 비밀번호 → 새 비밀번호로만 로그인',
++    () async {
++      final resetEmail = 'reset$run@example.com';
++      const newPassword = 'newpass99';
++      final tokens = MemoryTokenStore();
++      ServerOnboardingRepository auth() =>
++          ServerOnboardingRepository(baseUrl: _baseUrl!, tokenStore: tokens);
++
++      await auth().sendEmailCode(resetEmail);
++      final signupCode = await _codeFor(resetEmail);
++      final token = await auth().confirmEmailCode(
++        email: resetEmail,
++        code: signupCode,
++      );
++      await auth().register(
++        SignupRequest(
++          nickname: '재설정$run'.substring(0, 8),
++          email: resetEmail,
++          password: password,
++          termsAgreed: true,
++          privacyAgreed: true,
++          bodyPhotoAgreed: true,
++          aiProcessingAgreed: true,
++          emailVerificationToken: token,
++        ),
++      );
++
++      final repository = ServerPasswordResetRepository(baseUrl: _baseUrl!);
++      final unknown = PasswordResetViewModel(repository);
++      await unknown.request('nobody$run@example.com');
++      expect(unknown.error, isNull);
++
++      final model = PasswordResetViewModel(repository);
++      expect(await model.request(resetEmail), isTrue);
++      final code = await _newCodeFor(resetEmail, signupCode);
++      expect(
++        await model.resetWithServerCode(
++          resetEmail,
++          code == '000000' ? '111111' : '000000',
++          newPassword,
++        ),
++        isFalse,
++      );
++      expect(model.error, '인증번호가 일치하지 않아요.');
++      expect(
++        await model.resetWithServerCode(resetEmail, code, newPassword),
++        isTrue,
++      );
++      expect(model.step, PasswordResetStep.complete);
++
++      await expectLater(
++        auth().login(email: resetEmail, password: password),
++        throwsA(isA<StateError>()),
++      );
++      final loggedIn = await auth().login(
++        email: resetEmail,
++        password: newPassword,
++      );
++      expect(loggedIn.signedIn, isTrue);
++      repository.dispose();
++    },
++    skip: (_baseUrl == null || _mailPeekUrl == null)
++        ? 'LIVE_API_BASE_URL, LIVE_MAIL_PEEK_URL을 지정하면 실제 서버로 실행한다'
++        : false,
++  );
+ }

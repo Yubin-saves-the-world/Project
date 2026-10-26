@@ -17,6 +17,7 @@ class _ProfileFormPageState extends State<ProfileFormPage> {
   final _form = GlobalKey<FormState>();
   late final TextEditingController _height, _weight, _age;
   bool _submitted = false;
+  int _stage = 0;
   final _metricFocus = {
     for (final id in ['height', 'weight', 'age']) id: FocusNode(),
   };
@@ -121,6 +122,7 @@ class _ProfileFormPageState extends State<ProfileFormPage> {
                           min: min,
                           max: max,
                           integer: integer,
+                          decimalPlaces: integer ? null : 1,
                         ),
                         decoration: InputDecoration(
                           isDense: true,
@@ -268,14 +270,33 @@ class _ProfileFormPageState extends State<ProfileFormPage> {
     model.weight = _weight.text;
     model.age = _age.text;
     setState(() => _submitted = true);
-    if (_form.currentState!.validate()) model.submitProfile();
+    if (!_form.currentState!.validate()) return;
+    if (_stage < 2) {
+      setState(() {
+        _stage++;
+        _submitted = false;
+      });
+    } else {
+      model.submitProfile();
+    }
   }
 
   @override
   Widget build(BuildContext context) => ReferencePage(
     backAsset: 'figma-655_776.svg',
     footer: ReferenceButton('다음', onPressed: _submit, busy: model.busy),
-    onBack: model.busy ? null : model.back,
+    onBack: model.busy
+        ? null
+        : () {
+            if (_stage == 0) {
+              model.back();
+            } else {
+              setState(() {
+                _stage--;
+                _submitted = false;
+              });
+            }
+          },
     builder: (context, width, height) => SizedBox(
       width: width,
       child: Form(
@@ -288,60 +309,71 @@ class _ProfileFormPageState extends State<ProfileFormPage> {
           children: [
             const SizedBox(height: 96),
             const ReferenceTitle('신체 정보', sourceX: 151, sourceWidth: 109),
-            const SizedBox(height: 43),
+            const SizedBox(height: 12),
+            Text(
+              '${_stage + 1} / 3',
+              textAlign: TextAlign.center,
+              style: ReferenceStyle.text(12, 18, color: ReferenceStyle.muted),
+            ),
+            const SizedBox(height: 24),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _metric('키', 'cm', '170', 'height', _height, 100, 250),
-                      const SizedBox(width: 10),
-                      _metric('몸무게', 'kg', '65', 'weight', _weight, 30, 250),
-                      const SizedBox(width: 10),
-                      _metric(
-                        '나이',
-                        '세',
-                        '18',
-                        'age',
-                        _age,
-                        10,
-                        100,
-                        integer: true,
-                      ),
-                    ],
-                  ),
-                  _section(
-                    '성별',
-                    [Gender.male, Gender.female],
-                    model.gender,
-                    (v) => v == Gender.male ? '남' : '여',
-                    (v) => model.updateProfile(gender: v),
-                  ),
-                  _section(
-                    '운동 목적',
-                    GoalType.values,
-                    model.goalType,
-                    (v) => v.label,
-                    (v) => model.updateProfile(goal: v),
-                  ),
-                  _section(
-                    '주 운동 횟수',
-                    [1, 3, 5, 7],
-                    model.frequency,
-                    (v) =>
-                        {1: '0 ~ 1회', 3: '2 ~ 3회', 5: '4 ~ 5회', 7: '6~7회'}[v]!,
-                    (v) => model.updateProfile(frequency: v),
-                  ),
-                  _section(
-                    '운동 기간',
-                    ExperienceLevel.values,
-                    model.experienceLevel,
-                    (v) => v.label,
-                    (v) => model.updateProfile(experience: v),
-                  ),
+                  if (_stage == 0)
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _metric('키', 'cm', '170', 'height', _height, 100, 250),
+                        const SizedBox(width: 10),
+                        _metric('몸무게', 'kg', '65', 'weight', _weight, 30, 250),
+                        const SizedBox(width: 10),
+                        _metric(
+                          '나이',
+                          '세',
+                          '18',
+                          'age',
+                          _age,
+                          10,
+                          100,
+                          integer: true,
+                        ),
+                      ],
+                    ),
+                  if (_stage == 0)
+                    _section(
+                      '성별',
+                      [Gender.male, Gender.female],
+                      model.gender,
+                      (v) => v == Gender.male ? '남' : '여',
+                      (v) => model.updateProfile(gender: v),
+                    ),
+                  if (_stage == 1)
+                    _section(
+                      '운동 목적',
+                      GoalType.values,
+                      model.goalType,
+                      (v) => v.label,
+                      (v) => model.updateProfile(goal: v),
+                    ),
+                  if (_stage == 1)
+                    _section(
+                      '주 운동 횟수',
+                      [1, 3, 5, 6],
+                      model.frequency,
+                      (v) =>
+                          {1: '0 ~ 1회', 3: '2 ~ 3회', 5: '4 ~ 5회', 6: '6+'}[v]!,
+                      (v) => model.updateProfile(frequency: v),
+                    ),
+                  if (_stage == 2)
+                    _section(
+                      '운동 기간',
+                      ExperienceLevel.values,
+                      model.experienceLevel,
+                      (v) => v.label,
+                      (v) => model.updateProfile(experience: v),
+                    ),
                   if (model.error != null)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 12),

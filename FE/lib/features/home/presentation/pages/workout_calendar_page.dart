@@ -137,8 +137,6 @@ class _WorkoutCalendarPageState extends State<WorkoutCalendarPage> {
                             ),
                           ),
                       ],
-                      const SizedBox(height: 16),
-                      Text('기기 내 미리보기 기록입니다.', style: _text(11, muted: true)),
                     ],
                   ),
                 ),

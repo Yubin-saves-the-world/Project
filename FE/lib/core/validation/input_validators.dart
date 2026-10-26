@@ -29,6 +29,7 @@ abstract final class InputValidators {
     required num min,
     required num max,
     bool integer = false,
+    int? decimalPlaces,
   }) {
     final number = num.tryParse(value?.trim() ?? '');
     if (number == null ||
@@ -37,6 +38,10 @@ abstract final class InputValidators {
         number > max ||
         (integer && number != number.roundToDouble())) {
       return '$min~$max${integer ? ' 정수' : ''}';
+    }
+    if (decimalPlaces == 1 &&
+        (number * 10 - (number * 10).round()).abs() > 0.000001) {
+      return '소수 첫째 자리까지 입력해 주세요.';
     }
     return null;
   }

@@ -83,14 +83,16 @@ void main() {
     await enter(tester, 'profile-height', '174');
     await enter(tester, 'profile-weight', '68');
     await enter(tester, 'profile-age', '20');
-    for (final label in ['남', '근육 키우기', '3개월 미만']) {
-      await tester.ensureVisible(find.text(label));
-      await tester.tap(find.text(label));
-      await tester.pumpAndSettle();
-    }
+    await tester.tap(find.text('남'));
+    await tester.tap(find.text('다음'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('근육 키우기'));
     await tester.tap(find.text('4 ~ 5회'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('다음'));
+    await tester.tap(find.text('다음'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('3개월 미만'));
     await tester.tap(find.text('다음'));
     await tester.pumpAndSettle();
     expect(repository.progress.profile!.weeklyFrequency, 5);
@@ -390,6 +392,16 @@ void main() {
         }
         await tester.pumpAndSettle();
         await tester.pump(const Duration(milliseconds: 100));
+        await tester.runAsync(() async {
+          final context = tester.element(find.byType(MaterialApp));
+          for (final icon in ['681_31', '681_33', '681_39', '681_41']) {
+            await precacheImage(
+              AssetImage('assets/icons/figma/figma-$icon.png'),
+              context,
+            );
+          }
+        });
+        await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
         final target = modal == 'otp'
             ? find.byType(Dialog)
@@ -474,13 +486,17 @@ void main() {
     expect(model.goalType, isNull);
     expect(model.frequency, isNull);
     expect(model.experienceLevel, isNull);
+    expect(find.text('주 운동 횟수'), findsNothing);
+    await tester.tap(find.text('남'));
+    await tester.tap(find.text('다음'));
+    await tester.pumpAndSettle();
     expect(find.text('주 운동 횟수'), findsOneWidget);
+    await tester.tap(find.text('근육 키우기'));
+    await tester.tap(find.text('2 ~ 3회'));
+    await tester.tap(find.text('다음'));
+    await tester.pumpAndSettle();
     expect(find.text('운동 기간'), findsOneWidget);
-    for (final label in ['남', '근육 키우기', '2 ~ 3회', '3개월 미만']) {
-      await tester.ensureVisible(find.text(label));
-      await tester.tap(find.text(label));
-      await tester.pumpAndSettle();
-    }
+    await tester.tap(find.text('3개월 미만'));
     await tester.ensureVisible(find.text('다음'));
     await tester.tap(find.text('다음'));
     await tester.pumpAndSettle();
@@ -520,6 +536,12 @@ void main() {
       ('주 운동 횟수', '2 ~ 3회'),
       ('운동 기간', '3개월 미만'),
     ]) {
+      if (item.$1 == '운동 목적' || item.$1 == '운동 기간') {
+        await tester.tap(find.text('다음'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('다음'));
+        await tester.pumpAndSettle();
+      }
       final section = find.byKey(ValueKey('profile-choice-${item.$1}'));
       final error = find.descendant(
         of: section,
@@ -710,6 +732,16 @@ void main() {
       }
       await tester.pumpAndSettle();
       await tester.pump(const Duration(milliseconds: 100));
+      await tester.runAsync(() async {
+        final context = tester.element(find.byType(MaterialApp));
+        for (final icon in ['681_31', '681_33', '681_39', '681_41']) {
+          await precacheImage(
+            AssetImage('assets/icons/figma/figma-$icon.png'),
+            context,
+          );
+        }
+      });
+      await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       await expectLater(
         find.byType(MaterialApp),

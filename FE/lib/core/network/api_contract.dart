@@ -5,13 +5,35 @@ abstract final class ApiContract {
   static const login = '$prefix/auth/login';
   static const passwordResetRequest = '$prefix/auth/password/reset-request';
   static const passwordReset = '$prefix/auth/password/reset';
+  static const passwordResetVerification =
+      '$prefix/auth/password/reset-verification';
   static const logout = '$prefix/auth/logout';
+  static const emailVerifications = '$prefix/auth/email-verifications';
+  static const emailVerificationConfirm = '$emailVerifications/confirm';
   static const googleLogin = '$prefix/auth/oauth/google';
   static const kakaoLogin = '$prefix/auth/oauth/kakao';
   static const me = '$prefix/users/me';
   static const profile = '$me/profile';
   static const photos = '$prefix/photos';
   static String photo(int id) => '$photos/$id';
+  static const bodyAnalyses = '$prefix/body-analyses';
+  static const photoAnalysis = '$bodyAnalyses/photo';
+  static const analysisUsage = '$bodyAnalyses/usage';
+  static String bodyAnalysis(int id) => '$bodyAnalyses/$id';
+  static const goalBodies = '$prefix/goal-bodies';
+  static String goalBody(int id) => '$goalBodies/$id';
+  static const exercises = '$prefix/exercises';
+  static String exercise(int id) => '$exercises/$id';
+  static const routines = '$prefix/routines';
+  static const weeklyRoutines = '$routines/weekly';
+  static const todayRoutine = '$routines/today';
+  static String routine(int id) => '$routines/$id';
+  static const workoutLogs = '$prefix/workout-logs';
+  static String workoutLog(int id) => '$workoutLogs/$id';
+  static String workoutSets(int id) => '${workoutLog(id)}/sets';
+  static String workoutSet(int logId, int setId) =>
+      '${workoutSets(logId)}/$setId';
+  static String completeWorkout(int id) => '${workoutLog(id)}/complete';
   static const accessTokenLifetimeSeconds = 604800;
   static const maxPhotoBytes = 10 * 1024 * 1024;
   static const photoMaxEdge = 1024;

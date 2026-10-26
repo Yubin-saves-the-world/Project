@@ -202,8 +202,10 @@ class ReferenceField extends StatelessWidget {
     this.onSubmitted,
     this.signup = false,
     this.autofillHints,
+    this.errorText,
   });
   final String label, hint;
+  final String? errorText;
   final TextEditingController controller;
   final FormFieldValidator<String>? validator;
   final ValueChanged<String>? onChanged, onSubmitted;
@@ -240,6 +242,7 @@ class ReferenceField extends StatelessWidget {
       TextFormField(
         controller: controller,
         validator: validator,
+        forceErrorText: errorText,
         onChanged: onChanged,
         onFieldSubmitted: onSubmitted,
         keyboardType: keyboardType,
