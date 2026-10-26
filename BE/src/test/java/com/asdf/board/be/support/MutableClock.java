@@ -13,6 +13,10 @@ public class MutableClock extends Clock {
         now = now.plus(duration);
     }
 
+    public synchronized void set(Instant instant) {
+        now = instant;
+    }
+
     @Override
     public ZoneId getZone() {
         return ZoneId.of("Asia/Seoul");

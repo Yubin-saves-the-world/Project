@@ -2,7 +2,6 @@ package com.asdf.board.be;
 
 import com.asdf.board.be.global.security.TokenService;
 import com.asdf.board.be.user.entity.User;
-import com.asdf.board.be.user.entity.UserProfile;
 import com.asdf.board.be.user.repository.UserProfileRepository;
 import com.asdf.board.be.user.repository.UserRepository;
 import jakarta.persistence.EntityManager;
