@@ -2,6 +2,8 @@ package com.asdf.board.be.profile.service;
 
 import com.asdf.board.be.global.exception.ApiException;
 import com.asdf.board.be.global.exception.ErrorCode;
+import com.asdf.board.be.global.web.PageParams;
+import com.asdf.board.be.profile.dto.ProfilePageDto;
 import com.asdf.board.be.profile.dto.ProfilePatchRequest;
 import com.asdf.board.be.profile.dto.ProfileRequest;
 import com.asdf.board.be.profile.dto.ProfileResponse;
@@ -14,6 +16,8 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,6 +54,14 @@ public class ProfileService {
         return ProfileResponse.from(latest(userId));
     }
 
+    @Transactional(readOnly = true)
+    public ProfilePageDto history(Long userId, int page, int pageSize) {
+        Page<UserProfile> result = profileRepository.findByUserId(
+                userId, PageParams.of(page, pageSize, Sort.by(Sort.Direction.DESC, "id")));
+        return new ProfilePageDto(
+                result.getContent().stream().map(ProfileResponse::from).toList(), page, pageSize, (int) result.getTotalElements());
+    }
+
     @Transactional
     public ProfileUpdatedResponse update(Long userId, ProfilePatchRequest request) {
         if (request.isEmpty()) {
@@ -78,12 +90,12 @@ public class ProfileService {
 
     private User lockUser(Long userId) {
         return userRepository.findByIdForUpdate(userId)
-                .orElseThrow(() -> new ApiException(ErrorCode.UNAUTHORIZED));
+                .orElseThrow(ApiException.of(ErrorCode.UNAUTHORIZED));
     }
 
     private UserProfile latest(Long userId) {
         return profileRepository.findFirstByUserIdOrderByIdDesc(userId)
-                .orElseThrow(() -> new ApiException(ErrorCode.PROFILE_NOT_FOUND));
+                .orElseThrow(ApiException.of(ErrorCode.PROFILE_NOT_FOUND));
     }
 
     private static BigDecimal oneDecimal(BigDecimal value) {

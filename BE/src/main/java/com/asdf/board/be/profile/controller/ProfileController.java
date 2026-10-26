@@ -1,5 +1,8 @@
 package com.asdf.board.be.profile.controller;
 
+import com.asdf.board.be.global.web.CurrentUser;
+import com.asdf.board.be.global.web.PageParams;
+import com.asdf.board.be.profile.dto.ProfilePageDto;
 import com.asdf.board.be.profile.dto.ProfilePatchRequest;
 import com.asdf.board.be.profile.dto.ProfileRequest;
 import com.asdf.board.be.profile.dto.ProfileResponse;
@@ -8,6 +11,8 @@ import com.asdf.board.be.profile.service.ProfileService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -15,12 +20,15 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @Tag(name = "profile", description = "신체정보 · 설문")
+@Validated
 @RestController
 @RequestMapping("/api/users/me/profile")
 @RequiredArgsConstructor
@@ -39,6 +47,17 @@ public class ProfileController {
     @GetMapping
     public ProfileResponse get(@AuthenticationPrincipal Jwt jwt) {
         return profileService.getLatest(Long.valueOf(jwt.getSubject()));
+    }
+
+    @Operation(summary = "신체정보 이력", description = "저장할 때마다 쌓인 이력을 최신순으로 돌려줍니다. 등록 전이면 items=[]입니다.")
+    @GetMapping("/history")
+    public ProfilePageDto history(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam(value = "page", defaultValue = "1") @Min(value = 1, message = "page는 1 이상이어야 합니다.") int page,
+            @RequestParam(value = "page_size", defaultValue = "20")
+            @Min(value = 1, message = "page_size는 1 이상이어야 합니다.")
+            @Max(value = PageParams.MAX_SIZE, message = "page_size는 50 이하여야 합니다.") int pageSize) {
+        return profileService.history(CurrentUser.id(jwt), page, pageSize);
     }
 
     @Operation(summary = "신체정보 수정", description = "값을 덮어쓰지 않고 새 이력 행으로 저장합니다. 보내지 않은 필드는 직전 값을 이어받습니다.")
