@@ -52,6 +52,9 @@ public class Post extends BaseTimeEntity {
     @Column(name = "hidden_at")
     private LocalDateTime hiddenAt;
 
+    @Column(name = "edited_at")
+    private LocalDateTime editedAt;
+
     @Builder
     private Post(User user, Category category, String title, String content, Boolean isPinned, Integer viewCount, Integer likeCount, Integer commentCount, LocalDateTime hiddenAt) {
         this.user = user;
