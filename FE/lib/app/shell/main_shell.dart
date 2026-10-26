@@ -1,3 +1,5 @@
+import '../../features/exercises/data/exercise_repository.dart';
+import '../../features/exercises/presentation/pages/exercise_list_page.dart';
 import '../../features/goal_body/presentation/pages/goal_body_page.dart';
 import 'package:flutter/material.dart';
 
@@ -31,8 +33,12 @@ class MainShell extends StatefulWidget {
     this.photoPicker,
     this.onProfileSaved,
     this.analysisDependencies,
+    this.exerciseRepository,
+    this.exercisePreview = false,
   }) : assert(initialIndex >= 0 && initialIndex < 5);
 
+  final ExerciseRepository? exerciseRepository;
+  final bool exercisePreview;
   final AnalysisDependencies? analysisDependencies;
   final ProfileRepository? profileRepository;
   final RoutineRefreshRepository? routineRefreshRepository;
@@ -58,6 +64,22 @@ class _MainShellState extends State<MainShell> {
     _selectedIndex = widget.initialIndex;
   }
 
+  void _openExercises() {
+    final repository = widget.exerciseRepository;
+    if (repository == null) return;
+    FocusScope.of(context).unfocus();
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => ExerciseListPage(
+          repository: repository,
+          localPreview: widget.exercisePreview,
+          onAccessRequired: widget.analysisDependencies?.onAccessRequired,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -66,6 +88,9 @@ class _MainShellState extends State<MainShell> {
         children: [
           HomePage(
             onboarding: widget.onboarding,
+            onOpenExercises: widget.exerciseRepository == null
+                ? null
+                : _openExercises,
             onOpenMyPage:
                 widget.onboarding == null ||
                     widget.profileRepository == null ||
@@ -104,6 +129,9 @@ class _MainShellState extends State<MainShell> {
                                   ),
                                 ),
                               ),
+                        onOpenExercises: widget.exerciseRepository == null
+                            ? null
+                            : _openExercises,
                         onProfileSaved: widget.onProfileSaved,
                         onLogout: widget.onLogout,
                       ),

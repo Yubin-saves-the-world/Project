@@ -14,6 +14,7 @@ class HomePage extends StatefulWidget {
     super.key,
     this.onboarding,
     this.onOpenMyPage,
+    this.onOpenExercises,
     this.loggingOut = false,
     this.logoutError,
     this.repository,
@@ -21,6 +22,7 @@ class HomePage extends StatefulWidget {
   });
   final OnboardingProgress? onboarding;
   final VoidCallback? onOpenMyPage;
+  final VoidCallback? onOpenExercises;
   final bool loggingOut;
   final String? logoutError;
   final HomePreviewRepository? repository;
@@ -110,8 +112,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) =>
-            WeeklyRoutineEditor(model: model, date: model.selectedDate),
+        builder: (_) => WeeklyRoutineEditor(
+          model: model,
+          date: model.selectedDate,
+          onOpenExercises: widget.onOpenExercises,
+        ),
       ),
     );
     if (saved == true && mounted) {

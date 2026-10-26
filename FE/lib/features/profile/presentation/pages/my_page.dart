@@ -22,6 +22,7 @@ class MyPage extends StatefulWidget {
     this.onProfileSaved,
     this.onOpenAnalysisHistory,
     this.onOpenGoal,
+    this.onOpenExercises,
     this.onLogout,
     this.routineRefreshRepository,
   });
@@ -34,6 +35,7 @@ class MyPage extends StatefulWidget {
   final VoidCallback? onLogout;
   final VoidCallback? onOpenAnalysisHistory;
   final VoidCallback? onOpenGoal;
+  final VoidCallback? onOpenExercises;
   @override
   State<MyPage> createState() => _MyPageState();
 }
@@ -289,6 +291,13 @@ class _MyPageState extends State<MyPage> {
             ),
             const SizedBox(height: 10),
             _card([
+              if (widget.onOpenExercises != null)
+                _row(
+                  '운동 종목',
+                  '',
+                  widget.onOpenExercises!,
+                  icon: Icons.fitness_center_outlined,
+                ),
               if (widget.onOpenGoal != null)
                 _row(
                   '목표 체형',

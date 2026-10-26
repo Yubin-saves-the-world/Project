@@ -9,9 +9,11 @@ class WeeklyRoutineEditor extends StatefulWidget {
     super.key,
     required this.model,
     required this.date,
+    this.onOpenExercises,
   });
   final HomeViewModel model;
   final DateTime date;
+  final VoidCallback? onOpenExercises;
   @override
   State<WeeklyRoutineEditor> createState() => _WeeklyRoutineEditorState();
 }
@@ -423,6 +425,13 @@ class _WeeklyRoutineEditorState extends State<WeeklyRoutineEditor> {
                                       ),
                                     ),
                                   ),
+                                  if (widget.onOpenExercises != null)
+                                    TextButton(
+                                      onPressed: widget.model.busy
+                                          ? null
+                                          : widget.onOpenExercises,
+                                      child: const Text('종목 정보'),
+                                    ),
                                   Text(
                                     '${selected.length}개 선택',
                                     style: ReferenceStyle.text(

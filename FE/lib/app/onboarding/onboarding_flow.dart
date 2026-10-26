@@ -1,3 +1,5 @@
+import '../../features/exercises/data/server_exercise_repository.dart';
+import '../../features/exercises/data/local_exercise_repository.dart';
 import '../../features/goal_body/data/local_goal_repository.dart';
 import '../../features/goal_body/data/server_goal_repository.dart';
 import '../../features/goal_body/presentation/goal_dependencies.dart';
@@ -118,6 +120,14 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         return MainShell(
           onboarding: _model.progress,
           analysisDependencies: _analysis(),
+          exerciseRepository: widget.repository is ServerOnboardingRepository
+              ? ServerExerciseRepository(
+                  (widget.repository as ServerOnboardingRepository).api,
+                )
+              : LocalExerciseRepository(
+                  () => _model.progress.profile?.experienceLevel,
+                ),
+          exercisePreview: widget.repository is! ServerOnboardingRepository,
           onLogout: _model.signOut,
           profileRepository: widget.repository is ServerOnboardingRepository
               ? ServerProfileRepository(
