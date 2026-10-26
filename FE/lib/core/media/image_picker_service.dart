@@ -23,13 +23,17 @@ class PhotoPickerException implements Exception {
 }
 
 class ImagePickerService implements PhotoPicker {
-  ImagePickerService({ImagePicker? picker}) : _picker = picker ?? ImagePicker();
+  ImagePickerService({ImagePicker? picker, this.owner = 'onboarding'})
+    : _picker = picker ?? ImagePicker();
+  final String owner;
   final ImagePicker _picker;
   final _preferences = SharedPreferencesAsync();
+  static const _pendingOwnerKey = 'vitality.onboarding.pending-photo-owner';
   static const _pendingSlotKey = 'vitality.onboarding.pending-photo-slot';
 
   @override
   Future<SelectedPhoto?> pick(PhotoSlot slot, PhotoSource source) async {
+    await _preferences.setString(_pendingOwnerKey, owner);
     await _preferences.setString(_pendingSlotKey, slot.name);
     try {
       final file = await _picker.pickImage(
@@ -51,6 +55,7 @@ class ImagePickerService implements PhotoPicker {
       });
     } finally {
       await _preferences.remove(_pendingSlotKey);
+      await _preferences.remove(_pendingOwnerKey);
     }
   }
 
@@ -89,6 +94,9 @@ class ImagePickerService implements PhotoPicker {
   @override
   Future<(PhotoSlot, SelectedPhoto)?> recover() async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return null;
+    final pendingOwner =
+        await _preferences.getString(_pendingOwnerKey) ?? 'onboarding';
+    if (pendingOwner != owner) return null;
     final pending = await _preferences.getString(_pendingSlotKey);
     final data = await _picker.retrieveLostData();
     try {
@@ -103,6 +111,7 @@ class ImagePickerService implements PhotoPicker {
       return (slot, await _prepare(data.files!.first, slot));
     } finally {
       await _preferences.remove(_pendingSlotKey);
+      await _preferences.remove(_pendingOwnerKey);
     }
   }
 

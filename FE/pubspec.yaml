@@ -69,6 +69,7 @@ flutter:
   assets:
     - assets/icons/home.svg
     - assets/icons/bell.svg
+    - assets/icons/profile.svg
     - assets/icons/figma/
   fonts:
     - family: CapstoneUI

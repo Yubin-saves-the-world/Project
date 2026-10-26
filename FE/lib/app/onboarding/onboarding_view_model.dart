@@ -9,10 +9,13 @@ import '../../features/auth/data/server_onboarding_repository.dart';
 import '../../features/auth/data/development_email_verification.dart';
 import '../../features/auth/data/email_verification_state.dart';
 import '../../features/body_analysis/data/models/analysis_input.dart';
+import '../../features/body_analysis/presentation/analysis_form_controller.dart';
 import '../../features/photos/data/models/selected_photo.dart';
 import '../../features/profile/data/models/body_profile.dart';
+import '../../features/profile/presentation/profile_form_controller.dart';
 
-class OnboardingViewModel extends ChangeNotifier {
+class OnboardingViewModel extends ChangeNotifier
+    implements ProfileFormController, AnalysisFormController {
   OnboardingViewModel({
     required this.repository,
     required this.photoPicker,
@@ -23,11 +26,14 @@ class OnboardingViewModel extends ChangeNotifier {
   final PhotoPicker photoPicker;
 
   OnboardingProgress progress = const OnboardingProgress();
+  @override
   AnalysisInput analysis = const AnalysisInput();
   bool loading = true;
+  @override
   bool busy = false;
   bool _disposed = false;
   int step = 0;
+  @override
   String? error;
   bool showLogin = false;
   bool _registrationPendingLogin = false;
@@ -52,6 +58,7 @@ class OnboardingViewModel extends ChangeNotifier {
   String? _verifiedEmail;
   DateTime? _verificationExpiresAt;
   String? verificationError;
+  @override
   Map<String, String> fieldErrors = {};
   bool get usesRealEmailVerification => repository.usesRealEmailVerification;
 
@@ -118,6 +125,7 @@ class OnboardingViewModel extends ChangeNotifier {
     fieldErrors = {};
   }
 
+  @override
   void clearFieldError(String field) {
     final previous = fieldErrors.remove(field);
     if (previous != null) {
@@ -131,11 +139,18 @@ class OnboardingViewModel extends ChangeNotifier {
 
   String nickname = '', email = '', password = '', passwordConfirmation = '';
   bool termsAgreed = false, privacyAgreed = false;
-  bool bodyPhotoAgreed = false, aiProcessingAgreed = false;
+  @override
+  bool bodyPhotoAgreed = false;
+  bool aiProcessingAgreed = false;
+  @override
   String height = '', weight = '', age = '';
+  @override
   Gender? gender;
+  @override
   GoalType? goalType;
+  @override
   int? frequency;
+  @override
   ExperienceLevel? experienceLevel;
 
   void _notify() {
@@ -173,7 +188,9 @@ class OnboardingViewModel extends ChangeNotifier {
         height = _number(profile.heightCm);
         weight = _number(profile.weightKg);
         age = '${profile.age}';
-        gender = profile.gender == Gender.none ? null : profile.gender;
+        gender = [Gender.male, Gender.female].contains(profile.gender)
+            ? profile.gender
+            : null;
         goalType = profile.goalType;
         frequency = profile.weeklyFrequency;
         experienceLevel = profile.experienceLevel;
@@ -219,12 +236,21 @@ class OnboardingViewModel extends ChangeNotifier {
     _notify();
   }
 
+  @override
   void updateProfile({
     Gender? gender,
     GoalType? goal,
     int? frequency,
     ExperienceLevel? experience,
   }) {
+    for (final field in [
+      if (gender != null) 'gender',
+      if (goal != null) 'goal_type',
+      if (frequency != null) 'weekly_frequency',
+      if (experience != null) 'experience_level',
+    ]) {
+      fieldErrors.remove(field);
+    }
     this.gender = gender ?? this.gender;
     goalType = goal ?? goalType;
     this.frequency = frequency ?? this.frequency;
@@ -233,12 +259,28 @@ class OnboardingViewModel extends ChangeNotifier {
     _notify();
   }
 
+  void applySavedProfile(BodyProfile profile) {
+    progress = progress.copyWith(profile: profile);
+    height = _number(profile.heightCm);
+    weight = _number(profile.weightKg);
+    age = '${profile.age}';
+    gender = [Gender.male, Gender.female].contains(profile.gender)
+        ? profile.gender
+        : null;
+    goalType = profile.goalType;
+    frequency = profile.weeklyFrequency;
+    experienceLevel = profile.experienceLevel;
+    _notify();
+  }
+
+  @override
   void setMethod(AnalysisMethod method) {
     analysis = analysis.copyWith(method: method);
     error = null;
     _notify();
   }
 
+  @override
   void setText(String value) {
     analysis = analysis.copyWith(text: value);
   }
@@ -247,12 +289,14 @@ class OnboardingViewModel extends ChangeNotifier {
     analysis = analysis.copyWith(goalDescription: value);
   }
 
+  @override
   SelectedPhoto? photoFor(PhotoSlot slot) => switch (slot) {
     PhotoSlot.front => analysis.front,
     PhotoSlot.side => analysis.side,
     PhotoSlot.goal => analysis.goal,
   };
 
+  @override
   void back() {
     if (busy || step == 0) return;
     step--;
@@ -356,6 +400,7 @@ class OnboardingViewModel extends ChangeNotifier {
     });
   }
 
+  @override
   Future<bool> submitProfile() async {
     final validation =
         InputValidators.metric(
@@ -391,7 +436,10 @@ class OnboardingViewModel extends ChangeNotifier {
       showError('성별을 선택해 주세요.');
       return false;
     }
-    if (goalType == null || experienceLevel == null) {
+    if (goalType == null ||
+        goalType == GoalType.unknown ||
+        experienceLevel == null ||
+        experienceLevel == ExperienceLevel.unknown) {
       showError('운동 목적과 운동 기간을 선택해 주세요.');
       return false;
     }
@@ -411,6 +459,7 @@ class OnboardingViewModel extends ChangeNotifier {
     });
   }
 
+  @override
   Future<void> pickPhoto(PhotoSlot slot, PhotoSource source) async {
     if (!bodyPhotoAgreed) {
       showError('사진 이용 동의가 필요해요. 첫 단계에서 동의를 선택해 주세요.');
@@ -433,6 +482,7 @@ class OnboardingViewModel extends ChangeNotifier {
     });
   }
 
+  @override
   Future<void> removePhoto(PhotoSlot slot) async {
     await _run(() async {
       final previous = analysis;
@@ -455,6 +505,7 @@ class OnboardingViewModel extends ChangeNotifier {
     }
   }
 
+  @override
   Future<bool> finish({required bool prepareAnalysis}) async {
     if (analysis.text.length > 500 || analysis.goalDescription.length > 200) {
       showError('몸 상태는 500자, 목표 설명은 200자 이하로 적어 주세요.');

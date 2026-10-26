@@ -96,7 +96,8 @@ void main() {
     await tester.tap(find.text('다음'));
     await tester.pumpAndSettle();
     expect(repository.progress.profile!.weeklyFrequency, 5);
-    expect(find.text('체형 분석'), findsOneWidget);
+    expect(find.text('체형 분석'), findsNothing);
+    expect(find.text('사진으로 분석'), findsOneWidget);
     await tester.tap(find.text('글로 설명하기'));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -148,16 +149,26 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    expect(find.byTooltip('계정 메뉴'), findsNothing);
+    expect(find.byIcon(Icons.more_horiz_rounded), findsNothing);
     repository.failNext = true;
-    await tester.tap(find.byTooltip('계정 메뉴'));
+    await tester.tap(find.byTooltip('마이페이지'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('로그아웃'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('로그아웃'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '로그아웃'));
     await tester.pumpAndSettle();
     expect(find.text('로그아웃하지 못했어요. 다시 시도해 주세요.'), findsOneWidget);
     expect(repository.progress.completed, isTrue);
-    await tester.tap(find.byTooltip('계정 메뉴'));
+    await tester.tap(find.byTooltip('마이페이지'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('로그아웃'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('로그아웃'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '로그아웃'));
     await tester.pumpAndSettle();
     expect(find.text('로그인'), findsOneWidget);
     expect(repository.progress.account, isNotNull);
@@ -503,7 +514,11 @@ void main() {
     expect(repository.progress.profile!.heightCm, 174);
     expect(repository.progress.profile!.weightKg, 68.5);
     expect(repository.progress.profile!.age, 20);
-    expect(tester.getTopLeft(find.byType(FilledButton)).dy, 758);
+    expect(find.text('분석 시작').hitTestable(), findsOneWidget);
+    expect(
+      tester.getBottomLeft(find.byType(FilledButton)).dy,
+      lessThanOrEqualTo(852),
+    );
   });
 
   testWidgets('미선택 안내는 각 항목 아래에 표시되고 선택하면 사라진다', (tester) async {
@@ -636,7 +651,7 @@ void main() {
     expect(repository.progress.profile, previewProfile);
   });
 
-  testWidgets('체형 분석 오류와 스크롤에도 분석 시작 버튼 위치를 유지한다', (tester) async {
+  testWidgets('체형 분석 오류는 여백에 표시하고 짧은 화면에서는 버튼도 함께 스크롤한다', (tester) async {
     tester.view.physicalSize = const Size(393, 852);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -664,7 +679,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     final before = tester.getTopLeft(find.byType(FilledButton));
-    expect(before.dy, 758);
+    expect(before.dy, inInclusiveRange(0, 798));
     await tester.tap(find.text('분석 시작'));
     await tester.pumpAndSettle();
     expect(find.text('정면 사진을 추가해 주세요. 측면과 목표 사진은 선택이에요.'), findsOneWidget);
@@ -676,11 +691,16 @@ void main() {
     await tester.pumpAndSettle();
     final smallBefore = tester.getTopLeft(find.byType(FilledButton));
     await tester.drag(
-      find.byType(SingleChildScrollView).first,
+      find.byKey(const Key('reference-content-scroll')),
       const Offset(0, -200),
     );
     await tester.pumpAndSettle();
-    expect(tester.getTopLeft(find.byType(FilledButton)), smallBefore);
+    expect(
+      tester.getTopLeft(find.byType(FilledButton)).dy,
+      lessThan(smallBefore.dy),
+    );
+    await tester.ensureVisible(find.text('분석 시작'));
+    await tester.pumpAndSettle();
     expect(find.text('분석 시작').hitTestable(), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

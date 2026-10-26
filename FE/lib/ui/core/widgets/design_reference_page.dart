@@ -34,18 +34,90 @@ class ReferencePage extends StatelessWidget {
     this.onBack,
     this.footer,
     this.alignment = Alignment.center,
+    this.scrollFooter = false,
   });
   final Widget Function(BuildContext, double, double) builder;
   final String? backAsset;
   final VoidCallback? onBack;
   final Widget? footer;
   final AlignmentGeometry alignment;
+  final bool scrollFooter;
   @override
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: Colors.white,
     body: LayoutBuilder(
       builder: (context, c) {
         final width = math.min(c.maxWidth, 520.0);
+        if (scrollFooter) {
+          final safe = MediaQuery.paddingOf(context);
+          // 충분한 높이에서는 아래에 배치하고, 짧은 화면에서는 버튼까지 함께 스크롤한다.
+          return Align(
+            alignment: Alignment.topCenter,
+            child: SizedBox(
+              width: width,
+              child: CustomScrollView(
+                key: const Key('reference-content-scroll'),
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                slivers: [
+                  SliverPadding(
+                    padding: EdgeInsets.only(
+                      top: safe.top,
+                      bottom: safe.bottom,
+                    ),
+                    sliver: SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Stack(
+                            children: [
+                              builder(
+                                context,
+                                width,
+                                c.maxHeight - safe.vertical,
+                              ),
+                              if (backAsset != null)
+                                Positioned(
+                                  left: 12,
+                                  top: 8,
+                                  child: Semantics(
+                                    button: true,
+                                    label: '이전 단계',
+                                    child: InkWell(
+                                      key: const Key('reference-back'),
+                                      onTap: onBack,
+                                      child: SizedBox(
+                                        width: 46,
+                                        height: 46,
+                                        child: Center(
+                                          child: SvgPicture.asset(
+                                            'assets/icons/figma/$backAsset',
+                                            width: 30,
+                                            height: 30,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const Spacer(),
+                          if (footer != null)
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                              child: footer!,
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
         final top = math.max(0.0, MediaQuery.paddingOf(context).top - 44);
         final scroll = SingleChildScrollView(
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,

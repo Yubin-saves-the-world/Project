@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../../auth/data/models/onboarding_progress.dart';
 import '../../../../ui/core/widgets/design_reference_page.dart';
-import '../../../../ui/core/widgets/app_selection.dart';
 import '../../data/home_preview_repository.dart';
 import '../home_view_model.dart';
 import 'workout_calendar_page.dart';
@@ -14,14 +13,14 @@ class HomePage extends StatefulWidget {
   const HomePage({
     super.key,
     this.onboarding,
-    this.onLogout,
+    this.onOpenMyPage,
     this.loggingOut = false,
     this.logoutError,
     this.repository,
     this.today,
   });
   final OnboardingProgress? onboarding;
-  final VoidCallback? onLogout;
+  final VoidCallback? onOpenMyPage;
   final bool loggingOut;
   final String? logoutError;
   final HomePreviewRepository? repository;
@@ -329,28 +328,31 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           minimumSize: const Size(36, 36),
                         ),
                       ),
-                      if (widget.onLogout != null)
+                      if (widget.onOpenMyPage != null)
                         IconButton(
-                          tooltip: '계정 메뉴',
-                          icon: const Icon(Icons.more_horiz_rounded, size: 20),
+                          tooltip: '마이페이지',
                           onPressed: widget.loggingOut
                               ? null
-                              : () async {
-                                  final action = await showAppSelection<String>(
-                                    context,
-                                    title: '계정',
-                                    options: const [
-                                      AppSelectionOption(
-                                        'logout',
-                                        '로그아웃',
-                                        icon: Icons.logout_rounded,
-                                      ),
-                                    ],
-                                  );
-                                  if (action == 'logout' && mounted) {
-                                    widget.onLogout?.call();
-                                  }
-                                },
+                              : widget.onOpenMyPage,
+                          icon: SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: Center(
+                              child: SvgPicture.asset(
+                                'assets/icons/profile.svg',
+                                width: 20,
+                                height: 20,
+                                colorFilter: const ColorFilter.mode(
+                                  ReferenceStyle.muted,
+                                  BlendMode.srcIn,
+                                ),
+                              ),
+                            ),
+                          ),
+                          style: IconButton.styleFrom(
+                            side: const BorderSide(color: Color(0xFFE4E1D8)),
+                            minimumSize: const Size(36, 36),
+                          ),
                         ),
                     ],
                   ),

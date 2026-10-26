@@ -1,7 +1,15 @@
 import 'package:flutter/material.dart';
 
 import '../../features/auth/data/models/onboarding_progress.dart';
+import '../../core/media/image_picker_service.dart';
+import '../../features/profile/data/models/body_profile.dart';
+import '../../features/profile/data/profile_repository.dart';
+import '../../features/routines/data/routine_refresh_repository.dart';
+import '../../features/photos/data/photo_repository.dart';
+import '../../features/profile/presentation/pages/my_page.dart';
 import '../../features/body_analysis/presentation/pages/analysis_entry_page.dart';
+import '../../features/body_analysis/presentation/analysis_dependencies.dart';
+import '../../features/body_analysis/presentation/pages/analysis_history_page.dart';
 import '../../features/home/presentation/pages/home_page.dart';
 import '../../features/workout/presentation/pages/workout_history_page.dart';
 import 'app_bottom_nav.dart';
@@ -16,8 +24,20 @@ class MainShell extends StatefulWidget {
     this.onLogout,
     this.loggingOut = false,
     this.logoutError,
+    this.profileRepository,
+    this.routineRefreshRepository,
+    this.photoRepository,
+    this.photoPicker,
+    this.onProfileSaved,
+    this.analysisDependencies,
   }) : assert(initialIndex >= 0 && initialIndex < 5);
 
+  final AnalysisDependencies? analysisDependencies;
+  final ProfileRepository? profileRepository;
+  final RoutineRefreshRepository? routineRefreshRepository;
+  final PhotoRepository? photoRepository;
+  final PhotoPicker? photoPicker;
+  final ValueChanged<BodyProfile>? onProfileSaved;
   final int initialIndex;
   final OnboardingProgress? onboarding;
   final VoidCallback? onLogout;
@@ -45,11 +65,45 @@ class _MainShellState extends State<MainShell> {
         children: [
           HomePage(
             onboarding: widget.onboarding,
-            onLogout: widget.onLogout,
+            onOpenMyPage:
+                widget.onboarding == null ||
+                    widget.profileRepository == null ||
+                    widget.photoRepository == null ||
+                    widget.photoPicker == null
+                ? null
+                : () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => MyPage(
+                        onboarding: widget.onboarding!,
+                        profileRepository: widget.profileRepository!,
+                        routineRefreshRepository:
+                            widget.routineRefreshRepository,
+                        photoRepository: widget.photoRepository!,
+                        photoPicker: widget.photoPicker!,
+                        onOpenAnalysisHistory:
+                            widget.analysisDependencies == null
+                            ? null
+                            : () => Navigator.push(
+                                context,
+                                MaterialPageRoute<void>(
+                                  builder: (_) => AnalysisHistoryPage(
+                                    dependencies: widget.analysisDependencies!,
+                                  ),
+                                ),
+                              ),
+                        onProfileSaved: widget.onProfileSaved,
+                        onLogout: widget.onLogout,
+                      ),
+                    ),
+                  ),
             loggingOut: widget.loggingOut,
             logoutError: widget.logoutError,
           ),
-          const AnalysisEntryPage(),
+          AnalysisEntryPage(
+            key: ValueKey(widget.onboarding?.account?.email),
+            dependencies: widget.analysisDependencies,
+          ),
           const WorkoutHistoryPage(),
           const AppScaffold(
             title: '인공지능 코치',

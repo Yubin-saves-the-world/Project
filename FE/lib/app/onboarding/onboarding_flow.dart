@@ -1,7 +1,19 @@
+import '../../features/body_analysis/data/analysis_pending_store.dart';
+import '../../features/body_analysis/data/local_analysis_repository.dart';
+import '../../features/body_analysis/data/server_analysis_repository.dart';
+import '../../features/body_analysis/presentation/analysis_dependencies.dart';
+import '../../features/body_analysis/presentation/pages/analysis_entry_page.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/media/image_picker_service.dart';
 import '../../features/auth/data/onboarding_repository.dart';
+import '../../features/auth/data/server_onboarding_repository.dart';
+import '../../features/profile/data/local_profile_repository.dart';
+import '../../features/profile/data/server_profile_repository.dart';
+import '../../features/photos/data/local_photo_repository.dart';
+import '../../features/photos/data/server_photo_repository.dart';
+import '../../features/routines/data/routine_refresh_repository.dart';
+import '../../features/routines/data/server_routine_refresh_repository.dart';
 import '../../features/auth/presentation/pages/signup_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/consent_page.dart';
@@ -27,6 +39,8 @@ class OnboardingFlow extends StatefulWidget {
 
 class _OnboardingFlowState extends State<OnboardingFlow> {
   late final OnboardingViewModel _model;
+  final _analysisDependencies = <String, AnalysisDependencies>{};
+  final _localPhotos = <String, LocalPhotoRepository>{};
   @override
   void initState() {
     super.initState();
@@ -41,6 +55,33 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   void dispose() {
     _model.dispose();
     super.dispose();
+  }
+
+  AnalysisDependencies _analysis() {
+    final email = _model.progress.account!.email;
+    return _analysisDependencies.putIfAbsent(email, () {
+      final server = widget.repository is ServerOnboardingRepository
+          ? widget.repository as ServerOnboardingRepository
+          : null;
+      return AnalysisDependencies(
+        repository: server == null
+            ? LocalAnalysisRepository()
+            : ServerAnalysisRepository(server.api),
+        photos: server == null
+            ? _localPhotos.putIfAbsent(email, LocalPhotoRepository.new)
+            : ServerPhotoRepository(server.api),
+        picker: widget.photoPicker is ImagePickerService
+            ? ImagePickerService(owner: 'analysis:$email')
+            : widget.photoPicker,
+        pending: server == null
+            ? MemoryAnalysisPendingStore()
+            : PreferencesAnalysisPendingStore(email),
+        onAccessRequired: () {
+          Navigator.of(context).popUntil((route) => route.isFirst);
+          _model.initialize();
+        },
+      );
+    });
   }
 
   @override
@@ -59,7 +100,33 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       if (_model.progress.completed && _model.progress.signedIn) {
         return MainShell(
           onboarding: _model.progress,
+          analysisDependencies: _analysis(),
           onLogout: _model.signOut,
+          profileRepository: widget.repository is ServerOnboardingRepository
+              ? ServerProfileRepository(
+                  (widget.repository as ServerOnboardingRepository).api,
+                )
+              : LocalProfileRepository(widget.repository),
+          routineRefreshRepository:
+              widget.repository is ServerOnboardingRepository
+              ? ServerRoutineRefreshRepository(
+                  (widget.repository as ServerOnboardingRepository).api,
+                )
+              : LocalRoutineRefreshRepository(),
+          photoRepository: widget.repository is ServerOnboardingRepository
+              ? ServerPhotoRepository(
+                  (widget.repository as ServerOnboardingRepository).api,
+                )
+              : _localPhotos.putIfAbsent(
+                  _model.progress.account!.email,
+                  LocalPhotoRepository.new,
+                ),
+          photoPicker: widget.photoPicker is ImagePickerService
+              ? ImagePickerService(
+                  owner: 'photos:${_model.progress.account!.email}',
+                )
+              : widget.photoPicker,
+          onProfileSaved: _model.applySavedProfile,
           loggingOut: _model.busy,
           logoutError: _model.error,
         );
@@ -107,6 +174,13 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         child: switch (_model.step) {
           0 => SignupPage(key: const ValueKey('signup'), model: _model),
           1 => ProfileFormPage(key: const ValueKey('profile'), model: _model),
+          _ when widget.repository is ServerOnboardingRepository =>
+            AnalysisEntryPage(
+              key: const ValueKey('server-analysis'),
+              dependencies: _analysis(),
+              onBack: _model.back,
+              onCompleted: () => _model.finish(prepareAnalysis: false),
+            ),
           _ => OnboardingAnalysisPage(
             key: const ValueKey('analysis'),
             model: _model,
