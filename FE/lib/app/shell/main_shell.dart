@@ -1,3 +1,4 @@
+import '../../features/routines/presentation/pages/routine_week_page.dart';
 import '../../features/exercises/data/exercise_repository.dart';
 import '../../features/exercises/presentation/pages/exercise_list_page.dart';
 import '../../features/goal_body/presentation/pages/goal_body_page.dart';
@@ -62,6 +63,22 @@ class _MainShellState extends State<MainShell> {
   void initState() {
     super.initState();
     _selectedIndex = widget.initialIndex;
+  }
+
+  void _openRoutines() {
+    final repository = widget.analysisDependencies?.routines;
+    if (repository == null) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => RoutineWeekPage(
+          repository: repository,
+          exercises: widget.exerciseRepository,
+          localPreview: widget.exercisePreview,
+          onAccessRequired: widget.analysisDependencies?.onAccessRequired,
+        ),
+      ),
+    );
   }
 
   void _openExercises() {
@@ -132,6 +149,10 @@ class _MainShellState extends State<MainShell> {
                         onOpenExercises: widget.exerciseRepository == null
                             ? null
                             : _openExercises,
+                        onOpenRoutines:
+                            widget.analysisDependencies?.routines == null
+                            ? null
+                            : _openRoutines,
                         onProfileSaved: widget.onProfileSaved,
                         onLogout: widget.onLogout,
                       ),

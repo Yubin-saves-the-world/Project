@@ -1,3 +1,5 @@
+import '../../../routines/presentation/pages/routine_detail_page.dart';
+import '../../../routines/presentation/pages/routine_week_page.dart';
 import 'package:flutter/material.dart';
 import '../../../../ui/core/widgets/design_reference_page.dart';
 import '../../../../ui/core/widgets/management_page.dart';
@@ -252,6 +254,22 @@ class _AnalysisRunPageState extends State<AnalysisRunPage>
           style: ReferenceStyle.text(20, 28, weight: FontWeight.w500),
         ),
         if (model.routines!.isEmpty) const Text('생성된 추천 루틴이 없어요.'),
+        if (widget.dependencies.routines != null && model.routines!.isNotEmpty)
+          TextButton(
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => RoutineWeekPage(
+                  repository: widget.dependencies.routines!,
+                  exercises: widget.dependencies.exercises,
+                  date: DateTime.tryParse(model.routines!.first.date),
+                  onAccessRequired: widget.dependencies.onAccessRequired,
+                ),
+              ),
+            ),
+            child: const Text('주간 루틴 보기'),
+          ),
+
         for (final routine in model.routines!)
           Padding(
             padding: const EdgeInsets.only(top: 12),
@@ -270,6 +288,22 @@ class _AnalysisRunPageState extends State<AnalysisRunPage>
                   style: ReferenceStyle.text(16, 24, weight: FontWeight.w500),
                 ),
                 for (final exercise in routine.items) Text(exercise),
+                if (widget.dependencies.routines != null)
+                  TextButton(
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => RoutineDetailPage(
+                          repository: widget.dependencies.routines!,
+                          id: routine.id,
+                          exercises: widget.dependencies.exercises,
+                          onAccessRequired:
+                              widget.dependencies.onAccessRequired,
+                        ),
+                      ),
+                    ),
+                    child: const Text('루틴 상세 보기'),
+                  ),
               ],
             ),
           ),

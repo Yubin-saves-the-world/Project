@@ -23,6 +23,7 @@ class MyPage extends StatefulWidget {
     this.onOpenAnalysisHistory,
     this.onOpenGoal,
     this.onOpenExercises,
+    this.onOpenRoutines,
     this.onLogout,
     this.routineRefreshRepository,
   });
@@ -36,6 +37,7 @@ class MyPage extends StatefulWidget {
   final VoidCallback? onOpenAnalysisHistory;
   final VoidCallback? onOpenGoal;
   final VoidCallback? onOpenExercises;
+  final VoidCallback? onOpenRoutines;
   @override
   State<MyPage> createState() => _MyPageState();
 }
@@ -88,9 +90,17 @@ class _MyPageState extends State<MyPage> {
         final success = await model.regenerate();
         if (!mounted) return;
         if (success) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('추천 루틴을 새로 만들었어요.')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('추천 루틴을 새로 만들었어요.'),
+              action: widget.onOpenRoutines == null
+                  ? null
+                  : SnackBarAction(
+                      label: '보기',
+                      onPressed: widget.onOpenRoutines!,
+                    ),
+            ),
+          );
         } else {
           await showDialog<void>(
             context: context,
@@ -291,6 +301,13 @@ class _MyPageState extends State<MyPage> {
             ),
             const SizedBox(height: 10),
             _card([
+              if (widget.onOpenRoutines != null)
+                _row(
+                  '추천 루틴',
+                  '',
+                  widget.onOpenRoutines!,
+                  icon: Icons.calendar_view_week_outlined,
+                ),
               if (widget.onOpenExercises != null)
                 _row(
                   '운동 종목',

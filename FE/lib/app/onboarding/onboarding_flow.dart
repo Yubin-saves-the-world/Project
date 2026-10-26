@@ -1,3 +1,5 @@
+import '../../features/routines/data/server_routine_repository.dart';
+import '../../features/routines/data/local_routine_repository.dart';
 import '../../features/exercises/data/server_exercise_repository.dart';
 import '../../features/exercises/data/local_exercise_repository.dart';
 import '../../features/goal_body/data/local_goal_repository.dart';
@@ -77,6 +79,14 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       }
 
       return AnalysisDependencies(
+        routines: server == null
+            ? LocalRoutineRepository()
+            : ServerRoutineRepository(server.api),
+        exercises: server == null
+            ? LocalExerciseRepository(
+                () => _model.progress.profile?.experienceLevel,
+              )
+            : ServerExerciseRepository(server.api),
         goals: GoalDependencies(
           repository: server == null
               ? LocalGoalRepository()
@@ -120,13 +130,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         return MainShell(
           onboarding: _model.progress,
           analysisDependencies: _analysis(),
-          exerciseRepository: widget.repository is ServerOnboardingRepository
-              ? ServerExerciseRepository(
-                  (widget.repository as ServerOnboardingRepository).api,
-                )
-              : LocalExerciseRepository(
-                  () => _model.progress.profile?.experienceLevel,
-                ),
+          exerciseRepository: _analysis().exercises,
           exercisePreview: widget.repository is! ServerOnboardingRepository,
           onLogout: _model.signOut,
           profileRepository: widget.repository is ServerOnboardingRepository

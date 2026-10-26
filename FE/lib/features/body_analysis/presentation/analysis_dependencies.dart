@@ -1,3 +1,5 @@
+import '../../routines/data/routine_repository.dart';
+import '../../exercises/data/exercise_repository.dart';
 import '../../goal_body/presentation/goal_dependencies.dart';
 import '../../../core/media/image_picker_service.dart';
 import '../../photos/data/photo_repository.dart';
@@ -14,7 +16,11 @@ class AnalysisDependencies {
     this.preparer,
     this.onAccessRequired,
     this.goals,
+    this.routines,
+    this.exercises,
   });
+  final RoutineRepository? routines;
+  final ExerciseRepository? exercises;
   final GoalDependencies? goals;
   final AnalysisRepository repository;
   final PhotoRepository photos;
