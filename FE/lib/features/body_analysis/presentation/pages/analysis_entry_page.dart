@@ -1,3 +1,4 @@
+import '../../../goal_body/presentation/pages/goal_body_page.dart';
 import 'package:flutter/material.dart';
 import '../../../../ui/core/widgets/design_reference_page.dart';
 import '../analysis_dependencies.dart';
@@ -57,6 +58,23 @@ class _AnalysisEntryPageState extends State<AnalysisEntryPage> {
   }
 
   Future<void> _goal() async {
+    final dependencies = widget.dependencies!.goals;
+    if (dependencies != null) {
+      final selection = await Navigator.push<GoalSelection>(
+        context,
+        MaterialPageRoute(
+          builder: (_) =>
+              GoalBodyPage(dependencies: dependencies, chooseForAnalysis: true),
+        ),
+      );
+      if (!mounted) return;
+      if (selection != null) {
+        model!.selectGoal(selection.goal?.comparison);
+      } else {
+        await model!.refreshSelectedGoal();
+      }
+      return;
+    }
     final goal = await model!.loadGoal();
     if (!mounted || model!.error != null) return;
     final selected = await showDialog<bool>(
@@ -104,8 +122,9 @@ class _AnalysisEntryPageState extends State<AnalysisEntryPage> {
           if (id != null) _open(id);
         },
         onSelectGoal: _goal,
+        goalTitle: widget.dependencies!.goals == null ? '목표 체형 사진' : '목표 체형',
         goalCaption: model.selectedGoal == null
-            ? '등록된 목표 체형과 비교해요 (선택)'
+            ? '사진 또는 설명으로 목표를 정해요 (선택)'
             : '목표 체형 선택됨 · 눌러서 변경하기',
         topAction: TextButton(
           onPressed: () async {

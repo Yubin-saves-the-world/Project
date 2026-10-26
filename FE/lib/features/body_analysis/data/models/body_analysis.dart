@@ -76,7 +76,7 @@ class AnalysisGoal {
   factory AnalysisGoal.fromJson(Map<String, dynamic> json) => AnalysisGoal(
     json['goal_body_id'] as int,
     analysisStatus(json['status']),
-    json['summary'] as String?,
+    (json['summary'] ?? json['description']) as String?,
   );
 }
 

@@ -21,6 +21,7 @@ class MyPage extends StatefulWidget {
     required this.photoPicker,
     this.onProfileSaved,
     this.onOpenAnalysisHistory,
+    this.onOpenGoal,
     this.onLogout,
     this.routineRefreshRepository,
   });
@@ -32,6 +33,7 @@ class MyPage extends StatefulWidget {
   final ValueChanged<BodyProfile>? onProfileSaved;
   final VoidCallback? onLogout;
   final VoidCallback? onOpenAnalysisHistory;
+  final VoidCallback? onOpenGoal;
   @override
   State<MyPage> createState() => _MyPageState();
 }
@@ -287,6 +289,13 @@ class _MyPageState extends State<MyPage> {
             ),
             const SizedBox(height: 10),
             _card([
+              if (widget.onOpenGoal != null)
+                _row(
+                  '목표 체형',
+                  '',
+                  widget.onOpenGoal!,
+                  icon: Icons.flag_outlined,
+                ),
               if (widget.onOpenAnalysisHistory != null)
                 _row(
                   '분석 기록',

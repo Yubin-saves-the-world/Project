@@ -1,3 +1,6 @@
+import '../../features/goal_body/data/local_goal_repository.dart';
+import '../../features/goal_body/data/server_goal_repository.dart';
+import '../../features/goal_body/presentation/goal_dependencies.dart';
 import '../../features/body_analysis/data/analysis_pending_store.dart';
 import '../../features/body_analysis/data/local_analysis_repository.dart';
 import '../../features/body_analysis/data/server_analysis_repository.dart';
@@ -63,23 +66,37 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       final server = widget.repository is ServerOnboardingRepository
           ? widget.repository as ServerOnboardingRepository
           : null;
+      final photos = server == null
+          ? _localPhotos.putIfAbsent(email, LocalPhotoRepository.new)
+          : ServerPhotoRepository(server.api);
+      void checkAccess() {
+        Navigator.of(context).popUntil((route) => route.isFirst);
+        _model.initialize();
+      }
+
       return AnalysisDependencies(
+        goals: GoalDependencies(
+          repository: server == null
+              ? LocalGoalRepository()
+              : ServerGoalRepository(server.api),
+          photos: photos,
+          picker: widget.photoPicker is ImagePickerService
+              ? ImagePickerService(owner: 'goal:$email')
+              : widget.photoPicker,
+          localPreview: server == null,
+          onAccessRequired: checkAccess,
+        ),
         repository: server == null
             ? LocalAnalysisRepository()
             : ServerAnalysisRepository(server.api),
-        photos: server == null
-            ? _localPhotos.putIfAbsent(email, LocalPhotoRepository.new)
-            : ServerPhotoRepository(server.api),
+        photos: photos,
         picker: widget.photoPicker is ImagePickerService
             ? ImagePickerService(owner: 'analysis:$email')
             : widget.photoPicker,
         pending: server == null
             ? MemoryAnalysisPendingStore()
             : PreferencesAnalysisPendingStore(email),
-        onAccessRequired: () {
-          Navigator.of(context).popUntil((route) => route.isFirst);
-          _model.initialize();
-        },
+        onAccessRequired: checkAccess,
       );
     });
   }

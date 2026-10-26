@@ -156,6 +156,19 @@ class AnalysisInputViewModel extends ChangeNotifier
     _notify();
   }
 
+  Future<void> refreshSelectedGoal() async {
+    if (selectedGoal == null || dependencies.goals == null) return;
+    try {
+      final goal = await dependencies.goals!.repository.load();
+      selectedGoal = goal?.status == AnalysisStatus.done
+          ? goal!.comparison
+          : null;
+    } catch (e) {
+      _showError(e);
+    }
+    _notify();
+  }
+
   void _showError(Object e) {
     accessCode = e is ApiRequestError ? e.code : null;
     error = e is StateError
@@ -197,6 +210,16 @@ class AnalysisInputViewModel extends ChangeNotifier
     accessCode = null;
     _notify();
     try {
+      if (selectedGoal != null && dependencies.goals != null) {
+        final currentGoal = await dependencies.goals!.repository.load();
+        if (currentGoal?.status != AnalysisStatus.done ||
+            currentGoal?.id != selectedGoal?.id) {
+          selectedGoal = null;
+          error = '목표 체형이 변경되었거나 처리 중이에요. 목표를 다시 선택해 주세요.';
+          return false;
+        }
+        selectedGoal = currentGoal!.comparison;
+      }
       final front = await _upload(analysis.front!, BodyPhotoSide.front);
       final side = analysis.side == null
           ? null

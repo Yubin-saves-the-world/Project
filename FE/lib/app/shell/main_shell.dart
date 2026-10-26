@@ -1,3 +1,4 @@
+import '../../features/goal_body/presentation/pages/goal_body_page.dart';
 import 'package:flutter/material.dart';
 
 import '../../features/auth/data/models/onboarding_progress.dart';
@@ -89,6 +90,17 @@ class _MainShellState extends State<MainShell> {
                                 MaterialPageRoute<void>(
                                   builder: (_) => AnalysisHistoryPage(
                                     dependencies: widget.analysisDependencies!,
+                                  ),
+                                ),
+                              ),
+                        onOpenGoal: widget.analysisDependencies?.goals == null
+                            ? null
+                            : () => Navigator.push(
+                                context,
+                                MaterialPageRoute<void>(
+                                  builder: (_) => GoalBodyPage(
+                                    dependencies:
+                                        widget.analysisDependencies!.goals!,
                                   ),
                                 ),
                               ),

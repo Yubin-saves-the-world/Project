@@ -13,6 +13,7 @@ class OnboardingAnalysisPage extends StatefulWidget {
     required this.onCompleted,
     this.onSelectGoal,
     this.goalCaption,
+    this.goalTitle = '목표 체형 사진',
     this.supportsText = true,
     this.topAction,
     this.notice,
@@ -23,6 +24,7 @@ class OnboardingAnalysisPage extends StatefulWidget {
   final VoidCallback onCompleted;
   final VoidCallback? onSelectGoal;
   final String? goalCaption;
+  final String goalTitle;
   final bool supportsText;
   final Widget? topAction, notice;
   final VoidCallback? onBack;
@@ -405,7 +407,7 @@ class _OnboardingAnalysisPageState extends State<OnboardingAnalysisPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                '목표 체형 사진',
+                                widget.goalTitle,
                                 style: ReferenceStyle.text(
                                   14,
                                   21,

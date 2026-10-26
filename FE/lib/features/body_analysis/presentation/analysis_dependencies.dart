@@ -1,3 +1,4 @@
+import '../../goal_body/presentation/goal_dependencies.dart';
 import '../../../core/media/image_picker_service.dart';
 import '../../photos/data/photo_repository.dart';
 import '../../photos/data/photo_preparer.dart';
@@ -12,7 +13,9 @@ class AnalysisDependencies {
     required this.pending,
     this.preparer,
     this.onAccessRequired,
+    this.goals,
   });
+  final GoalDependencies? goals;
   final AnalysisRepository repository;
   final PhotoRepository photos;
   final PhotoPicker picker;
