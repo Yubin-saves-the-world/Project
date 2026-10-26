@@ -1,3 +1,5 @@
+import '../../data/home_server_repository.dart';
+import '../widgets/server_records_day.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import '../../../../ui/core/widgets/design_reference_page.dart';
@@ -5,8 +7,13 @@ import '../home_view_model.dart';
 
 /// 홈과 같은 기록을 조회하지만 날짜 선택은 이 페이지 안에서만 유지합니다.
 class WorkoutCalendarPage extends StatefulWidget {
-  const WorkoutCalendarPage({super.key, required this.model});
+  const WorkoutCalendarPage({
+    super.key,
+    required this.model,
+    this.serverRepository,
+  });
   final HomeViewModel model;
+  final HomeServerRepository? serverRepository;
 
   @override
   State<WorkoutCalendarPage> createState() => _WorkoutCalendarPageState();
@@ -92,7 +99,19 @@ class _WorkoutCalendarPageState extends State<WorkoutCalendarPage> {
                         style: _text(18, bold: true),
                       ),
                       const SizedBox(height: 12),
-                      if (model.loading)
+                      if (widget.serverRepository != null) ...[
+                        ServerRecordsDay(
+                          key: ValueKey(HomeViewModel.dateKey(selectedDate)),
+                          repository: widget.serverRepository!,
+                          date: selectedDate,
+                        ),
+                        const SizedBox(height: 20),
+                        if (records.isNotEmpty)
+                          Text('기기에 저장된 기록', style: _text(14, bold: true)),
+                      ],
+                      if (widget.serverRepository != null && records.isEmpty)
+                        const SizedBox.shrink()
+                      else if (model.loading)
                         const Center(child: CircularProgressIndicator())
                       else if (!model.loaded) ...[
                         Text('기록을 불러오지 못했어요.', style: _text(14, muted: true)),

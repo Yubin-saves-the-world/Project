@@ -1,3 +1,4 @@
+import '../../features/home/presentation/home_server_dependencies.dart';
 import '../../features/routines/presentation/pages/routine_week_page.dart';
 import '../../features/exercises/data/exercise_repository.dart';
 import '../../features/exercises/presentation/pages/exercise_list_page.dart';
@@ -36,8 +37,10 @@ class MainShell extends StatefulWidget {
     this.analysisDependencies,
     this.exerciseRepository,
     this.exercisePreview = false,
+    this.homeServer,
   }) : assert(initialIndex >= 0 && initialIndex < 5);
 
+  final HomeServerDependencies? homeServer;
   final ExerciseRepository? exerciseRepository;
   final bool exercisePreview;
   final AnalysisDependencies? analysisDependencies;
@@ -58,11 +61,17 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   late int _selectedIndex;
+  int _homeRevision = 0;
 
   @override
   void initState() {
     super.initState();
     _selectedIndex = widget.initialIndex;
+  }
+
+  void _openAnalysis() {
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    if (mounted) setState(() => _selectedIndex = 1);
   }
 
   void _openRoutines() {
@@ -104,6 +113,11 @@ class _MainShellState extends State<MainShell> {
         index: _selectedIndex,
         children: [
           HomePage(
+            key: ValueKey('home:${widget.onboarding?.account?.email}'),
+            server: widget.homeServer,
+            isActive: _selectedIndex == 0,
+            refreshToken: _homeRevision,
+            onOpenAnalysis: _openAnalysis,
             onboarding: widget.onboarding,
             onOpenExercises: widget.exerciseRepository == null
                 ? null
@@ -114,50 +128,54 @@ class _MainShellState extends State<MainShell> {
                     widget.photoRepository == null ||
                     widget.photoPicker == null
                 ? null
-                : () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => MyPage(
-                        onboarding: widget.onboarding!,
-                        profileRepository: widget.profileRepository!,
-                        routineRefreshRepository:
-                            widget.routineRefreshRepository,
-                        photoRepository: widget.photoRepository!,
-                        photoPicker: widget.photoPicker!,
-                        onOpenAnalysisHistory:
-                            widget.analysisDependencies == null
-                            ? null
-                            : () => Navigator.push(
-                                context,
-                                MaterialPageRoute<void>(
-                                  builder: (_) => AnalysisHistoryPage(
-                                    dependencies: widget.analysisDependencies!,
+                : () async {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => MyPage(
+                          onboarding: widget.onboarding!,
+                          profileRepository: widget.profileRepository!,
+                          routineRefreshRepository:
+                              widget.routineRefreshRepository,
+                          photoRepository: widget.photoRepository!,
+                          photoPicker: widget.photoPicker!,
+                          onOpenAnalysisHistory:
+                              widget.analysisDependencies == null
+                              ? null
+                              : () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute<void>(
+                                    builder: (_) => AnalysisHistoryPage(
+                                      dependencies:
+                                          widget.analysisDependencies!,
+                                    ),
                                   ),
                                 ),
-                              ),
-                        onOpenGoal: widget.analysisDependencies?.goals == null
-                            ? null
-                            : () => Navigator.push(
-                                context,
-                                MaterialPageRoute<void>(
-                                  builder: (_) => GoalBodyPage(
-                                    dependencies:
-                                        widget.analysisDependencies!.goals!,
+                          onOpenGoal: widget.analysisDependencies?.goals == null
+                              ? null
+                              : () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute<void>(
+                                    builder: (_) => GoalBodyPage(
+                                      dependencies:
+                                          widget.analysisDependencies!.goals!,
+                                    ),
                                   ),
                                 ),
-                              ),
-                        onOpenExercises: widget.exerciseRepository == null
-                            ? null
-                            : _openExercises,
-                        onOpenRoutines:
-                            widget.analysisDependencies?.routines == null
-                            ? null
-                            : _openRoutines,
-                        onProfileSaved: widget.onProfileSaved,
-                        onLogout: widget.onLogout,
+                          onOpenExercises: widget.exerciseRepository == null
+                              ? null
+                              : _openExercises,
+                          onOpenRoutines:
+                              widget.analysisDependencies?.routines == null
+                              ? null
+                              : _openRoutines,
+                          onProfileSaved: widget.onProfileSaved,
+                          onLogout: widget.onLogout,
+                        ),
                       ),
-                    ),
-                  ),
+                    );
+                    if (mounted) setState(() => _homeRevision++);
+                  },
             loggingOut: widget.loggingOut,
             logoutError: widget.logoutError,
           ),

@@ -1,3 +1,6 @@
+import '../../features/home/data/home_server_repository.dart';
+import '../../features/home/data/recommendation_choice_store.dart';
+import '../../features/home/presentation/home_server_dependencies.dart';
 import '../../features/routines/data/server_routine_repository.dart';
 import '../../features/routines/data/local_routine_repository.dart';
 import '../../features/exercises/data/server_exercise_repository.dart';
@@ -46,6 +49,7 @@ class OnboardingFlow extends StatefulWidget {
 
 class _OnboardingFlowState extends State<OnboardingFlow> {
   late final OnboardingViewModel _model;
+  final _homeServers = <String, HomeServerDependencies>{};
   final _analysisDependencies = <String, AnalysisDependencies>{};
   final _localPhotos = <String, LocalPhotoRepository>{};
   @override
@@ -113,6 +117,22 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     });
   }
 
+  HomeServerDependencies? _homeServer() {
+    final repository = widget.repository;
+    if (repository is! ServerOnboardingRepository) return null;
+    final email = _model.progress.account!.email;
+    return _homeServers.putIfAbsent(
+      email,
+      () => HomeServerDependencies(
+        repository: ApiHomeServerRepository(repository.api),
+        routines: _analysis().routines!,
+        choices: PreferencesRecommendationChoiceStore(email),
+        exercises: _analysis().exercises,
+        onAccessRequired: _analysis().onAccessRequired,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: _model,
@@ -130,6 +150,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         return MainShell(
           onboarding: _model.progress,
           analysisDependencies: _analysis(),
+          homeServer: _homeServer(),
           exerciseRepository: _analysis().exercises,
           exercisePreview: widget.repository is! ServerOnboardingRepository,
           onLogout: _model.signOut,
