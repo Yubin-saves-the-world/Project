@@ -47,6 +47,7 @@ public class SecurityConfig {
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(a -> a
                         .requestMatchers(publicEndpoints()).permitAll()
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 .exceptionHandling(e -> e
                         .authenticationEntryPoint(errorHandlers)
@@ -91,6 +92,7 @@ public class SecurityConfig {
                 PathPatternRequestMatcher.pathPattern(HttpMethod.POST, "/api/auth/password/reset-request"),
                 PathPatternRequestMatcher.pathPattern(HttpMethod.POST, "/api/auth/password/reset-verification"),
                 PathPatternRequestMatcher.pathPattern(HttpMethod.PATCH, "/api/auth/password/reset"),
+                PathPatternRequestMatcher.pathPattern(HttpMethod.GET, "/api/files/*"),
                 PathPatternRequestMatcher.pathPattern("/actuator/health"),
                 PathPatternRequestMatcher.pathPattern("/swagger-ui.html"),
                 PathPatternRequestMatcher.pathPattern("/swagger-ui/**"),

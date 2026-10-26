@@ -1,5 +1,6 @@
 package com.asdf.board.be.global.exception;
 
+import jakarta.validation.ConstraintViolationException;
 import java.util.List;
 import java.util.Locale;
 import lombok.extern.slf4j.Slf4j;
@@ -9,7 +10,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.multipart.MultipartException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
@@ -37,8 +41,36 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return respond(ErrorCode.INTERNAL_ERROR);
     }
 
+    @ExceptionHandler(ConstraintViolationException.class)
+    ResponseEntity<ErrorResponse> handleConstraint(ConstraintViolationException e) {
+        List<ErrorResponse.FieldError> fields = e.getConstraintViolations().stream()
+                .map(v -> {
+                    String path = v.getPropertyPath().toString();
+                    String name = path.substring(path.lastIndexOf('.') + 1);
+                    return new ErrorResponse.FieldError(toSnakeCase(name), v.getMessage());
+                })
+                .toList();
+        return ResponseEntity.badRequest().body(ErrorResponse.of(ErrorCode.VALIDATION_FAILED, fields));
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleMaxUploadSizeExceededException(
+            MaxUploadSizeExceededException e, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+        return ResponseEntity.status(ErrorCode.IMAGE_TOO_LARGE.getStatus()).body(ErrorResponse.of(ErrorCode.IMAGE_TOO_LARGE));
+    }
+
+    @ExceptionHandler(MultipartException.class)
+    ResponseEntity<ErrorResponse> handleMultipart(MultipartException e) {
+        return respond(ErrorCode.VALIDATION_FAILED);
+    }
+
     @ExceptionHandler(Exception.class)
     ResponseEntity<ErrorResponse> handleUnexpected(Exception e) {
+        for (Throwable t = e; t != null; t = t.getCause()) {
+            if (t.getClass().getName().endsWith("InvalidParameterException")) {
+                return respond(ErrorCode.VALIDATION_FAILED);
+            }
+        }
         log.error("처리되지 않은 오류", e);
         return respond(ErrorCode.INTERNAL_ERROR);
     }
@@ -50,6 +82,15 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 .map(f -> new ErrorResponse.FieldError(toSnakeCase(f.getField()), f.getDefaultMessage()))
                 .toList();
         return ResponseEntity.badRequest().body(ErrorResponse.of(ErrorCode.VALIDATION_FAILED, fields));
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleHttpMediaTypeNotSupported(
+            HttpMediaTypeNotSupportedException e, HttpHeaders headers,
+            HttpStatusCode status, WebRequest request) {
+        ErrorCode code = request.getDescription(false).contains("/api/photos")
+                ? ErrorCode.IMAGE_INVALID_TYPE : ErrorCode.VALIDATION_FAILED;
+        return ResponseEntity.status(code.getStatus()).body(ErrorResponse.of(code));
     }
 
     @Override

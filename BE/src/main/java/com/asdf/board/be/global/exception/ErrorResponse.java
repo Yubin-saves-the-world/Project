@@ -8,7 +8,7 @@ public record ErrorResponse(String code, String message, int status, List<FieldE
     }
 
     public static ErrorResponse of(ErrorCode errorCode) {
-        return new ErrorResponse(errorCode.name(), errorCode.getMessage(), errorCode.getStatus().value(), null);
+        return new ErrorResponse(errorCode.name(), errorCode.getMessage(), errorCode.getStatus().value(), List.of());
     }
 
     public static ErrorResponse of(ErrorCode errorCode, List<FieldError> fields) {
