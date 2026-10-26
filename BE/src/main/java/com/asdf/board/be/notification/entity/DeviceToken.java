@@ -26,17 +26,21 @@ public class DeviceToken extends BaseTimeEntity {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(name = "fcm_token", nullable = false, unique = true, length = 255)
+    @Column(name = "fcm_token", nullable = false, length = 4096)
     private String fcmToken;
+
+    @Column(name = "token_hash", nullable = false, length = 64)
+    private String tokenHash;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "platform", nullable = false, length = 10)
     private Platform platform;
 
     @Builder
-    private DeviceToken(User user, String fcmToken, Platform platform) {
+    private DeviceToken(User user, String fcmToken, String tokenHash, Platform platform) {
         this.user = user;
         this.fcmToken = fcmToken;
+        this.tokenHash = tokenHash;
         this.platform = platform;
     }
 
