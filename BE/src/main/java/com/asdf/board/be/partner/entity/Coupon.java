@@ -26,10 +26,10 @@ public class Coupon {
     @JoinColumn(name = "partner_id", nullable = false)
     private Partner partner;
 
-    @Column(name = "title", nullable = false, length = 50)
+    @Column(name = "title", nullable = false, length = 100)
     private String title;
 
-    @Column(name = "discount_desc", nullable = false, length = 100)
+    @Column(name = "discount_desc", nullable = false, length = 200)
     private String discountDesc;
 
     @JdbcTypeCode(SqlTypes.SMALLINT)

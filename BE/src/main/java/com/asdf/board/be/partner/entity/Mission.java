@@ -23,7 +23,7 @@ public class Mission extends BaseCreatedEntity {
     @Column(name = "mission_id")
     private Long id;
 
-    @Column(name = "title", nullable = false, length = 50)
+    @Column(name = "title", nullable = false, length = 100)
     private String title;
 
     @JdbcTypeCode(SqlTypes.JSON)
