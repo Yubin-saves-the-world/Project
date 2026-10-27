@@ -1,3 +1,6 @@
+import '../../features/workout/data/workout_repository.dart';
+import '../../features/workout/data/workout_draft_store.dart';
+import '../../features/workout/presentation/workout_dependencies.dart';
 import '../../features/home/data/home_server_repository.dart';
 import '../../features/home/data/recommendation_choice_store.dart';
 import '../../features/home/presentation/home_server_dependencies.dart';
@@ -83,6 +86,14 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       }
 
       return AnalysisDependencies(
+        workouts: server == null
+            ? null
+            : WorkoutDependencies(
+                repository: ServerWorkoutRepository(server.api),
+                routines: ServerRoutineRepository(server.api),
+                drafts: PreferencesWorkoutDraftStore(email),
+                onAccessRequired: checkAccess,
+              ),
         routines: server == null
             ? LocalRoutineRepository()
             : ServerRoutineRepository(server.api),
@@ -127,6 +138,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         repository: ApiHomeServerRepository(repository.api),
         routines: _analysis().routines!,
         choices: PreferencesRecommendationChoiceStore(email),
+        workouts: _analysis().workouts,
         exercises: _analysis().exercises,
         onAccessRequired: _analysis().onAccessRequired,
       ),

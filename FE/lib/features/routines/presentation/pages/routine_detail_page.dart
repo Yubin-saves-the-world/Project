@@ -1,3 +1,5 @@
+import '../../../workout/presentation/pages/workout_page.dart';
+import '../../../workout/presentation/workout_dependencies.dart';
 import 'package:flutter/material.dart';
 import '../../../../ui/core/widgets/design_reference_page.dart';
 import '../../../../ui/core/widgets/management_page.dart';
@@ -18,12 +20,14 @@ class RoutineDetailPage extends StatefulWidget {
     this.exercises,
     this.localPreview = false,
     this.onAccessRequired,
+    this.workouts,
   });
   final RoutineRepository repository;
   final int id;
   final ExerciseRepository? exercises;
   final bool localPreview;
   final VoidCallback? onAccessRequired;
+  final WorkoutDependencies? workouts;
   @override
   State<RoutineDetailPage> createState() => _RoutineDetailPageState();
 }
@@ -158,6 +162,30 @@ class _RoutineDetailPageState extends State<RoutineDetailPage> {
                                   ),
                                 ),
                               ],
+                              if (widget.workouts != null &&
+                                  !item.done &&
+                                  routine.status == RoutineStatus.planned &&
+                                  routineDate(routine.date) == routineToday())
+                                TextButton(
+                                  onPressed: () async {
+                                    await Navigator.push(
+                                      context,
+                                      MaterialPageRoute<void>(
+                                        builder: (_) => WorkoutPage(
+                                          dependencies: widget.workouts!,
+                                          exerciseId: item.exercise.id,
+                                          routineId: routine.id,
+                                          targetSets: item.sets,
+                                          targetReps: item.reps,
+                                          targetWeight: item.weightKg,
+                                          restSeconds: item.restSeconds,
+                                        ),
+                                      ),
+                                    );
+                                    if (mounted) await model.load();
+                                  },
+                                  child: const Text('이 종목 시작 · 이어하기'),
+                                ),
                               if (widget.exercises != null)
                                 Align(
                                   alignment: Alignment.centerLeft,

@@ -1,3 +1,4 @@
+import '../../../workout/presentation/workout_dependencies.dart';
 import 'package:flutter/material.dart';
 import '../../../../ui/core/widgets/design_reference_page.dart';
 import '../../../../ui/core/widgets/management_page.dart';
@@ -18,12 +19,14 @@ class RoutineWeekPage extends StatefulWidget {
     this.date,
     this.localPreview = false,
     this.onAccessRequired,
+    this.workouts,
   });
   final RoutineRepository repository;
   final ExerciseRepository? exercises;
   final DateTime? date;
   final bool localPreview;
   final VoidCallback? onAccessRequired;
+  final WorkoutDependencies? workouts;
   @override
   State<RoutineWeekPage> createState() => _RoutineWeekPageState();
 }
@@ -44,6 +47,7 @@ class _RoutineWeekPageState extends State<RoutineWeekPage> {
         builder: (_) => RoutineDetailPage(
           repository: widget.repository,
           id: id,
+          workouts: widget.workouts,
           exercises: widget.exercises,
           localPreview: widget.localPreview,
           onAccessRequired: widget.onAccessRequired,

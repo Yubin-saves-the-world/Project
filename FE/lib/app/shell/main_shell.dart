@@ -84,6 +84,7 @@ class _MainShellState extends State<MainShell> {
           repository: repository,
           exercises: widget.exerciseRepository,
           localPreview: widget.exercisePreview,
+          workouts: widget.analysisDependencies?.workouts,
           onAccessRequired: widget.analysisDependencies?.onAccessRequired,
         ),
       ),
@@ -100,6 +101,7 @@ class _MainShellState extends State<MainShell> {
         builder: (_) => ExerciseListPage(
           repository: repository,
           localPreview: widget.exercisePreview,
+          workouts: widget.analysisDependencies?.workouts,
           onAccessRequired: widget.analysisDependencies?.onAccessRequired,
         ),
       ),

@@ -1,3 +1,4 @@
+import '../../workout/presentation/workout_dependencies.dart';
 import '../../routines/data/routine_repository.dart';
 import '../../exercises/data/exercise_repository.dart';
 import '../../goal_body/presentation/goal_dependencies.dart';
@@ -18,9 +19,11 @@ class AnalysisDependencies {
     this.goals,
     this.routines,
     this.exercises,
+    this.workouts,
   });
   final RoutineRepository? routines;
   final ExerciseRepository? exercises;
+  final WorkoutDependencies? workouts;
   final GoalDependencies? goals;
   final AnalysisRepository repository;
   final PhotoRepository photos;

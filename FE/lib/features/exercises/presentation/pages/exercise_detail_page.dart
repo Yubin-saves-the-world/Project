@@ -1,3 +1,5 @@
+import '../../../workout/presentation/pages/workout_page.dart';
+import '../../../workout/presentation/workout_dependencies.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/network/api_client.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -14,12 +16,14 @@ class ExerciseDetailPage extends StatefulWidget {
     required this.repository,
     required this.id,
     this.onAccessRequired,
+    this.workouts,
     this.openMedia,
     this.localPreview = false,
   });
   final ExerciseRepository repository;
   final int id;
   final VoidCallback? onAccessRequired;
+  final WorkoutDependencies? workouts;
   final Future<bool> Function(Uri)? openMedia;
   final bool localPreview;
   @override
@@ -155,6 +159,21 @@ class _ExerciseDetailPageState extends State<ExerciseDetailPage> {
                   : '시범 영상 주소를 확인할 수 없어요.',
               style: ReferenceStyle.text(14, 21, color: ReferenceStyle.muted),
             ),
+          if (widget.workouts != null) ...[
+            const SizedBox(height: 16),
+            ReferenceButton(
+              '이 운동 시작',
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => WorkoutPage(
+                    dependencies: widget.workouts!,
+                    exerciseId: exercise.id,
+                  ),
+                ),
+              ),
+            ),
+          ],
           if (_mediaError != null)
             Padding(
               padding: const EdgeInsets.only(top: 12),

@@ -1,3 +1,4 @@
+import '../../../workout/presentation/workout_dependencies.dart';
 import '../../../../ui/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import '../../../../ui/core/widgets/design_reference_page.dart';
@@ -14,10 +15,12 @@ class ExerciseListPage extends StatefulWidget {
     required this.repository,
     this.localPreview = false,
     this.onAccessRequired,
+    this.workouts,
   });
   final ExerciseRepository repository;
   final bool localPreview;
   final VoidCallback? onAccessRequired;
+  final WorkoutDependencies? workouts;
   @override
   State<ExerciseListPage> createState() => _ExerciseListPageState();
 }
@@ -217,6 +220,7 @@ class _ExerciseListPageState extends State<ExerciseListPage> {
                             builder: (_) => ExerciseDetailPage(
                               repository: widget.repository,
                               id: exercise.id,
+                              workouts: widget.workouts,
                               localPreview: widget.localPreview,
                               onAccessRequired: widget.onAccessRequired,
                             ),

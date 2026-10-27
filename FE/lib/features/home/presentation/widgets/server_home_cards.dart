@@ -1,3 +1,5 @@
+import '../../../workout/presentation/pages/workout_page.dart';
+import '../../../exercises/presentation/pages/exercise_list_page.dart';
 import 'package:flutter/material.dart';
 import '../../../../ui/core/widgets/design_reference_page.dart';
 import '../../../body_analysis/presentation/pages/analysis_run_page.dart'
@@ -140,6 +142,7 @@ class ServerRecommendationCard extends StatelessWidget {
         builder: (_) => RoutineDetailPage(
           repository: model.dependencies.routines,
           id: id,
+          workouts: model.dependencies.workouts,
           exercises: model.dependencies.exercises,
           onAccessRequired: model.dependencies.onAccessRequired,
         ),
@@ -188,41 +191,74 @@ class ServerHomeRecordCard extends StatelessWidget {
           '${model.stats!.count}개 완료 기록 · ${model.sets}세트 · 총 볼륨 ${model.volume.toStringAsFixed(0)}kg',
           style: ReferenceStyle.text(14, 21),
         ),
+      if (model.dependencies.workouts != null &&
+          model.dependencies.exercises != null)
+        TextButton(
+          onPressed: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => ExerciseListPage(
+                  repository: model.dependencies.exercises!,
+                  workouts: model.dependencies.workouts,
+                  onAccessRequired: model.dependencies.onAccessRequired,
+                ),
+              ),
+            );
+            if (context.mounted) await model.refresh();
+          },
+          child: const Text('자유 운동 시작'),
+        ),
       if (model.activeLoaded &&
           model.error == null &&
           model.active.isNotEmpty) ...[
         const SizedBox(height: 12),
         for (final active in model.active)
           TextButton(
-            onPressed: () => showModalBottomSheet<void>(
-              context: context,
-              showDragHandle: true,
-              builder: (context) => SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        active.name,
-                        style: ReferenceStyle.text(
-                          20,
-                          28,
-                          weight: FontWeight.w500,
+            onPressed: model.dependencies.workouts != null
+                ? () async {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => WorkoutPage(
+                          dependencies: model.dependencies.workouts!,
+                          logId: active.id,
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      Text(
-                        '${active.sets}세트 완료 · 총 볼륨 ${active.volume.toStringAsFixed(0)}kg',
+                    );
+                    if (context.mounted) await model.refresh();
+                  }
+                : () => showModalBottomSheet<void>(
+                    context: context,
+                    showDragHandle: true,
+                    builder: (context) => SafeArea(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              active.name,
+                              style: ReferenceStyle.text(
+                                20,
+                                28,
+                                weight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              '${active.sets}세트 완료 · 총 볼륨 ${active.volume.toStringAsFixed(0)}kg',
+                            ),
+                            const Text('진행 중인 운동이에요.'),
+                          ],
+                        ),
                       ),
-                      const Text('진행 중인 운동이에요.'),
-                    ],
+                    ),
                   ),
-                ),
-              ),
+            child: Text(
+              '${model.dependencies.workouts == null ? '진행 중' : '이어하기'} · ${active.name}',
             ),
-            child: Text('진행 중 · ${active.name}'),
           ),
       ],
     ],

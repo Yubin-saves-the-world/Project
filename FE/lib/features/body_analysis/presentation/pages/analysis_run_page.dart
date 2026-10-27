@@ -262,6 +262,7 @@ class _AnalysisRunPageState extends State<AnalysisRunPage>
                 builder: (_) => RoutineWeekPage(
                   repository: widget.dependencies.routines!,
                   exercises: widget.dependencies.exercises,
+                  workouts: widget.dependencies.workouts,
                   date: DateTime.tryParse(model.routines!.first.date),
                   onAccessRequired: widget.dependencies.onAccessRequired,
                 ),
@@ -297,6 +298,7 @@ class _AnalysisRunPageState extends State<AnalysisRunPage>
                           repository: widget.dependencies.routines!,
                           id: routine.id,
                           exercises: widget.dependencies.exercises,
+                          workouts: widget.dependencies.workouts,
                           onAccessRequired:
                               widget.dependencies.onAccessRequired,
                         ),
