@@ -9,7 +9,7 @@
 - `presentation/workout_view_model.dart`: 화면 상태와 사용자 행동. UUID 재사용·수정 버전·범위 검사도 담당합니다.
 - `presentation/pages/workout_page.dart`: 진행 화면과 세트 수정 시트.
 
-종료 메모·서버 확정 요약·다음 종목·루틴 완료·홈 탭 복귀(T10)도 구현했습니다. 종료 응답 유실 시 서버 상세에서 요약을 복구합니다. 상세 내용은 [종료 요약 연동 보고](../../../docs/project-context/WORKOUT_SUMMARY_INTEGRATION.md)를 참고하세요. 지난 기록 상세/편집은 T11입니다. 기존 `workout_history_page`는 개발용 기본 화면으로 보존했습니다. 상세 정책과 검증은 [운동 진행 연동 보고](../../../docs/project-context/WORKOUT_PROGRESS_INTEGRATION.md)를 참고하세요.
+종료 메모·서버 확정 요약·다음 종목·루틴 완료·홈 탭 복귀(T10)도 구현했습니다. 종료 응답 유실 시 서버 상세에서 요약을 복구합니다. 상세 내용은 [종료 요약 연동 보고](../../../docs/project-context/WORKOUT_SUMMARY_INTEGRATION.md)를 참고하세요. T11 월별 서버 기록 달력·상태 필터/페이지·상세·완료 세트 수정/삭제·로그 삭제도 구현했습니다. 기존 `workout_history_page`를 서버 기록 화면으로 확장하고 서버 의존성이 없는 안내는 보존했습니다. 홈에서 기존 기기 기록 달력도 따로 열 수 있습니다. [운동 기록 연동 보고](../../../docs/project-context/WORKOUT_HISTORY_INTEGRATION.md)에 정책과 검증을 정리했습니다. 상세 정책과 검증은 [운동 진행 연동 보고](../../../docs/project-context/WORKOUT_PROGRESS_INTEGRATION.md)를 참고하세요.
 
 구현 계획은 [프론트 파일 구조](../../../docs/frontend-architecture/01-file-structure.md)를 참고하세요.
 

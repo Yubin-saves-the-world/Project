@@ -1,3 +1,4 @@
+import '../../../workout/presentation/pages/workout_history_page.dart';
 import '../home_server_dependencies.dart';
 import '../home_server_view_model.dart';
 import '../widgets/server_home_cards.dart';
@@ -327,14 +328,24 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
-  void _records() => Navigator.of(context).push<void>(
-    MaterialPageRoute(
-      builder: (_) => WorkoutCalendarPage(
-        model: model,
-        serverRepository: widget.server?.repository,
+  Future<void> _records() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => widget.server?.workouts != null
+            ? WorkoutHistoryPage(
+                server: widget.server,
+                local: model,
+                initialDate: model.selectedDate,
+              )
+            : WorkoutCalendarPage(
+                model: model,
+                serverRepository: widget.server?.repository,
+              ),
       ),
-    ),
-  );
+    );
+    if (mounted) await server?.refresh();
+  }
+
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: Listenable.merge([model, ?server]),

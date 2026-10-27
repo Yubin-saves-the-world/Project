@@ -213,7 +213,11 @@ class _MainShellState extends State<MainShell> {
             key: ValueKey(widget.onboarding?.account?.email),
             dependencies: widget.analysisDependencies,
           ),
-          const WorkoutHistoryPage(),
+          WorkoutHistoryPage(
+            server: widget.homeServer,
+            isActive: _selectedIndex == 2,
+            refreshToken: _homeRevision,
+          ),
           const AppScaffold(
             title: '인공지능 코치',
             body: EmptyView(title: '인공지능 코치 준비 중', description: '곧 만나요.'),

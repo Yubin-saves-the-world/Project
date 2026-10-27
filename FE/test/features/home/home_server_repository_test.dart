@@ -29,6 +29,7 @@ void main() {
                   'log_count': 0,
                   'total_sets': 0,
                   'total_volume_kg': 0,
+                  'total_duration_sec': 720,
                   'workout_dates': [],
                 },
               };
@@ -38,12 +39,13 @@ void main() {
     final repository = ApiHomeServerRepository(api);
     expect(await repository.today(), isNull);
     expect(requests.last.url.path, '/api/routines/today');
-    await repository.records(
+    final records = await repository.records(
       DateTime(2026, 10, 1),
       DateTime(2026, 10, 31),
       page: 2,
       status: 'completed',
     );
+    expect(records.seconds, 720);
     expect(requests.last.url.queryParameters, {
       'start_date': '2026-10-01',
       'end_date': '2026-10-31',

@@ -10,11 +10,13 @@ class ServerWorkoutRecord {
     required this.sets,
     required this.volume,
     required this.startedAt,
+    this.seconds,
   });
   final int id, exerciseId, sets;
   final String name, status;
   final DateTime date, startedAt;
   final num volume;
+  final int? seconds;
   factory ServerWorkoutRecord.fromJson(Map<String, dynamic> json) {
     final exercise = json['exercise'] as Map;
     return ServerWorkoutRecord(
@@ -26,6 +28,7 @@ class ServerWorkoutRecord {
       sets: json['set_count'] as int,
       volume: json['total_volume_kg'] as num,
       startedAt: DateTime.parse(json['started_at'] as String),
+      seconds: json['duration_sec'] as int?,
     );
   }
 }
@@ -38,11 +41,13 @@ class ServerWorkoutPage {
     required this.count,
     required this.sets,
     required this.volume,
+    this.seconds,
     required Set<String> dates,
   }) : items = List.unmodifiable(items),
        dates = Set.unmodifiable(dates);
   final List<ServerWorkoutRecord> items;
   final int page, total, count, sets;
+  final int? seconds;
   final num volume;
   final Set<String> dates;
   factory ServerWorkoutPage.fromJson(Map<String, dynamic> json) {
@@ -60,6 +65,7 @@ class ServerWorkoutPage {
       count: summary['log_count'] as int,
       sets: summary['total_sets'] as int,
       volume: summary['total_volume_kg'] as num,
+      seconds: summary['total_duration_sec'] as int?,
       dates: (summary['workout_dates'] as List).cast<String>().toSet(),
     );
   }
