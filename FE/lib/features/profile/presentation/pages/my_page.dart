@@ -1,3 +1,6 @@
+import '../../../settings/presentation/account_settings_dependencies.dart';
+import '../../../settings/presentation/account_settings_view_model.dart';
+import '../../../settings/presentation/pages/account_settings_pages.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/media/image_picker_service.dart';
 import '../../../../ui/core/theme/app_colors.dart';
@@ -26,7 +29,11 @@ class MyPage extends StatefulWidget {
     this.onOpenRoutines,
     this.onLogout,
     this.routineRefreshRepository,
+    this.accountSettings,
+    this.onConsentRequired,
   });
+  final AccountSettingsDependencies? accountSettings;
+  final VoidCallback? onConsentRequired;
   final OnboardingProgress onboarding;
   final ProfileRepository profileRepository;
   final RoutineRefreshRepository? routineRefreshRepository;
@@ -43,6 +50,9 @@ class MyPage extends StatefulWidget {
 }
 
 class _MyPageState extends State<MyPage> {
+  late final settings = widget.accountSettings == null
+      ? null
+      : (AccountSettingsViewModel(widget.accountSettings!)..load());
   late final model = MyPageViewModel(
     widget.profileRepository,
     profile: widget.onboarding.profile,
@@ -50,6 +60,7 @@ class _MyPageState extends State<MyPage> {
   )..load();
   @override
   void dispose() {
+    settings?.dispose();
     model.dispose();
     super.dispose();
   }
@@ -206,7 +217,7 @@ class _MyPageState extends State<MyPage> {
   String _number(double n) => n == n.roundToDouble() ? '${n.toInt()}' : '$n';
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: model,
+    listenable: Listenable.merge([model, ?settings]),
     builder: (context, _) {
       final account = widget.onboarding.account;
       final p = model.profile;
@@ -224,7 +235,10 @@ class _MyPageState extends State<MyPage> {
                       backgroundColor: AppColors.primarySoft,
                       foregroundColor: AppColors.primary,
                       child: Text(
-                        account?.nickname.characters.firstOrNull ?? '나',
+                        (settings?.user?.nickname ?? account?.nickname ?? '나')
+                                .characters
+                                .firstOrNull ??
+                            '나',
                       ),
                     ),
                     const SizedBox(width: 14),
@@ -233,7 +247,9 @@ class _MyPageState extends State<MyPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            account?.nickname ?? '내 정보',
+                            settings?.user?.nickname ??
+                                account?.nickname ??
+                                '내 정보',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: ReferenceStyle.text(
@@ -301,6 +317,52 @@ class _MyPageState extends State<MyPage> {
             ),
             const SizedBox(height: 10),
             _card([
+              if (settings != null) ...[
+                _row(
+                  '내 계정 정보',
+                  '',
+                  () => Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => AccountInfoPage(
+                        dependencies: widget.accountSettings!,
+                        model: settings,
+                      ),
+                    ),
+                  ),
+                  icon: Icons.manage_accounts_outlined,
+                ),
+                _row(
+                  '사진·AI 동의 관리',
+                  '',
+                  () => Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => PrivacySettingsPage(
+                        dependencies: widget.accountSettings!,
+                        model: settings,
+                        photos: widget.photoRepository,
+                        picker: widget.photoPicker,
+                      ),
+                    ),
+                  ),
+                  icon: Icons.privacy_tip_outlined,
+                ),
+                _row(
+                  '회원 탈퇴',
+                  '',
+                  () => Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => DeleteAccountPage(
+                        dependencies: widget.accountSettings!,
+                        model: settings,
+                      ),
+                    ),
+                  ),
+                  icon: Icons.person_remove_outlined,
+                ),
+              ],
               if (widget.onOpenRoutines != null)
                 _row(
                   '추천 루틴',
@@ -338,6 +400,7 @@ class _MyPageState extends State<MyPage> {
                     builder: (_) => PhotoManagementPage(
                       repository: widget.photoRepository,
                       picker: widget.photoPicker,
+                      onConsentRequired: widget.onConsentRequired,
                     ),
                   ),
                 ),

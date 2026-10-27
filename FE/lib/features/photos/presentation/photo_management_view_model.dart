@@ -13,25 +13,33 @@ class PhotoManagementViewModel extends ChangeNotifier {
     required this.repository,
     required this.picker,
     required this.preparer,
+    this.type = BodyPhotoType.current,
   });
   final PhotoRepository repository;
+  final BodyPhotoType type;
   final PhotoPicker picker;
   final PhotoPreparer preparer;
   List<BodyPhoto> items = const [];
   int total = 0;
   bool loading = false, writing = false, hasLoaded = false, _disposed = false;
-  String? error, notice;
+  String? error, notice, accessCode;
   SelectedPhoto? pending;
   BodyPhotoSide pendingSide = BodyPhotoSide.front;
   bool get busy => loading || writing;
-  bool get canAdd => hasLoaded && !busy && total < ApiContract.photoLimit;
+  bool get canAdd =>
+      type == BodyPhotoType.current &&
+      hasLoaded &&
+      !busy &&
+      total < ApiContract.photoLimit;
   void _notify() {
     if (!_disposed) notifyListeners();
   }
 
   String _message(Object e) {
+    accessCode = e is ApiRequestError ? e.code : null;
     if (e is PhotoPickerException) return e.message;
     if (e is ApiRequestError) {
+      accessCode = e.code;
       return switch (e.code) {
         'PHOTO_LIMIT_EXCEEDED' => '사진은 최대 20장까지 올릴 수 있어요. 기존 사진을 삭제해 주세요.',
         'IMAGE_TOO_LARGE' => '10MB 이하의 사진을 선택해 주세요.',
@@ -61,7 +69,7 @@ class PhotoManagementViewModel extends ChangeNotifier {
   }
 
   Future<void> _reload() async {
-    final page = await repository.list();
+    final page = await repository.list(type: type);
     if (_disposed) return;
     items = page.items;
     total = page.total;
@@ -69,7 +77,7 @@ class PhotoManagementViewModel extends ChangeNotifier {
   }
 
   Future<void> recover() async {
-    if (busy || pending != null) return;
+    if (type != BodyPhotoType.current || busy || pending != null) return;
     writing = true;
     _notify();
     try {
@@ -121,7 +129,12 @@ class PhotoManagementViewModel extends ChangeNotifier {
   }
 
   Future<void> retryUpload() async {
-    if (busy || !hasLoaded || pending == null) return;
+    if (type != BodyPhotoType.current ||
+        busy ||
+        !hasLoaded ||
+        pending == null) {
+      return;
+    }
     writing = true;
     error = notice = null;
     _notify();
@@ -205,7 +218,7 @@ class PhotoManagementViewModel extends ChangeNotifier {
     error = notice = null;
     _notify();
     try {
-      final result = await repository.deleteAll();
+      final result = await repository.deleteAll(type: type);
       if (result.skipped == 0) {
         items = const [];
         total = 0;

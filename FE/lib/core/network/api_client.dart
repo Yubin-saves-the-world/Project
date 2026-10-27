@@ -31,6 +31,7 @@ class ApiClient {
   TokenStore? _tokens;
   TokenStore get tokens => _tokens ??= PreferencesTokenStore();
   final Duration timeout;
+  void Function(String method, String path)? beforeAuthorizedRequest;
   final Future<void> Function()? onSessionExpired;
   String? _expiredToken;
   Future<void>? _expiration;
@@ -45,6 +46,7 @@ class ApiClient {
     Map<String, dynamic>? body,
     bool authorized = true,
   }) async {
+    if (authorized) beforeAuthorizedRequest?.call(method, path);
     final token = authorized ? await tokens.read() : null;
     final request = http.Request(method, Uri.parse('$_baseUrl$path'))
       ..headers.addAll(ApiContract.jsonHeaders(token));
@@ -57,6 +59,7 @@ class ApiClient {
     required List<http.MultipartFile> files,
     Map<String, String> fields = const {},
   }) async {
+    beforeAuthorizedRequest?.call('POST', path);
     final token = await tokens.read();
     final request = http.MultipartRequest('POST', Uri.parse('$_baseUrl$path'))
       ..fields.addAll(fields)

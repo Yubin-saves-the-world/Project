@@ -210,6 +210,7 @@ class AnalysisInputViewModel extends ChangeNotifier
     accessCode = null;
     _notify();
     try {
+      dependencies.ensureCanAnalyze?.call();
       if (selectedGoal != null && dependencies.goals != null) {
         final currentGoal = await dependencies.goals!.repository.load();
         if (currentGoal?.status != AnalysisStatus.done ||

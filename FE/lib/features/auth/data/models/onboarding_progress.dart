@@ -7,13 +7,21 @@ class OnboardingAccount {
     required this.email,
     required this.bodyPhotoAgreed,
     required this.aiProcessingAgreed,
+    this.userId,
   });
+  final int? userId;
+  String get storageOwner => email.isNotEmpty
+      ? email
+      : userId == null
+      ? ''
+      : 'user:$userId';
   final String nickname;
   final String email;
   final bool bodyPhotoAgreed;
   final bool aiProcessingAgreed;
 
   Map<String, dynamic> toJson() => {
+    'user_id': ?userId,
     'nickname': nickname,
     'email': email,
     'body_photo_agreed': bodyPhotoAgreed,
@@ -21,6 +29,7 @@ class OnboardingAccount {
   };
   factory OnboardingAccount.fromJson(Map<String, dynamic> json) =>
       OnboardingAccount(
+        userId: json['user_id'] as int?,
         nickname: json['nickname'] as String,
         email: json['email'] as String,
         bodyPhotoAgreed: json['body_photo_agreed'] as bool,
@@ -46,6 +55,11 @@ class OnboardingProgress {
   final bool signedIn;
   final bool? serverConsentCompleted;
   bool get onboardingCompleted => profile != null;
+  bool get canBrowseAfterWithdrawal =>
+      serverConsentCompleted == false &&
+      onboardingCompleted &&
+      account != null &&
+      (!account!.bodyPhotoAgreed || !account!.aiProcessingAgreed);
   bool get consentCompleted =>
       serverConsentCompleted ??
       (account != null &&

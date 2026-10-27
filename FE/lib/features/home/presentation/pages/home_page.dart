@@ -55,7 +55,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       repository:
           widget.repository ??
           LocalHomePreviewRepository(
-            widget.onboarding?.account?.email ?? 'demo',
+            widget.onboarding?.account?.storageOwner ?? 'demo',
           ),
       today: widget.today,
       frequency: widget.onboarding?.profile?.weeklyFrequency ?? 3,

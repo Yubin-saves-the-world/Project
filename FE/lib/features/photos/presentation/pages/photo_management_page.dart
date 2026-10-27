@@ -17,10 +17,14 @@ class PhotoManagementPage extends StatefulWidget {
     required this.repository,
     required this.picker,
     this.preparer,
+    this.onConsentRequired,
+    this.type = BodyPhotoType.current,
   });
   final PhotoRepository repository;
+  final BodyPhotoType type;
   final PhotoPicker picker;
   final PhotoPreparer? preparer;
+  final VoidCallback? onConsentRequired;
   @override
   State<PhotoManagementPage> createState() => _PhotoManagementPageState();
 }
@@ -29,6 +33,7 @@ class _PhotoManagementPageState extends State<PhotoManagementPage>
     with WidgetsBindingObserver {
   late final model = PhotoManagementViewModel(
     repository: widget.repository,
+    type: widget.type,
     picker: widget.picker,
     preparer: widget.preparer ?? FilePhotoPreparer(),
   );
@@ -215,7 +220,7 @@ class _PhotoManagementPageState extends State<PhotoManagementPage>
     builder: (context, _) => PopScope(
       canPop: !model.writing,
       child: ManagementPage(
-        title: '사진 데이터 관리',
+        title: widget.type == BodyPhotoType.goal ? '목표 사진 관리' : '사진 데이터 관리',
         onBack: model.writing ? () {} : () => Navigator.pop(context),
         body: RefreshIndicator(
           onRefresh: model.load,
@@ -268,6 +273,13 @@ class _PhotoManagementPageState extends State<PhotoManagementPage>
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 16),
                   child: LinearProgressIndicator(),
+                ),
+              if (model.error != null &&
+                  model.accessCode == 'CONSENT_REQUIRED' &&
+                  widget.onConsentRequired != null)
+                TextButton(
+                  onPressed: widget.onConsentRequired,
+                  child: const Text('동의 관리'),
                 ),
               if (model.error != null)
                 Padding(
@@ -330,7 +342,9 @@ class _PhotoManagementPageState extends State<PhotoManagementPage>
                 physics: const NeverScrollableScrollPhysics(),
                 children: [
                   for (final photo in model.items) _photo(photo),
-                  if (model.hasLoaded && model.total < 20)
+                  if (widget.type == BodyPhotoType.current &&
+                      model.hasLoaded &&
+                      model.total < 20)
                     Material(
                       color: AppColors.surface,
                       shape: RoundedRectangleBorder(

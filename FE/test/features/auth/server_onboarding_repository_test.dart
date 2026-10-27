@@ -414,4 +414,29 @@ void main() {
     expect(progress.nextStep, 1);
     expect(calls.map((r) => r.method), ['PATCH', 'GET']);
   });
+  test('가입 완료 후 사진·AI 동의를 철회해도 프로필과 저장 기록 진입을 복원한다', () async {
+    final repo = build(
+      (r) async => _json(
+        200,
+        r.url.path.endsWith('/profile')
+            ? _profileJson
+            : {
+                ..._me,
+                'onboarding_completed': true,
+                'consent_completed': false,
+                'body_photo_agreed': false,
+                'ai_processing_agreed': false,
+              },
+      ),
+    );
+    await tokens.write('tok');
+    final progress = await repo.load();
+    expect(progress.consentCompleted, false);
+    expect(progress.profile, isNotNull);
+    expect(progress.canBrowseAfterWithdrawal, true);
+    expect(calls.map((r) => r.url.path), [
+      '/api/users/me',
+      '/api/users/me/profile',
+    ]);
+  });
 }

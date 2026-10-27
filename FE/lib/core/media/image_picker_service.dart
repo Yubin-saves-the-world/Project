@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -23,9 +24,14 @@ class PhotoPickerException implements Exception {
 }
 
 class ImagePickerService implements PhotoPicker {
-  ImagePickerService({ImagePicker? picker, this.owner = 'onboarding'})
-    : _picker = picker ?? ImagePicker();
+  ImagePickerService({
+    ImagePicker? picker,
+    this.owner = 'onboarding',
+    this.ownerProvider,
+  }) : _picker = picker ?? ImagePicker();
   final String owner;
+  final String Function()? ownerProvider;
+  String get _owner => ownerProvider?.call() ?? owner;
   final ImagePicker _picker;
   final _preferences = SharedPreferencesAsync();
   static const _pendingOwnerKey = 'vitality.onboarding.pending-photo-owner';
@@ -33,7 +39,8 @@ class ImagePickerService implements PhotoPicker {
 
   @override
   Future<SelectedPhoto?> pick(PhotoSlot slot, PhotoSource source) async {
-    await _preferences.setString(_pendingOwnerKey, owner);
+    final pickOwner = _owner;
+    await _preferences.setString(_pendingOwnerKey, pickOwner);
     await _preferences.setString(_pendingSlotKey, slot.name);
     try {
       final file = await _picker.pickImage(
@@ -43,7 +50,7 @@ class ImagePickerService implements PhotoPicker {
         requestFullMetadata: false,
       );
       if (file == null) return null;
-      return await _prepare(file, slot);
+      return await _prepare(file, slot, pickOwner);
     } on PlatformException catch (error) {
       throw PhotoPickerException(switch (error.code) {
         'camera_access_denied' ||
@@ -59,7 +66,11 @@ class ImagePickerService implements PhotoPicker {
     }
   }
 
-  Future<SelectedPhoto> _prepare(XFile file, PhotoSlot slot) async {
+  Future<SelectedPhoto> _prepare(
+    XFile file,
+    PhotoSlot slot,
+    String copyOwner,
+  ) async {
     final bytes = await file.readAsBytes();
     final isJpeg = bytes.length > 2 && bytes[0] == 0xff && bytes[1] == 0xd8;
     final isPng =
@@ -81,7 +92,7 @@ class ImagePickerService implements PhotoPicker {
       );
     }
     final directory = Directory(
-      '${(await getApplicationSupportDirectory()).path}/onboarding_photos',
+      '${(await getApplicationSupportDirectory()).path}/onboarding_photos/${base64Url.encode(utf8.encode(copyOwner))}',
     );
     await directory.create(recursive: true);
     final destination = File(
@@ -96,7 +107,7 @@ class ImagePickerService implements PhotoPicker {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return null;
     final pendingOwner =
         await _preferences.getString(_pendingOwnerKey) ?? 'onboarding';
-    if (pendingOwner != owner) return null;
+    if (pendingOwner != _owner) return null;
     final pending = await _preferences.getString(_pendingSlotKey);
     final data = await _picker.retrieveLostData();
     try {
@@ -108,10 +119,32 @@ class ImagePickerService implements PhotoPicker {
         (value) => value.name == pending,
         orElse: () => PhotoSlot.front,
       );
-      return (slot, await _prepare(data.files!.first, slot));
+      return (slot, await _prepare(data.files!.first, slot, pendingOwner));
     } finally {
       await _preferences.remove(_pendingSlotKey);
       await _preferences.remove(_pendingOwnerKey);
+    }
+  }
+
+  static Future<void> clearAccountCopies(String account) async {
+    if (kIsWeb || account.trim().isEmpty) return;
+    final owners = {
+      'onboarding:$account',
+      'analysis:$account',
+      'goal:$account',
+      'photos:$account',
+    };
+    final support = (await getApplicationSupportDirectory()).path;
+    for (final owner in owners) {
+      final directory = Directory(
+        '$support/onboarding_photos/${base64Url.encode(utf8.encode(owner))}',
+      );
+      if (await directory.exists()) await directory.delete(recursive: true);
+    }
+    final prefs = SharedPreferencesAsync();
+    if (owners.contains(await prefs.getString(_pendingOwnerKey))) {
+      await prefs.remove(_pendingOwnerKey);
+      await prefs.remove(_pendingSlotKey);
     }
   }
 

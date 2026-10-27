@@ -171,7 +171,10 @@ class ServerOnboardingRepository implements OnboardingRepository {
   Future<OnboardingProgress> _fetchProgress() async {
     final me = CurrentUser.fromJson((await _send('GET', ApiContract.me))!);
     BodyProfile? profile;
-    if (me.consentCompleted && me.onboardingCompleted) {
+    if (me.onboardingCompleted &&
+        (me.consentCompleted ||
+            !me.bodyPhotoAgreed ||
+            !me.aiProcessingAgreed)) {
       try {
         profile = BodyProfile.fromJson(
           (await _send('GET', ApiContract.profile))!,
@@ -183,6 +186,7 @@ class ServerOnboardingRepository implements OnboardingRepository {
     return OnboardingProgress(
       serverConsentCompleted: me.consentCompleted,
       account: OnboardingAccount(
+        userId: me.userId,
         nickname: me.nickname,
         email: me.email ?? '',
         bodyPhotoAgreed: me.bodyPhotoAgreed,

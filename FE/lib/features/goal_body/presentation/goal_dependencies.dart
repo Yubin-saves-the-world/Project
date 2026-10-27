@@ -11,7 +11,9 @@ class GoalDependencies {
     this.preparer,
     this.localPreview = false,
     this.onAccessRequired,
+    this.ensureCanWrite,
   });
+  final void Function()? ensureCanWrite;
   final GoalRepository repository;
   final PhotoRepository photos;
   final PhotoPicker picker;

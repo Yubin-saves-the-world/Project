@@ -20,7 +20,9 @@ class AnalysisDependencies {
     this.routines,
     this.exercises,
     this.workouts,
+    this.ensureCanAnalyze,
   });
+  final void Function()? ensureCanAnalyze;
   final RoutineRepository? routines;
   final ExerciseRepository? exercises;
   final WorkoutDependencies? workouts;

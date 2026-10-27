@@ -1,3 +1,5 @@
+import '../../features/settings/presentation/account_settings_dependencies.dart';
+import '../../features/settings/presentation/pages/account_settings_pages.dart';
 import '../../features/home/presentation/home_server_dependencies.dart';
 import '../../features/routines/presentation/pages/routine_week_page.dart';
 import '../../features/exercises/data/exercise_repository.dart';
@@ -39,10 +41,14 @@ class MainShell extends StatefulWidget {
     this.exercisePreview = false,
     this.homeServer,
     this.homeRequests,
+    this.accountSettings,
+    this.settingsRequests,
   }) : assert(initialIndex >= 0 && initialIndex < 5);
 
   final HomeServerDependencies? homeServer;
   final Listenable? homeRequests;
+  final Listenable? settingsRequests;
+  final AccountSettingsDependencies? accountSettings;
   final ExerciseRepository? exerciseRepository;
   final bool exercisePreview;
   final AnalysisDependencies? analysisDependencies;
@@ -70,6 +76,26 @@ class _MainShellState extends State<MainShell> {
     super.initState();
     _selectedIndex = widget.initialIndex;
     widget.homeRequests?.addListener(_returnHome);
+    widget.settingsRequests?.addListener(_openPrivacy);
+  }
+
+  void _openPrivacy() {
+    if (widget.accountSettings == null ||
+        widget.photoRepository == null ||
+        widget.photoPicker == null) {
+      return;
+    }
+    Navigator.of(context).popUntil((r) => r.isFirst);
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => PrivacySettingsPage(
+          dependencies: widget.accountSettings!,
+          photos: widget.photoRepository!,
+          picker: widget.photoPicker!,
+        ),
+      ),
+    );
   }
 
   void _returnHome() {
@@ -85,6 +111,10 @@ class _MainShellState extends State<MainShell> {
   @override
   void didUpdateWidget(covariant MainShell oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.settingsRequests != widget.settingsRequests) {
+      oldWidget.settingsRequests?.removeListener(_openPrivacy);
+      widget.settingsRequests?.addListener(_openPrivacy);
+    }
     if (oldWidget.homeRequests != widget.homeRequests) {
       oldWidget.homeRequests?.removeListener(_returnHome);
       widget.homeRequests?.addListener(_returnHome);
@@ -94,6 +124,7 @@ class _MainShellState extends State<MainShell> {
   @override
   void dispose() {
     widget.homeRequests?.removeListener(_returnHome);
+    widget.settingsRequests?.removeListener(_openPrivacy);
     super.dispose();
   }
 
@@ -143,7 +174,7 @@ class _MainShellState extends State<MainShell> {
         index: _selectedIndex,
         children: [
           HomePage(
-            key: ValueKey('home:${widget.onboarding?.account?.email}'),
+            key: ValueKey('home:${widget.onboarding?.account?.storageOwner}'),
             server: widget.homeServer,
             isActive: _selectedIndex == 0,
             refreshToken: _homeRevision,
@@ -164,6 +195,8 @@ class _MainShellState extends State<MainShell> {
                       MaterialPageRoute(
                         builder: (_) => MyPage(
                           onboarding: widget.onboarding!,
+                          accountSettings: widget.accountSettings,
+                          onConsentRequired: _openPrivacy,
                           profileRepository: widget.profileRepository!,
                           routineRefreshRepository:
                               widget.routineRefreshRepository,
@@ -210,7 +243,7 @@ class _MainShellState extends State<MainShell> {
             logoutError: widget.logoutError,
           ),
           AnalysisEntryPage(
-            key: ValueKey(widget.onboarding?.account?.email),
+            key: ValueKey(widget.onboarding?.account?.storageOwner),
             dependencies: widget.analysisDependencies,
           ),
           WorkoutHistoryPage(

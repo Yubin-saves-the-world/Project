@@ -601,6 +601,24 @@ class OnboardingViewModel extends ChangeNotifier
     _notify();
   }
 
+  void completeAccountDeletion() {
+    progress = const OnboardingProgress(signedIn: false);
+    step = 0;
+    showLogin = true;
+    error = null;
+    _clearDraft();
+    _notify();
+  }
+
+  void applySavedAccount(OnboardingAccount value) {
+    progress = progress.copyWith(account: value);
+    nickname = value.nickname;
+    email = value.email;
+    bodyPhotoAgreed = value.bodyPhotoAgreed;
+    aiProcessingAgreed = value.aiProcessingAgreed;
+    _notify();
+  }
+
   Future<bool> signOut() => _run(() async {
     await repository.signOut();
     progress = const OnboardingProgress(signedIn: false);

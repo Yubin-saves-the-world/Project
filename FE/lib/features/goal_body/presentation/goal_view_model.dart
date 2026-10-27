@@ -260,6 +260,7 @@ class GoalViewModel extends ChangeNotifier {
     _notify();
     var saved = false;
     try {
+      dependencies.ensureCanWrite?.call();
       final photoId = await _upload();
       if (_disposed) return false;
       final current = goal;

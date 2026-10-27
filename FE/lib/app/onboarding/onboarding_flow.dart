@@ -1,3 +1,9 @@
+import '../../features/settings/data/account_repository.dart';
+import '../../features/settings/data/account_data_cleaner.dart';
+import '../../features/settings/data/consent_request_guard.dart';
+import '../../features/settings/presentation/account_settings_dependencies.dart';
+import '../../features/auth/data/models/onboarding_progress.dart';
+import '../../core/network/api_contract.dart';
 import '../../features/workout/data/workout_repository.dart';
 import '../../features/workout/data/workout_draft_store.dart';
 import '../../features/workout/presentation/workout_dependencies.dart';
@@ -53,6 +59,8 @@ class OnboardingFlow extends StatefulWidget {
 class _OnboardingFlowState extends State<OnboardingFlow> {
   late final OnboardingViewModel _model;
   final _homeRequests = ValueNotifier<int>(0);
+  final _settingsRequests = ValueNotifier<int>(0);
+  final _accountSettings = <String, AccountSettingsDependencies>{};
   final _homeServers = <String, HomeServerDependencies>{};
   final _analysisDependencies = <String, AnalysisDependencies>{};
   final _localPhotos = <String, LocalPhotoRepository>{};
@@ -61,39 +69,130 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     super.initState();
     _model = OnboardingViewModel(
       repository: widget.repository,
-      photoPicker: widget.photoPicker,
+      photoPicker: widget.photoPicker is ImagePickerService
+          ? ImagePickerService(
+              ownerProvider: () => _model.progress.account == null
+                  ? 'onboarding'
+                  : 'onboarding:${_model.progress.account!.storageOwner}',
+            )
+          : widget.photoPicker,
     );
     _model.initialize(startWithLogin: widget.startWithLogin);
   }
 
   @override
   void dispose() {
+    _settingsRequests.dispose();
     _homeRequests.dispose();
     _model.dispose();
     super.dispose();
   }
 
+  AccountSettingsDependencies? _settings() {
+    final server = widget.repository;
+    if (server is! ServerOnboardingRepository) return null;
+    final owner = _model.progress.account!.storageOwner;
+    return _accountSettings.putIfAbsent(
+      owner,
+      () => AccountSettingsDependencies(
+        repository: ServerAccountRepository(server.api),
+        onChanged: (me) {
+          if (mounted &&
+              _model.progress.signedIn &&
+              _model.progress.account?.storageOwner == owner) {
+            _model.applySavedAccount(
+              OnboardingAccount(
+                nickname: me.nickname,
+                userId: me.userId,
+                email: me.email ?? '',
+                bodyPhotoAgreed: me.bodyPhotoAgreed,
+                aiProcessingAgreed: me.aiProcessingAgreed,
+              ),
+            );
+          }
+        },
+        cleanup: () async {
+          if (_model.progress.account?.storageOwner == owner) {
+            await server.api.tokens.clear();
+          }
+          await AccountDataCleaner(owner).clear();
+          if (widget.photoPicker is ImagePickerService) {
+            for (final photo in [
+              _model.progress.analysis.front,
+              _model.progress.analysis.side,
+            ]) {
+              if (photo != null &&
+                  _model.progress.account?.storageOwner == owner) {
+                await widget.photoPicker.discard(photo);
+              }
+            }
+            await ImagePickerService.clearAccountCopies(owner);
+          }
+        },
+        onDeleted: () async {
+          _homeServers.remove(owner);
+          _analysisDependencies.remove(owner);
+          _localPhotos.remove(owner);
+          _accountSettings.remove(owner);
+          if (mounted && _model.progress.account?.storageOwner == owner) {
+            Navigator.of(context).popUntil((r) => r.isFirst);
+            server.clearSessionData();
+            _model.completeAccountDeletion();
+          }
+        },
+      ),
+    );
+  }
+
   AnalysisDependencies _analysis() {
-    final email = _model.progress.account!.email;
-    return _analysisDependencies.putIfAbsent(email, () {
+    final owner = _model.progress.account!.storageOwner;
+    return _analysisDependencies.putIfAbsent(owner, () {
       final server = widget.repository is ServerOnboardingRepository
           ? widget.repository as ServerOnboardingRepository
           : null;
+      final policy = ConsentRequestGuard(() => _model.progress.account);
+      if (server != null) server.api.beforeAuthorizedRequest = policy.check;
       final photos = server == null
-          ? _localPhotos.putIfAbsent(email, LocalPhotoRepository.new)
+          ? _localPhotos.putIfAbsent(owner, LocalPhotoRepository.new)
           : ServerPhotoRepository(server.api);
-      void checkAccess() {
-        Navigator.of(context).popUntil((route) => route.isFirst);
-        _model.initialize();
+      void checkAccess() async {
+        if (server != null) {
+          try {
+            final me = await _settings()!.repository.load();
+            if (!mounted) return;
+            _model.applySavedAccount(
+              OnboardingAccount(
+                nickname: me.nickname,
+                userId: me.userId,
+                email: me.email ?? '',
+                bodyPhotoAgreed: me.bodyPhotoAgreed,
+                aiProcessingAgreed: me.aiProcessingAgreed,
+              ),
+            );
+            if (!me.bodyPhotoAgreed || !me.aiProcessingAgreed) {
+              _settingsRequests.value++;
+              return;
+            }
+          } catch (_) {
+            if (!mounted) return;
+          }
+        }
+        if (mounted) {
+          Navigator.of(context).popUntil((route) => route.isFirst);
+          _model.initialize();
+        }
       }
 
       return AnalysisDependencies(
+        ensureCanAnalyze: server == null
+            ? null
+            : () => policy.check('POST', ApiContract.photoAnalysis),
         workouts: server == null
             ? null
             : WorkoutDependencies(
                 repository: ServerWorkoutRepository(server.api),
                 routines: ServerRoutineRepository(server.api),
-                drafts: PreferencesWorkoutDraftStore(email),
+                drafts: PreferencesWorkoutDraftStore(owner),
                 onAccessRequired: checkAccess,
                 onHome: () {
                   if (mounted) _homeRequests.value++;
@@ -108,12 +207,15 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
               )
             : ServerExerciseRepository(server.api),
         goals: GoalDependencies(
+          ensureCanWrite: server == null
+              ? null
+              : () => policy.check('POST', ApiContract.goalBodies),
           repository: server == null
               ? LocalGoalRepository()
               : ServerGoalRepository(server.api),
           photos: photos,
           picker: widget.photoPicker is ImagePickerService
-              ? ImagePickerService(owner: 'goal:$email')
+              ? ImagePickerService(owner: 'goal:$owner')
               : widget.photoPicker,
           localPreview: server == null,
           onAccessRequired: checkAccess,
@@ -123,11 +225,11 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
             : ServerAnalysisRepository(server.api),
         photos: photos,
         picker: widget.photoPicker is ImagePickerService
-            ? ImagePickerService(owner: 'analysis:$email')
+            ? ImagePickerService(owner: 'analysis:$owner')
             : widget.photoPicker,
         pending: server == null
             ? MemoryAnalysisPendingStore()
-            : PreferencesAnalysisPendingStore(email),
+            : PreferencesAnalysisPendingStore(owner),
         onAccessRequired: checkAccess,
       );
     });
@@ -136,13 +238,13 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   HomeServerDependencies? _homeServer() {
     final repository = widget.repository;
     if (repository is! ServerOnboardingRepository) return null;
-    final email = _model.progress.account!.email;
+    final owner = _model.progress.account!.storageOwner;
     return _homeServers.putIfAbsent(
-      email,
+      owner,
       () => HomeServerDependencies(
         repository: ApiHomeServerRepository(repository.api),
         routines: _analysis().routines!,
-        choices: PreferencesRecommendationChoiceStore(email),
+        choices: PreferencesRecommendationChoiceStore(owner),
         workouts: _analysis().workouts,
         exercises: _analysis().exercises,
         onAccessRequired: _analysis().onAccessRequired,
@@ -160,12 +262,15 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       if (_model.showLogin) return LoginPage(model: _model);
       if (_model.progress.signedIn &&
           _model.progress.account != null &&
-          !_model.progress.consentCompleted) {
+          !_model.progress.consentCompleted &&
+          !_model.progress.canBrowseAfterWithdrawal) {
         return ConsentPage(model: _model);
       }
       if (_model.progress.completed && _model.progress.signedIn) {
         return MainShell(
           homeRequests: _homeRequests,
+          settingsRequests: _settingsRequests,
+          accountSettings: _settings(),
           onboarding: _model.progress,
           analysisDependencies: _analysis(),
           homeServer: _homeServer(),
@@ -188,12 +293,12 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                   (widget.repository as ServerOnboardingRepository).api,
                 )
               : _localPhotos.putIfAbsent(
-                  _model.progress.account!.email,
+                  _model.progress.account!.storageOwner,
                   LocalPhotoRepository.new,
                 ),
           photoPicker: widget.photoPicker is ImagePickerService
               ? ImagePickerService(
-                  owner: 'photos:${_model.progress.account!.email}',
+                  owner: 'photos:${_model.progress.account!.storageOwner}',
                 )
               : widget.photoPicker,
           onProfileSaved: _model.applySavedProfile,
