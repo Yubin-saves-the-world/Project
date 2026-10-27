@@ -1,3 +1,4 @@
+import '../../features/photos/data/models/selected_photo.dart';
 import '../../features/settings/data/account_repository.dart';
 import '../../features/settings/data/account_data_cleaner.dart';
 import '../../features/settings/data/consent_request_guard.dart';
@@ -115,7 +116,14 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           if (_model.progress.account?.storageOwner == owner) {
             await server.api.tokens.clear();
           }
-          await AccountDataCleaner(owner).clear();
+          await AccountDataCleaner(
+            owner,
+            discardPhoto: widget.photoPicker is ImagePickerService
+                ? (path) => widget.photoPicker.discard(
+                    SelectedPhoto(path: path, byteLength: 0),
+                  )
+                : null,
+          ).clear();
           if (widget.photoPicker is ImagePickerService) {
             for (final photo in [
               _model.progress.analysis.front,
