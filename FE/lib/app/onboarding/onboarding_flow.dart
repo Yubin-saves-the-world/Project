@@ -1,3 +1,6 @@
+import '../../features/community/data/community_repository.dart';
+import '../../features/community/data/local_community_repository.dart';
+import '../../features/community/presentation/community_controller.dart';
 import '../../features/photos/data/models/selected_photo.dart';
 import '../../features/settings/data/account_repository.dart';
 import '../../features/settings/data/account_data_cleaner.dart';
@@ -64,6 +67,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   final _accountSettings = <String, AccountSettingsDependencies>{};
   final _homeServers = <String, HomeServerDependencies>{};
   final _analysisDependencies = <String, AnalysisDependencies>{};
+  final _communities = <String, CommunityDependencies>{};
   final _localPhotos = <String, LocalPhotoRepository>{};
   @override
   void initState() {
@@ -138,6 +142,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           }
         },
         onDeleted: () async {
+          _communities.remove(owner);
           _homeServers.remove(owner);
           _analysisDependencies.remove(owner);
           _localPhotos.remove(owner);
@@ -243,6 +248,23 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     });
   }
 
+  CommunityDependencies _community() {
+    final owner = _model.progress.account!.storageOwner;
+    return _communities.putIfAbsent(owner, () {
+      final server = widget.repository;
+      return CommunityDependencies(
+        repository: server is ServerOnboardingRepository
+            ? ServerCommunityRepository(server.api)
+            : LocalCommunityRepository(
+                () => _model.progress.account?.nickname ?? '나',
+              ),
+        picker: NativeCommunityImagePicker(),
+        preview: server is! ServerOnboardingRepository,
+        onAccessRequired: _analysis().onAccessRequired,
+      );
+    });
+  }
+
   HomeServerDependencies? _homeServer() {
     final repository = widget.repository;
     if (repository is! ServerOnboardingRepository) return null;
@@ -276,6 +298,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       }
       if (_model.progress.completed && _model.progress.signedIn) {
         return MainShell(
+          community: _community(),
           homeRequests: _homeRequests,
           settingsRequests: _settingsRequests,
           accountSettings: _settings(),

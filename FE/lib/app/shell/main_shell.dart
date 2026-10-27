@@ -1,3 +1,5 @@
+import '../../features/community/presentation/community_controller.dart';
+import '../../features/community/presentation/community_page.dart';
 import '../../features/settings/presentation/account_settings_dependencies.dart';
 import '../../features/settings/presentation/pages/account_settings_pages.dart';
 import '../../features/home/presentation/home_server_dependencies.dart';
@@ -43,8 +45,10 @@ class MainShell extends StatefulWidget {
     this.homeRequests,
     this.accountSettings,
     this.settingsRequests,
+    this.community,
   }) : assert(initialIndex >= 0 && initialIndex < 5);
 
+  final CommunityDependencies? community;
   final HomeServerDependencies? homeServer;
   final Listenable? homeRequests;
   final Listenable? settingsRequests;
@@ -255,9 +259,12 @@ class _MainShellState extends State<MainShell> {
             title: '인공지능 코치',
             body: EmptyView(title: '인공지능 코치 준비 중', description: '곧 만나요.'),
           ),
-          const AppScaffold(
-            title: '커뮤니티',
-            body: EmptyView(title: '커뮤니티 준비 중', description: '곧 만나요.'),
+          CommunityPage(
+            key: ValueKey(
+              'community:${widget.onboarding?.account?.storageOwner}',
+            ),
+            dependencies: widget.community,
+            isActive: _selectedIndex == 4,
           ),
         ],
       ),

@@ -58,12 +58,19 @@ class ApiClient {
     String path, {
     required List<http.MultipartFile> files,
     Map<String, String> fields = const {},
+    String method = 'POST',
+    Map<String, List<String>> repeatedFields = const {},
   }) async {
-    beforeAuthorizedRequest?.call('POST', path);
+    beforeAuthorizedRequest?.call(method, path);
     final token = await tokens.read();
-    final request = http.MultipartRequest('POST', Uri.parse('$_baseUrl$path'))
+    final request = http.MultipartRequest(method, Uri.parse('$_baseUrl$path'))
       ..fields.addAll(fields)
-      ..files.addAll(files);
+      ..files.addAll(files)
+      ..files.addAll([
+        for (final entry in repeatedFields.entries)
+          for (final value in entry.value)
+            http.MultipartFile.fromString(entry.key, value),
+      ]);
     if (token != null) request.headers['Authorization'] = 'Bearer $token';
     return _send(request, token);
   }

@@ -25,7 +25,7 @@ void main() {
     expect(find.text('인공지능 코치 준비 중'), findsOneWidget);
     await tester.tap(find.byIcon(Icons.people_outline_rounded));
     await tester.pumpAndSettle();
-    expect(find.text('커뮤니티 준비 중'), findsOneWidget);
+    expect(find.text('로그인 후 커뮤니티를 이용해 주세요.'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('nav-홈')));
     await tester.pumpAndSettle();
     await tester.pumpAndSettle();
