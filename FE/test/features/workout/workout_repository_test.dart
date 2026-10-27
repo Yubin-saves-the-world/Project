@@ -62,6 +62,8 @@ void main() {
       await repo.complete(87);
       expect(requests.last.url.path, '/api/workout-logs/87/complete');
       expect(jsonDecode(requests.last.body), {});
+      await repo.complete(87, memo: '오늘 운동 메모');
+      expect(jsonDecode(requests.last.body), {'memo': '오늘 운동 메모'});
       await repo.cancel(87);
       expect(requests.last.url.path, '/api/workout-logs/87');
       api.dispose();

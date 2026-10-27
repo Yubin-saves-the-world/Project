@@ -1,3 +1,4 @@
+import 'workout_summary_page.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../../ui/core/widgets/design_reference_page.dart';
@@ -37,14 +38,15 @@ class _WorkoutPageState extends State<WorkoutPage> with WidgetsBindingObserver {
     restTarget: widget.restSeconds,
     targetSets: widget.targetSets,
     targetReps: widget.targetReps,
-  )..load();
+  );
   late final Timer timer;
   final weight = TextEditingController(), reps = TextEditingController();
-  bool _expiryChecked = false;
+  bool _expiryChecked = false, _showingSummary = false;
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    reload();
     weight.text = widget.targetWeight?.toString() ?? '';
     reps.text = widget.targetReps?.toString() ?? '';
     timer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -54,14 +56,14 @@ class _WorkoutPageState extends State<WorkoutPage> with WidgetsBindingObserver {
           model.elapsed >= 21600 &&
           !_expiryChecked) {
         _expiryChecked = true;
-        model.load();
+        reload();
       }
     });
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) model.load();
+    if (state == AppLifecycleState.resumed) reload();
   }
 
   @override
@@ -96,27 +98,48 @@ class _WorkoutPageState extends State<WorkoutPage> with WidgetsBindingObserver {
         ),
       ) ??
       false;
+  Future<void> reload() async {
+    await model.load();
+    if (mounted && model.result != null) summary();
+  }
+
+  void summary() {
+    if (_showingSummary) return;
+    _showingSummary = true;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => WorkoutSummaryPage(
+          dependencies: widget.dependencies,
+          log: model.log!,
+          result: model.result!,
+        ),
+      ),
+    );
+  }
+
   Future<void> finish() async {
     final empty = model.log?.sets.any((s) => s.done) != true;
-    if (!await confirm(
-      empty ? '기록 없이 종료할까요?' : '이 종목을 종료할까요?',
-      empty ? '완료한 세트가 없어 이 진행 기록을 삭제해요.' : '완료한 세트를 저장하고 이 종목을 종료해요.',
-    )) {
-      return;
+    String? memo;
+    if (empty) {
+      if (!await confirm('기록 없이 종료할까요?', '완료한 세트가 없어 이 진행 기록을 삭제해요.')) return;
+    } else {
+      memo = await showModalBottomSheet<String>(
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: true,
+        builder: (_) =>
+            _FinishEditor(initial: model.draft['finish_memo'] as String? ?? ''),
+      );
+      if (memo == null) return;
     }
     if (!mounted) return;
-    if (await model.finish() && mounted) {
-      final result = model.result;
-      if (result != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '${result['set_count']}세트 · 총 볼륨 ${result['total_volume_kg']}kg 저장했어요.',
-            ),
-          ),
-        );
+    if (await model.finish(memo: memo) && mounted) {
+      if (model.result != null) {
+        summary();
+      } else {
+        Navigator.pop(context);
       }
-      Navigator.pop(context);
     }
   }
 
@@ -156,7 +179,7 @@ class _WorkoutPageState extends State<WorkoutPage> with WidgetsBindingObserver {
           children: [
             Expanded(
               child: RefreshIndicator(
-                onRefresh: model.load,
+                onRefresh: reload,
                 child: ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.all(24),
@@ -423,9 +446,7 @@ class _WorkoutPageState extends State<WorkoutPage> with WidgetsBindingObserver {
                       style: ReferenceStyle.text(12, 18, color: Colors.red),
                     ),
                     TextButton(
-                      onPressed: model.loading || model.busy
-                          ? null
-                          : model.load,
+                      onPressed: model.loading || model.busy ? null : reload,
                       child: const Text('서버 기록 다시 확인'),
                     ),
                   ],
@@ -525,6 +546,63 @@ class _SetEditorState extends State<_SetEditor> {
               }
               Navigator.pop(context, (w, r));
             },
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _FinishEditor extends StatefulWidget {
+  const _FinishEditor({required this.initial});
+  final String initial;
+  @override
+  State<_FinishEditor> createState() => _FinishEditorState();
+}
+
+class _FinishEditorState extends State<_FinishEditor> {
+  late final memo = TextEditingController(text: widget.initial);
+  @override
+  void dispose() {
+    memo.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+    child: SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(
+        24,
+        8,
+        24,
+        24 + MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            '운동 마무리',
+            style: ReferenceStyle.text(20, 28, weight: FontWeight.w500),
+          ),
+          const SizedBox(height: 8),
+          const Text('메모를 남기고 이 종목을 종료해요. 메모는 선택이에요.'),
+          const SizedBox(height: 16),
+          TextField(
+            key: const Key('workout-memo'),
+            controller: memo,
+            maxLength: 255,
+            minLines: 2,
+            maxLines: 4,
+            decoration: const InputDecoration(
+              labelText: '운동 메모 (선택)',
+              hintText: '오늘 운동은 어땠나요?',
+            ),
+          ),
+          const SizedBox(height: 16),
+          ReferenceButton(
+            '기록 저장하고 종료',
+            onPressed: () => Navigator.pop(context, memo.text.trim()),
           ),
         ],
       ),

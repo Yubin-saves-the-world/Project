@@ -1,3 +1,4 @@
+import '../data/workout_completion.dart';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import '../../../core/network/api_client.dart';
@@ -28,7 +29,7 @@ class WorkoutViewModel extends ChangeNotifier {
       _disposed = false,
       needsReload = false;
   String? error, accessCode;
-  Map<String, dynamic>? result;
+  WorkoutCompletion? result;
   Map<String, dynamic>? get pending => draft['pending'] == null
       ? null
       : Map<String, dynamic>.from(draft['pending'] as Map);
@@ -125,6 +126,9 @@ class WorkoutViewModel extends ChangeNotifier {
           'target_reps': ?reps,
         };
         await _persist();
+      }
+      if (log!.status == 'completed') {
+        result = WorkoutCompletion.fromLog(log!);
       }
       if (log!.status != 'in_progress') {
         draft = {};
@@ -277,14 +281,25 @@ class WorkoutViewModel extends ChangeNotifier {
     });
   }
 
-  Future<bool> finish() async {
+  Future<bool> finish({String? memo}) async {
     if (pending != null) return false;
+    if (memo != null && memo.length > 255) {
+      error = '메모는 255자까지 입력할 수 있어요.';
+      changed();
+      return false;
+    }
     return _mutate(() async {
       if (!log!.sets.any((s) => s.done)) {
         await dependencies.repository.cancel(log!.id);
       } else {
         try {
-          result = await dependencies.repository.complete(log!.id);
+          draft['finish_memo'] = memo ?? '';
+          await _persist();
+          final response = await dependencies.repository.complete(
+            log!.id,
+            memo: memo,
+          );
+          result = WorkoutCompletion.fromJson(response, memo: memo);
         } on ApiRequestError catch (e) {
           if (e.code != 'WORKOUT_EMPTY') rethrow;
           await dependencies.repository.cancel(log!.id);

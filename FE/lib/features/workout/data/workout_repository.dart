@@ -37,6 +37,11 @@ class WorkoutLog {
       routineId = j['routine_id'] as int?,
       startedAt = DateTime.parse(j['started_at'] as String),
       status = j['status'] as String,
+      completedAt = DateTime.tryParse(j['completed_at'] as String? ?? ''),
+      duration = j['duration_sec'] as int?,
+      volume = j['total_volume_kg'] as num?,
+      setCount = j['set_count'] as int?,
+      memo = j['memo'] as String?,
       sets = List.unmodifiable(
         (j['sets'] as List)
             .map(
@@ -50,6 +55,10 @@ class WorkoutLog {
   final String name, status;
   final DateTime startedAt;
   final List<WorkoutSet> sets;
+  final DateTime? completedAt;
+  final int? duration, setCount;
+  final num? volume;
+  final String? memo;
   bool activeAt(DateTime now) =>
       status == 'in_progress' &&
       now.difference(startedAt) < const Duration(hours: 6);
@@ -62,7 +71,7 @@ abstract interface class WorkoutRepository {
   Future<void> update(int id, WorkoutSet set, Map<String, dynamic> body);
   Future<void> deleteSet(int id, int setId);
   Future<void> cancel(int id);
-  Future<Map<String, dynamic>> complete(int id);
+  Future<Map<String, dynamic>> complete(int id, {String? memo});
 }
 
 class ServerWorkoutRepository implements WorkoutRepository {
@@ -114,11 +123,11 @@ class ServerWorkoutRepository implements WorkoutRepository {
   }
 
   @override
-  Future<Map<String, dynamic>> complete(int id) async {
+  Future<Map<String, dynamic>> complete(int id, {String? memo}) async {
     final j = await api.send(
       'PATCH',
       ApiContract.completeWorkout(id),
-      body: {},
+      body: {'memo': ?memo},
     );
     if (j == null) throw StateError('운동 종료 결과를 확인하지 못했어요. 기록을 다시 확인해 주세요.');
     return j;

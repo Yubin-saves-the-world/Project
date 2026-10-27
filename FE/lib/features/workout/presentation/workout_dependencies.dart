@@ -8,9 +8,11 @@ class WorkoutDependencies {
     required this.drafts,
     this.onAccessRequired,
     this.routines,
+    this.onHome,
   });
   final WorkoutRepository repository;
   final RoutineRepository? routines;
+  final void Function()? onHome;
   final WorkoutDraftStore drafts;
   final void Function()? onAccessRequired;
 }

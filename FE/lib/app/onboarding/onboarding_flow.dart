@@ -52,6 +52,7 @@ class OnboardingFlow extends StatefulWidget {
 
 class _OnboardingFlowState extends State<OnboardingFlow> {
   late final OnboardingViewModel _model;
+  final _homeRequests = ValueNotifier<int>(0);
   final _homeServers = <String, HomeServerDependencies>{};
   final _analysisDependencies = <String, AnalysisDependencies>{};
   final _localPhotos = <String, LocalPhotoRepository>{};
@@ -67,6 +68,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 
   @override
   void dispose() {
+    _homeRequests.dispose();
     _model.dispose();
     super.dispose();
   }
@@ -93,6 +95,9 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                 routines: ServerRoutineRepository(server.api),
                 drafts: PreferencesWorkoutDraftStore(email),
                 onAccessRequired: checkAccess,
+                onHome: () {
+                  if (mounted) _homeRequests.value++;
+                },
               ),
         routines: server == null
             ? LocalRoutineRepository()
@@ -160,6 +165,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       }
       if (_model.progress.completed && _model.progress.signedIn) {
         return MainShell(
+          homeRequests: _homeRequests,
           onboarding: _model.progress,
           analysisDependencies: _analysis(),
           homeServer: _homeServer(),

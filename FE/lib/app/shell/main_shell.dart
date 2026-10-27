@@ -38,9 +38,11 @@ class MainShell extends StatefulWidget {
     this.exerciseRepository,
     this.exercisePreview = false,
     this.homeServer,
+    this.homeRequests,
   }) : assert(initialIndex >= 0 && initialIndex < 5);
 
   final HomeServerDependencies? homeServer;
+  final Listenable? homeRequests;
   final ExerciseRepository? exerciseRepository;
   final bool exercisePreview;
   final AnalysisDependencies? analysisDependencies;
@@ -67,6 +69,32 @@ class _MainShellState extends State<MainShell> {
   void initState() {
     super.initState();
     _selectedIndex = widget.initialIndex;
+    widget.homeRequests?.addListener(_returnHome);
+  }
+
+  void _returnHome() {
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    if (mounted) {
+      setState(() {
+        _selectedIndex = 0;
+        _homeRevision++;
+      });
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant MainShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.homeRequests != widget.homeRequests) {
+      oldWidget.homeRequests?.removeListener(_returnHome);
+      widget.homeRequests?.addListener(_returnHome);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.homeRequests?.removeListener(_returnHome);
+    super.dispose();
   }
 
   void _openAnalysis() {

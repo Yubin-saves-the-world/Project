@@ -22,6 +22,9 @@ class FakeWorkoutRepository implements WorkoutRepository {
   int? lastRoutine;
   bool loseResponse = false, failBeforeSave = false;
   Object? updateError;
+  bool loseCompletionResponse = false;
+  String? lastMemo;
+  Map<String, dynamic>? completionResponse;
   @override
   Future<WorkoutLog> start(int id, {int? routineId}) async {
     starts++;
@@ -71,10 +74,30 @@ class FakeWorkoutRepository implements WorkoutRepository {
   }
 
   @override
-  Future<Map<String, dynamic>> complete(int id) async {
+  Future<Map<String, dynamic>> complete(int id, {String? memo}) async {
     completions++;
     data['status'] = 'completed';
-    return {'set_count': 1, 'total_volume_kg': 600};
+    lastMemo = memo;
+    final response =
+        completionResponse ??
+        {
+          'log_id': id,
+          'completed_at': '2026-10-27T10:10:00Z',
+          'duration_sec': 600,
+          'set_count': 1,
+          'total_volume_kg': 600,
+          'routine_progress': null,
+          'routine_status': null,
+        };
+    data.addAll({
+      'completed_at': response['completed_at'],
+      'duration_sec': response['duration_sec'],
+      'total_volume_kg': response['total_volume_kg'],
+      'set_count': response['set_count'],
+      'memo': memo,
+    });
+    if (loseCompletionResponse) throw StateError('종료 응답 손실');
+    return response;
   }
 }
 
