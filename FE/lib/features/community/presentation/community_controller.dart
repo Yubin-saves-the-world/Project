@@ -8,8 +8,12 @@ class CommunityDependencies {
     required this.repository,
     required this.picker,
     this.preview = false,
+    this.profileOwner,
+    this.currentNickname,
     this.onAccessRequired,
   });
+  final String? profileOwner;
+  final String Function()? currentNickname;
   final CommunityRepository repository;
   final CommunityImagePicker picker;
   final bool preview;
@@ -43,6 +47,8 @@ class CommunityController extends ChangeNotifier {
   List<CommunityPost> items = [];
   String? category, error;
   String query = '';
+  final reactions = <int, bool>{};
+  final reacting = <int>{};
   bool loading = false;
   int _page = 0, _total = 0, _revision = 0;
   bool _disposed = false;
@@ -72,6 +78,7 @@ class CommunityController extends ChangeNotifier {
     loading = true;
     error = null;
     if (!more) {
+      reactions.clear();
       items = [];
       _page = 0;
       _total = 0;
@@ -97,6 +104,38 @@ class CommunityController extends ChangeNotifier {
     } finally {
       if (!_disposed && revision == _revision) {
         loading = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<void> toggleLike(int id) async {
+    if (reacting.contains(id) || _disposed) return;
+    final revision = _revision;
+    reacting.add(id);
+    error = null;
+    notifyListeners();
+    try {
+      // 목록 계약에는 liked_by_me가 없어 첫 반응 때 상세로 현재 상태를 확인한다.
+      final current = reactions[id] ?? (await deps.repository.post(id)).liked;
+      Map<String, dynamic> result;
+      try {
+        result = await deps.repository.like(id, !current);
+      } on ApiRequestError catch (e) {
+        if (e.code != 'ALREADY_LIKED') rethrow;
+        final post = await deps.repository.post(id);
+        result = {'like_count': post.likes, 'liked_by_me': post.liked};
+      }
+      if (_disposed || revision != _revision) return;
+      reactions[id] = result['liked_by_me'] as bool;
+      items = [for (final p in items) p.id == id ? p.withLike(result) : p];
+    } catch (e) {
+      if (!_disposed && revision == _revision) {
+        error = communityError(e, deps, writing: true);
+      }
+    } finally {
+      if (!_disposed) {
+        reacting.remove(id);
         notifyListeners();
       }
     }

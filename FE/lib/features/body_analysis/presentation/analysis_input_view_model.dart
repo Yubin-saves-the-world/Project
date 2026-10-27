@@ -200,6 +200,11 @@ class AnalysisInputViewModel extends ChangeNotifier
       _notify();
       return false;
     }
+    if (dependencies.localPreview) {
+      error = '로컬 미리보기에서는 실제 체형 분석을 제공하지 않아요. 서버 연결 후 이용해 주세요.';
+      _notify();
+      return false;
+    }
     if (usage != null && usage!.remaining <= 0) {
       error = '오늘의 분석 횟수를 모두 사용했어요.';
       _notify();

@@ -1,3 +1,4 @@
+import '../../../../ui/core/widgets/app_icon.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../../app/router/route_paths.dart';
@@ -182,7 +183,7 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
                             color: ReferenceStyle.blue,
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(
+                          child: const AppIcon(
                             Icons.check_rounded,
                             size: 32,
                             color: Colors.white,

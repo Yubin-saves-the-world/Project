@@ -1,3 +1,4 @@
+import '../../../../ui/core/widgets/app_icon.dart';
 import 'package:flutter/material.dart';
 import '../../../../ui/core/widgets/design_reference_page.dart';
 import '../../../../ui/core/widgets/management_page.dart';
@@ -75,12 +76,12 @@ class _GoalBodyPageState extends State<GoalBodyPage>
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.camera_alt_outlined),
+              leading: const AppIcon(Icons.camera_alt_outlined),
               title: const Text('카메라로 촬영'),
               onTap: () => Navigator.pop(context, PhotoSource.camera),
             ),
             ListTile(
-              leading: const Icon(Icons.photo_library_outlined),
+              leading: const AppIcon(Icons.photo_library_outlined),
               title: const Text('앨범에서 선택'),
               onTap: () => Navigator.pop(context, PhotoSource.gallery),
             ),
@@ -139,6 +140,21 @@ class _GoalBodyPageState extends State<GoalBodyPage>
           AnalysisStatus.unknown => '목표 상태를 확인해 주세요',
         }, style: ReferenceStyle.text(16, 24, weight: FontWeight.w500)),
         const SizedBox(height: 8),
+        if (widget.dependencies.localPreview && goal.previewBytes != null) ...[
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.memory(
+              goal.previewBytes!,
+              height: 220,
+              width: double.infinity,
+              fit: BoxFit.contain,
+              cacheWidth: 1040,
+              errorBuilder: (_, _, _) => const Text('사진을 표시할 수 없어요.'),
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text('로컬에 등록한 참고 사진이에요. AI 분석 결과가 아니에요.'),
+        ],
         if (goal.status == AnalysisStatus.pending) ...[
           const Text('사진에서 특징을 추출하고 있어요. 화면을 나가도 나중에 다시 확인할 수 있어요.'),
           if (model.checking)
@@ -179,7 +195,7 @@ class _GoalBodyPageState extends State<GoalBodyPage>
               onPressed: model.busy || model.loading || !model.loaded
                   ? null
                   : _delete,
-              icon: const Icon(Icons.delete_outline_rounded),
+              icon: const AppIcon(Icons.delete_outline_rounded),
             ),
         ],
         body: Column(
@@ -213,13 +229,12 @@ class _GoalBodyPageState extends State<GoalBodyPage>
                     ],
                     if (widget.dependencies.localPreview) ...[
                       const Text(
-                        '미리보기에서는 설명만 현재 앱 세션에 저장돼요. 사진 분석은 서버 연결 후 이용할 수 있어요.',
+                        '사진과 설명은 현재 앱 세션에만 저장돼요. 실제 AI 분석은 서버 연결 후 이용할 수 있어요.',
                         style: TextStyle(color: ReferenceStyle.muted),
                       ),
                       const SizedBox(height: 16),
                     ],
-                    if (!widget.dependencies.localPreview &&
-                        (!model.processing || model.photo != null)) ...[
+                    if (!model.processing || model.photo != null) ...[
                       PhotoInputField(
                         label: model.goal == null ? '목표 사진' : '새 목표 사진',
                         photo: model.photo,
@@ -229,7 +244,9 @@ class _GoalBodyPageState extends State<GoalBodyPage>
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        '목표 사진은 특징 추출 후 원본이 삭제돼요. 저장 후에는 사진 대신 요약과 설명을 보여드려요.',
+                        widget.dependencies.localPreview
+                            ? '로컬 사진은 앱을 종료하면 초기화돼요.'
+                            : '목표 사진은 특징 추출 후 원본이 삭제돼요. 저장 후에는 사진 대신 요약과 설명을 보여드려요.',
                         style: ReferenceStyle.text(
                           12,
                           18,

@@ -1,3 +1,4 @@
+import '../../../ui/core/widgets/app_icon.dart';
 import 'package:flutter/material.dart';
 
 import '../../../ui/core/theme/app_colors.dart';
@@ -52,7 +53,7 @@ class OnboardingFrame extends StatelessWidget {
                           ),
                         ),
                         onPressed: busy ? null : onBack,
-                        icon: const Icon(
+                        icon: const AppIcon(
                           Icons.chevron_left,
                           size: 20,
                           color: AppColors.muted,

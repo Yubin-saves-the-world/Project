@@ -38,6 +38,7 @@ class MainShell extends StatefulWidget {
     this.photoRepository,
     this.photoPicker,
     this.onProfileSaved,
+    this.onNicknameSave,
     this.analysisDependencies,
     this.exerciseRepository,
     this.exercisePreview = false,
@@ -60,6 +61,7 @@ class MainShell extends StatefulWidget {
   final RoutineRefreshRepository? routineRefreshRepository;
   final PhotoRepository? photoRepository;
   final PhotoPicker? photoPicker;
+  final Future<String> Function(String)? onNicknameSave;
   final ValueChanged<BodyProfile>? onProfileSaved;
   final int initialIndex;
   final OnboardingProgress? onboarding;
@@ -237,6 +239,7 @@ class _MainShellState extends State<MainShell> {
                               ? null
                               : _openRoutines,
                           onProfileSaved: widget.onProfileSaved,
+                          onNicknameSave: widget.onNicknameSave,
                           onLogout: widget.onLogout,
                         ),
                       ),

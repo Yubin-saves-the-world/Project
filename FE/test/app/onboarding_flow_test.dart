@@ -43,7 +43,7 @@ void main() {
     )..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'))).load();
   });
 
-  testWidgets('개발용 인증·동의·범위 상한 저장·텍스트 입력 후 가입 완료', (tester) async {
+  testWidgets('개발용 가입도 공통 분석 화면을 사용하고 홈으로 이동한다', (tester) async {
     tester.view.physicalSize = const Size(393, 852);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -98,19 +98,37 @@ void main() {
     expect(repository.progress.profile!.weeklyFrequency, 5);
     expect(find.text('체형 분석'), findsNothing);
     expect(find.text('사진으로 분석'), findsOneWidget);
+    expect(find.text('준비 중'), findsNothing);
+    expect(find.text('글 분석 준비 중'), findsNothing);
     await tester.tap(find.text('글로 설명하기'));
     await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const Key('analysis-text')),
-      '어깨가 앞으로 굽는 느낌이 있어요.',
-    );
+    expect(find.text('글 분석 준비 중'), findsOneWidget);
+    expect(find.byKey(const Key('analysis-text')), findsNothing);
     await tester.tap(find.text('확인'));
     await tester.pumpAndSettle();
+    expect(find.text('분석 기록'), findsNothing);
+    expect(find.text('다음에 하기').hitTestable(), findsOneWidget);
+    expect(find.text('목표 체형'), findsOneWidget);
+    expect(find.textContaining('로컬 미리보기에서는 실제 체형 분석'), findsOneWidget);
     await tester.ensureVisible(find.text('분석 시작'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('분석 시작'));
+    await tester.pumpAndSettle();
+    expect(find.text('정면 사진을 추가해 주세요.'), findsOneWidget);
+    expect(repository.progress.completed, isFalse);
+    await tester.ensureVisible(find.text('다음에 하기'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('다음에 하기'));
     await tester.pumpAndSettle();
     expect(find.textContaining('유빈님,'), findsOneWidget);
     expect(repository.progress.completed, isTrue);
+    expect(repository.progress.analysisPrepared, isFalse);
+    await tester.tap(find.byKey(const ValueKey('nav-분석')));
+    await tester.pumpAndSettle();
+    expect(find.text('분석 기록'), findsOneWidget);
+    expect(find.text('목표 체형'), findsOneWidget);
+    expect(find.textContaining('로컬 미리보기에서는 실제 체형 분석'), findsOneWidget);
+    expect(find.text('다음에 하기'), findsNothing);
   });
 
   testWidgets('인증번호 없이 가입되지 않고 뒤로 이동하면 초안을 유지한다', (tester) async {

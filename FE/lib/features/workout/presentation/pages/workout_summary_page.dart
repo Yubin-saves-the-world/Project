@@ -1,3 +1,4 @@
+import '../../../../ui/core/widgets/app_icon.dart';
 import 'package:flutter/material.dart';
 import '../../../../ui/core/widgets/design_reference_page.dart';
 import '../../../../ui/core/widgets/management_page.dart';
@@ -83,7 +84,7 @@ class _WorkoutSummaryPageState extends State<WorkoutSummaryPage> {
             child: ListView(
               padding: const EdgeInsets.all(24),
               children: [
-                Icon(
+                AppIcon(
                   model.routineDone
                       ? Icons.emoji_events_outlined
                       : Icons.check_circle_outline_rounded,

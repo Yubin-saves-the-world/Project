@@ -1,3 +1,4 @@
+import '../../../../ui/core/widgets/app_icon.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../../core/media/image_picker_service.dart';
@@ -126,13 +127,13 @@ class _PhotoManagementPageState extends State<PhotoManagementPage>
                     style: ReferenceStyle.text(14, 21, color: AppColors.muted),
                   ),
                   ListTile(
-                    leading: const Icon(Icons.camera_alt_outlined),
+                    leading: const AppIcon(Icons.camera_alt_outlined),
                     title: const Text('촬영하기'),
                     onTap: () =>
                         Navigator.pop(context, (PhotoSource.camera, side)),
                   ),
                   ListTile(
-                    leading: const Icon(Icons.photo_library_outlined),
+                    leading: const AppIcon(Icons.photo_library_outlined),
                     title: const Text('앨범에서 선택'),
                     onTap: () =>
                         Navigator.pop(context, (PhotoSource.gallery, side)),
@@ -200,7 +201,7 @@ class _PhotoManagementPageState extends State<PhotoManagementPage>
                       }
                     },
               style: IconButton.styleFrom(backgroundColor: AppColors.surface),
-              icon: const Icon(Icons.close_rounded, size: 18),
+              icon: const AppIcon(Icons.close_rounded, size: 18),
             ),
           ),
         ],
@@ -211,7 +212,7 @@ class _PhotoManagementPageState extends State<PhotoManagementPage>
     child: IconButton(
       tooltip: '사진 주소 새로고침',
       onPressed: model.busy ? null : model.load,
-      icon: const Icon(Icons.refresh_rounded, color: AppColors.muted),
+      icon: const AppIcon(Icons.refresh_rounded, color: AppColors.muted),
     ),
   );
   @override
@@ -357,7 +358,7 @@ class _PhotoManagementPageState extends State<PhotoManagementPage>
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(
+                            const AppIcon(
                               Icons.add_rounded,
                               color: AppColors.primary,
                             ),

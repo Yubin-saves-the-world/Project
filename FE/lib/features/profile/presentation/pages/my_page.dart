@@ -1,3 +1,9 @@
+import '../../../../ui/core/widgets/app_icon.dart';
+import '../widgets/account_avatar.dart';
+import '../../../../ui/core/widgets/edit_icon.dart';
+import 'dart:typed_data';
+import '../../data/profile_avatar_store.dart';
+import 'profile_identity_page.dart';
 import '../../../settings/presentation/account_settings_dependencies.dart';
 import '../../../settings/presentation/account_settings_view_model.dart';
 import '../../../settings/presentation/pages/account_settings_pages.dart';
@@ -31,7 +37,13 @@ class MyPage extends StatefulWidget {
     this.routineRefreshRepository,
     this.accountSettings,
     this.onConsentRequired,
+    this.onNicknameSave,
+    this.avatarStore,
+    this.avatarPicker,
   });
+  final Future<String> Function(String)? onNicknameSave;
+  final ProfileAvatarStore? avatarStore;
+  final ProfileAvatarPicker? avatarPicker;
   final AccountSettingsDependencies? accountSettings;
   final VoidCallback? onConsentRequired;
   final OnboardingProgress onboarding;
@@ -50,6 +62,96 @@ class MyPage extends StatefulWidget {
 }
 
 class _MyPageState extends State<MyPage> {
+  Uint8List? _avatar;
+  late final Future<void> _avatarReady;
+  bool _identityOpening = false;
+  String? _nickname, _avatarError;
+  late final _avatars =
+      widget.avatarStore ??
+      (widget.onboarding.account?.storageOwner.isNotEmpty == true
+          ? ProfileAvatarStore(widget.onboarding.account!.storageOwner)
+          : null);
+  @override
+  void initState() {
+    super.initState();
+    _avatarReady = _loadAvatar();
+  }
+
+  Future<void> _loadAvatar() async {
+    try {
+      final photo = await _avatars?.load();
+      if (mounted) setState(() => _avatar = photo);
+    } catch (_) {
+      if (mounted) {
+        setState(() => _avatarError = '프로필 사진을 불러오지 못했어요. 다시 선택해 주세요.');
+      }
+    }
+  }
+
+  Future<void> _identity() async {
+    if (_identityOpening) return;
+    _identityOpening = true;
+    try {
+      await _avatarReady;
+      if (mounted) await _openIdentity();
+    } finally {
+      _identityOpening = false;
+    }
+  }
+
+  Future<void> _openIdentity() async {
+    final avatars = _avatars;
+    if (avatars == null || model.regenerating) return;
+    if (settings != null && (settings!.user == null || settings!.needsReload)) {
+      await settings!.load();
+    }
+    if (!mounted) return;
+    final name =
+        settings?.user?.nickname ??
+        _nickname ??
+        widget.onboarding.account?.nickname ??
+        '';
+    final result = await Navigator.push<ProfileIdentityResult>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ProfileIdentityPage(
+          nickname: name,
+          avatar: _avatar,
+          store: avatars,
+          picker: widget.avatarPicker ?? NativeProfileAvatarPicker(),
+          localNickname: settings == null,
+          rename: (value) async {
+            final String saved;
+            if (settings != null) {
+              if (!await settings!.rename(value)) {
+                throw StateError(
+                  settings!.nicknameError ??
+                      settings!.error ??
+                      '계정 정보를 다시 확인해 주세요.',
+                );
+              }
+              saved = settings!.user!.nickname;
+            } else {
+              if (widget.onNicknameSave == null) {
+                throw StateError('닉네임 저장 기능을 연결해 주세요.');
+              }
+              saved = await widget.onNicknameSave!(value);
+            }
+            if (mounted) setState(() => _nickname = saved);
+            return saved;
+          },
+        ),
+      ),
+    );
+    if (result != null && mounted) {
+      setState(() {
+        _avatar = result.avatar;
+        _nickname = result.nickname;
+        _avatarError = null;
+      });
+    }
+  }
+
   late final settings = widget.accountSettings == null
       ? null
       : (AccountSettingsViewModel(widget.accountSettings!)..load());
@@ -191,7 +293,7 @@ class _MyPageState extends State<MyPage> {
       child: Row(
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 20, color: AppColors.primary),
+            AppIcon(icon, size: 20, color: AppColors.primary),
             const SizedBox(width: 10),
           ],
           Expanded(child: Text(title, style: ReferenceStyle.text(15, 22))),
@@ -205,7 +307,7 @@ class _MyPageState extends State<MyPage> {
             ),
           ),
           const SizedBox(width: 4),
-          const Icon(
+          const AppIcon(
             Icons.chevron_right_rounded,
             size: 18,
             color: AppColors.muted,
@@ -227,55 +329,58 @@ class _MyPageState extends State<MyPage> {
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
           children: [
             _card([
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      backgroundColor: AppColors.primarySoft,
-                      foregroundColor: AppColors.primary,
-                      child: Text(
-                        (settings?.user?.nickname ?? account?.nickname ?? '나')
-                                .characters
-                                .firstOrNull ??
-                            '나',
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            settings?.user?.nickname ??
-                                account?.nickname ??
-                                '내 정보',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: ReferenceStyle.text(
-                              18,
-                              26,
-                              weight: FontWeight.w500,
-                            ),
-                          ),
-                          if (account != null && account.email.isNotEmpty)
+              InkWell(
+                key: const Key('profile-identity'),
+                onTap: _identity,
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Row(
+                    children: [
+                      ProfilePortrait(size: 52, bytes: _avatar),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
                             Text(
-                              account.email,
+                              settings?.user?.nickname ??
+                                  _nickname ??
+                                  account?.nickname ??
+                                  '내 정보',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: ReferenceStyle.text(
-                                12,
-                                19,
-                                color: AppColors.muted,
+                                18,
+                                26,
+                                weight: FontWeight.w500,
                               ),
                             ),
-                        ],
+                            if (account != null && account.email.isNotEmpty)
+                              Text(
+                                account.email,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: ReferenceStyle.text(
+                                  12,
+                                  19,
+                                  color: AppColors.muted,
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 8),
+                      const EditIcon(size: 18, color: AppColors.muted),
+                    ],
+                  ),
                 ),
               ),
             ]),
+            if (_avatarError != null)
+              Text(
+                _avatarError!,
+                style: ReferenceStyle.text(12, 18, color: AppColors.error),
+              ),
             const SizedBox(height: 24),
             Text(
               '내 신체정보',

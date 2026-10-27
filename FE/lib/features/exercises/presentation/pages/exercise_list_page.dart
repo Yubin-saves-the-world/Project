@@ -1,3 +1,4 @@
+import '../../../../ui/core/widgets/app_icon.dart';
 import '../../../workout/presentation/workout_dependencies.dart';
 import '../../../../ui/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
@@ -128,7 +129,7 @@ class _ExerciseListPageState extends State<ExerciseListPage> {
                       onSubmitted: (_) => model.load(),
                       decoration: InputDecoration(
                         hintText: '운동 이름 검색',
-                        prefixIcon: const Icon(Icons.search_rounded),
+                        prefixIcon: const AppIcon(Icons.search_rounded),
                         counterText: '',
                         suffixIcon: _search.text.isEmpty
                             ? null
@@ -138,7 +139,7 @@ class _ExerciseListPageState extends State<ExerciseListPage> {
                                   _search.clear();
                                   model.change(model.filter.withQuery(''));
                                 },
-                                icon: const Icon(Icons.close_rounded),
+                                icon: const AppIcon(Icons.close_rounded),
                               ),
                       ),
                     ),
@@ -164,7 +165,7 @@ class _ExerciseListPageState extends State<ExerciseListPage> {
                       children: [
                         OutlinedButton.icon(
                           onPressed: _equipment,
-                          icon: const Icon(Icons.tune_rounded, size: 18),
+                          icon: const AppIcon(Icons.tune_rounded, size: 18),
                           label: Text(
                             exerciseEquipment[model.filter.equipment] ??
                                 '전체 기구',
@@ -264,7 +265,7 @@ class _ExerciseListPageState extends State<ExerciseListPage> {
                                 ),
                               ),
                               const SizedBox(width: 8),
-                              const Icon(
+                              const AppIcon(
                                 Icons.chevron_right_rounded,
                                 color: ReferenceStyle.muted,
                               ),

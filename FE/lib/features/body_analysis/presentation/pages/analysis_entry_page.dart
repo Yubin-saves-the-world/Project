@@ -126,22 +126,40 @@ class _AnalysisEntryPageState extends State<AnalysisEntryPage> {
         goalCaption: model.selectedGoal == null
             ? '사진 또는 설명으로 목표를 정해요 (선택)'
             : '목표 체형 선택됨 · 눌러서 변경하기',
-        topAction: TextButton(
-          onPressed: () async {
-            await Navigator.push(
-              context,
-              MaterialPageRoute<void>(
-                builder: (_) =>
-                    AnalysisHistoryPage(dependencies: widget.dependencies!),
+        topAction: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (widget.onCompleted == null)
+              TextButton(
+                onPressed: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => AnalysisHistoryPage(
+                        dependencies: widget.dependencies!,
+                      ),
+                    ),
+                  );
+                  if (mounted) await model.initialize();
+                },
+                child: const Text('분석 기록'),
               ),
-            );
-            if (mounted) await model.initialize();
-          },
-          child: const Text('분석 기록'),
+            if (widget.onCompleted != null)
+              TextButton(
+                key: const Key('analysis-skip'),
+                onPressed: model.busy ? null : widget.onCompleted,
+                child: const Text('다음에 하기'),
+              ),
+          ],
         ),
         notice: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (widget.dependencies!.localPreview)
+              Text(
+                '로컬 미리보기에서는 실제 체형 분석을 제공하지 않아요. 서버 연결 후 이용해 주세요.',
+                style: ReferenceStyle.text(12, 18, color: ReferenceStyle.muted),
+              ),
             if (model.usage case final usage?)
               Text(
                 '오늘 남은 분석 ${usage.remaining}/${usage.limit}회',
@@ -168,11 +186,6 @@ class _AnalysisEntryPageState extends State<AnalysisEntryPage> {
               TextButton(
                 onPressed: widget.dependencies!.onAccessRequired,
                 child: const Text('동의·신체정보 확인'),
-              ),
-            if (widget.onCompleted != null)
-              TextButton(
-                onPressed: model.busy ? null : widget.onCompleted,
-                child: const Text('홈으로 이동'),
               ),
           ],
         ),

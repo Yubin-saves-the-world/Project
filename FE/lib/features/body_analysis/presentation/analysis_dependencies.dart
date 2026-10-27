@@ -15,6 +15,7 @@ class AnalysisDependencies {
     required this.picker,
     required this.pending,
     this.preparer,
+    this.localPreview = false,
     this.onAccessRequired,
     this.goals,
     this.routines,
@@ -22,6 +23,7 @@ class AnalysisDependencies {
     this.workouts,
     this.ensureCanAnalyze,
   });
+  final bool localPreview;
   final void Function()? ensureCanAnalyze;
   final RoutineRepository? routines;
   final ExerciseRepository? exercises;

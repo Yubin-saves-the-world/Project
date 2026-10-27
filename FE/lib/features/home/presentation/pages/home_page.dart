@@ -1,3 +1,5 @@
+import '../../../../ui/core/theme/app_colors.dart';
+import '../../../../ui/core/widgets/app_icon.dart';
 import '../../../workout/presentation/pages/workout_history_page.dart';
 import '../home_server_dependencies.dart';
 import '../home_server_view_model.dart';
@@ -161,9 +163,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     padding: padding,
     decoration: BoxDecoration(
       color: Colors.white,
-      border: Border.all(
-        color: blue ? ReferenceStyle.blue : const Color(0xFFE4E1D8),
-      ),
+      border: Border.all(color: blue ? ReferenceStyle.blue : AppColors.border),
       borderRadius: BorderRadius.circular(radius),
     ),
     child: child,
@@ -212,7 +212,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       textStyle: _text(12),
     ),
-    icon: const Icon(Icons.edit_calendar_outlined, size: 16),
+    icon: const AppIcon(Icons.edit_calendar_outlined, size: 16),
     label: const Text('일정 수정'),
   );
 
@@ -241,7 +241,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         ? const Text('완료')
                         : !model.isToday
                         ? const Text('조회')
-                        : const Icon(Icons.play_circle_outline_rounded),
+                        : const AppIcon(Icons.play_circle_outline_rounded),
                     onTap:
                         !model.isToday ||
                             !model.canWrite ||
@@ -402,14 +402,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                               vertical: 6,
                             ),
                             decoration: BoxDecoration(
-                              border: Border.all(
-                                color: const Color(0xFFE4E1D8),
-                              ),
+                              border: Border.all(color: AppColors.border),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Row(
                               children: [
-                                const Icon(
+                                const AppIcon(
                                   Icons.local_fire_department_outlined,
                                   size: 16,
                                   color: ReferenceStyle.blue,
@@ -443,7 +441,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             ),
                           ),
                           style: IconButton.styleFrom(
-                            side: const BorderSide(color: Color(0xFFE4E1D8)),
+                            side: const BorderSide(color: AppColors.border),
                             minimumSize: const Size(36, 36),
                           ),
                         ),
@@ -469,7 +467,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                               ),
                             ),
                             style: IconButton.styleFrom(
-                              side: const BorderSide(color: Color(0xFFE4E1D8)),
+                              side: const BorderSide(color: AppColors.border),
                               minimumSize: const Size(36, 36),
                             ),
                           ),
@@ -607,7 +605,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         child: _card(
                           ListTile(
                             contentPadding: EdgeInsets.zero,
-                            leading: const Icon(
+                            leading: const AppIcon(
                               Icons.play_circle_outline_rounded,
                               color: ReferenceStyle.blue,
                             ),
@@ -830,7 +828,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         children: [
                           Row(
                             children: [
-                              const Icon(
+                              const AppIcon(
                                 Icons.track_changes_rounded,
                                 size: 19,
                                 color: ReferenceStyle.blue,
@@ -870,7 +868,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                             1,
                                           ),
                                     minHeight: 4,
-                                    backgroundColor: const Color(0xFFE4E1D8),
+                                    backgroundColor: AppColors.border,
                                   ),
                           ),
                           const SizedBox(height: 10),
@@ -946,7 +944,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 20, color: ReferenceStyle.muted),
+          AppIcon(icon, size: 20, color: ReferenceStyle.muted),
           const SizedBox(height: 8),
           Text(title, style: _text(14, bold: true)),
           const SizedBox(height: 4),

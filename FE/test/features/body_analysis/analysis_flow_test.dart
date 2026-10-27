@@ -17,6 +17,29 @@ ApiRequestError apiError(String code, int status) => ApiRequestError(
 );
 
 void main() {
+  test('로컬 미리보기에서는 사진이 있어도 업로드나 분석 요청을 보내지 않는다', () async {
+    final repository = FakeAnalysisRepository();
+    final photos = FakePhotoRepository();
+    final model = AnalysisInputViewModel(
+      AnalysisDependencies(
+        repository: repository,
+        photos: photos,
+        picker: FakePhotoPicker()
+          ..nextPhoto = const SelectedPhoto(path: 'front.jpg', byteLength: 10),
+        pending: MemoryAnalysisPendingStore(),
+        preparer: FakePhotoPreparer(),
+        localPreview: true,
+      ),
+    );
+    await model.pickPhoto(PhotoSlot.front, PhotoSource.gallery);
+    expect(await model.finish(prepareAnalysis: true), isFalse);
+    expect(model.error, contains('로컬 미리보기'));
+    expect(photos.uploads, 0);
+    expect(repository.starts, 0);
+    expect(model.analysis.front, isNotNull);
+    model.dispose();
+  });
+
   test('업로드 후 요청 실패 시 사진을 보존하고 성공한 업로드를 재사용한다', () async {
     final repository = FakeAnalysisRepository()
       ..startError = StateError('다시 시도');

@@ -1,3 +1,4 @@
+import '../../../../ui/core/widgets/app_icon.dart';
 import 'package:flutter/material.dart';
 import '../../../../ui/core/widgets/app_scaffold.dart';
 import '../../../../ui/core/widgets/empty_view.dart';
@@ -114,7 +115,7 @@ class _WorkoutHistoryPageState extends State<WorkoutHistoryPage>
                     onPressed: m.month.year > 1 || m.month.month > 1
                         ? () => m.changeMonth(-1)
                         : null,
-                    icon: const Icon(Icons.chevron_left_rounded),
+                    icon: const AppIcon(Icons.chevron_left_rounded),
                   ),
                   Expanded(
                     child: Text(
@@ -135,7 +136,7 @@ class _WorkoutHistoryPageState extends State<WorkoutHistoryPage>
                         )
                         ? () => m.changeMonth(1)
                         : null,
-                    icon: const Icon(Icons.chevron_right_rounded),
+                    icon: const AppIcon(Icons.chevron_right_rounded),
                   ),
                 ],
               ),
@@ -286,7 +287,7 @@ class _WorkoutHistoryPageState extends State<WorkoutHistoryPage>
                               if (widget.server?.workouts != null)
                                 const Align(
                                   alignment: Alignment.centerRight,
-                                  child: Icon(
+                                  child: AppIcon(
                                     Icons.chevron_right_rounded,
                                     color: ReferenceStyle.muted,
                                   ),

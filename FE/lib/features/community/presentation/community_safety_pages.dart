@@ -1,3 +1,5 @@
+import '../../../ui/core/theme/app_colors.dart';
+import '../../../ui/core/widgets/app_icon.dart';
 import 'package:flutter/material.dart';
 import '../../../ui/core/widgets/design_reference_page.dart';
 import '../../../ui/core/widgets/management_page.dart';
@@ -59,9 +61,7 @@ class _CommunityReportPageState extends State<CommunityReportPage> {
       );
       if (mounted) {
         _done(
-          widget.dependencies.preview
-              ? '미리보기에서 신고했어요. 실제 접수되지 않아요.'
-              : '신고가 접수됐어요.',
+          widget.dependencies.preview ? '현재 앱에서 신고한 항목으로 표시했어요.' : '신고가 접수됐어요.',
         );
       }
     } catch (e) {
@@ -95,27 +95,52 @@ class _CommunityReportPageState extends State<CommunityReportPage> {
       body: ListView(
         padding: const EdgeInsets.all(24),
         children: [
-          if (widget.dependencies.preview)
-            const CommunityNotice('기기 미리보기 · 실제 신고/전송 없음'),
           communityText('어떤 문제가 있나요?', size: 18, medium: true),
           const SizedBox(height: 16),
-          DropdownButtonFormField<String>(
-            initialValue: _reason,
-            decoration: const InputDecoration(
-              labelText: '신고 사유',
-              border: OutlineInputBorder(),
+          for (final reason in {
+            'spam': '스팸·광고',
+            'abuse': '욕설·괴롭힘',
+            'inappropriate': '부적절한 내용',
+            'other': '기타',
+          }.entries)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Material(
+                color: _reason == reason.key
+                    ? AppColors.primarySoft
+                    : communityCard,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(
+                    color: _reason == reason.key
+                        ? ReferenceStyle.blue
+                        : communityBorder,
+                  ),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: Semantics(
+                  selected: _reason == reason.key,
+                  child: ListTile(
+                    onTap: _busy
+                        ? null
+                        : () => setState(() {
+                            _reason = reason.key;
+                            _error = null;
+                          }),
+                    title: communityText(reason.value),
+                    trailing: AppIcon(
+                      _reason == reason.key
+                          ? Icons.radio_button_checked_rounded
+                          : Icons.radio_button_off_rounded,
+                      color: _reason == reason.key
+                          ? ReferenceStyle.blue
+                          : ReferenceStyle.muted,
+                      size: 21,
+                    ),
+                  ),
+                ),
+              ),
             ),
-            items: [
-              for (final e in {
-                'spam': '스팸·광고',
-                'abuse': '욕설·괴롭힘',
-                'inappropriate': '부적절한 내용',
-                'other': '기타',
-              }.entries)
-                DropdownMenuItem(value: e.key, child: Text(e.value)),
-            ],
-            onChanged: _busy ? null : (v) => setState(() => _reason = v),
-          ),
           const SizedBox(height: 24),
           TextField(
             controller: _detail,
@@ -226,8 +251,6 @@ class _CommunityBlocksPageState extends State<CommunityBlocksPage> {
       body: ListView(
         padding: const EdgeInsets.all(24),
         children: [
-          if (widget.dependencies.preview)
-            const CommunityNotice('기기 미리보기 · 실제 차단 목록이 아니에요.'),
           if (_error != null)
             CommunityNotice(
               _error!,

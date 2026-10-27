@@ -7,12 +7,7 @@ import 'community_repository.dart';
 class LocalCommunityRepository implements CommunityRepository {
   LocalCommunityRepository(this.nickname) {
     final examples = [
-      (
-        'notice',
-        '커뮤니티 이용 안내',
-        '운동 경험을 나누고 서로 존중해 주세요. 이 글은 미리보기 예시입니다.',
-        '운영팀',
-      ),
+      ('notice', '커뮤니티 이용 안내', '운동 경험을 나누고 서로 존중해 주세요.', '운영팀'),
       (
         'info',
         '꾸준히 운동한 3개월의 기록',
@@ -210,7 +205,7 @@ class LocalCommunityRepository implements CommunityRepository {
 
   @override
   Future<void> report(String type, int id, String reason, String detail) async {
-    if (!_reports.add('$type:$id')) throw StateError('미리보기에서 이미 신고한 항목이에요.');
+    if (!_reports.add('$type:$id')) throw StateError('현재 앱에서 이미 신고한 항목이에요.');
   }
 
   @override

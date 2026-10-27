@@ -1,3 +1,8 @@
+import 'package:image/image.dart' as img;
+import 'package:fe/features/goal_body/data/local_goal_repository.dart';
+import 'package:fe/features/photos/data/local_photo_repository.dart';
+import 'package:fe/features/photos/data/photo_preparer.dart';
+import 'package:fe/features/photos/data/models/selected_photo.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -13,6 +18,15 @@ import '../../fakes/fake_analysis_repository.dart';
 import '../../fakes/fake_onboarding_repository.dart';
 import '../../fakes/fake_profile_photo_repositories.dart';
 import '../profile/my_page_test.dart' show capture;
+
+class PreviewGoalPreparer implements PhotoPreparer {
+  @override
+  Future<Uint8List> prepare(SelectedPhoto photo) async => Uint8List.fromList(
+    img.encodeJpg(
+      img.Image(width: 60, height: 80)..clear(img.ColorRgb8(130, 145, 170)),
+    ),
+  );
+}
 
 void main() {
   setUpAll(() async {
@@ -168,6 +182,58 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('목표 체형 선택됨 · 눌러서 변경하기'), findsOneWidget);
     expect(find.byType(GoalBodyPage), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets('로컬 모드에서도 목표 사진을 선택·등록하고 다시 확인한다', (tester) async {
+    tester.view.physicalSize = const Size(393, 852);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final photos = LocalPhotoRepository();
+    final repo = LocalGoalRepository(photos: photos);
+    final picker = FakePhotoPicker()
+      ..nextPhoto = const SelectedPhoto(
+        path: 'goal-preview.jpg',
+        byteLength: 12,
+      );
+    final deps = GoalDependencies(
+      repository: repo,
+      photos: photos,
+      picker: picker,
+      localPreview: true,
+      preparer: PreviewGoalPreparer(),
+    );
+    Widget page() => MaterialApp(
+      theme: AppTheme.light,
+      home: RepaintBoundary(
+        key: const Key('capture'),
+        child: GoalBodyPage(dependencies: deps),
+      ),
+    );
+    await tester.pumpWidget(page());
+    await tester.pumpAndSettle();
+    expect(find.text('사진 추가'), findsOneWidget);
+    await tester.tap(find.text('사진 추가'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('앨범에서 선택'));
+    await tester.pumpAndSettle();
+    expect(picker.calls, 1);
+    await tester.tap(find.text('목표 저장'));
+    await tester.pumpAndSettle();
+    expect((await repo.load())!.previewBytes, isNotEmpty);
+    expect(find.text('로컬에 등록한 참고 사진이에요. AI 분석 결과가 아니에요.'), findsOneWidget);
+    final image = tester.widget<Image>(find.byType(Image).first);
+    final context = tester.element(find.byType(GoalBodyPage));
+    await tester.runAsync(() => precacheImage(image.image, context));
+    await tester.pumpAndSettle();
+    expect(find.text('로컬 사진은 앱을 종료하면 초기화돼요.'), findsOneWidget);
+    await capture(tester, 'goal-local-photo');
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(page());
+    await tester.pumpAndSettle();
+    expect(find.text('등록한 목표 체형'), findsOneWidget);
+    expect((await repo.load())!.summary, isNull);
     expect(tester.takeException(), isNull);
   });
 }

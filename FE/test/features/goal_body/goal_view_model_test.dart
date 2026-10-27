@@ -1,3 +1,5 @@
+import 'package:fe/features/goal_body/data/local_goal_repository.dart';
+import 'package:fe/features/photos/data/local_photo_repository.dart';
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
@@ -33,6 +35,44 @@ class RecordingGoalPhotos extends FakePhotoRepository {
 }
 
 void main() {
+  test('로컬 목표 사진을 선택·등록·교체·삭제하고 계정별로 분리한다', () async {
+    final photos = LocalPhotoRepository();
+    final repository = LocalGoalRepository(photos: photos);
+    final picker = FakePhotoPicker()
+      ..nextPhoto = const SelectedPhoto(path: 'goal.jpg', byteLength: 4);
+    final model = GoalViewModel(
+      GoalDependencies(
+        repository: repository,
+        photos: photos,
+        picker: picker,
+        preparer: FakePhotoPreparer(),
+        localPreview: true,
+      ),
+    );
+    await model.load();
+    await model.pick(PhotoSource.gallery);
+    expect(model.photo, isNotNull);
+    expect(await model.save(), true);
+    expect(model.goal!.previewBytes, isNotEmpty);
+    expect(model.goal!.summary, isNull);
+    expect((await photos.list(type: BodyPhotoType.goal)).items, isEmpty);
+    expect(picker.discarded, contains('goal.jpg'));
+    model.setDescription('나의 참고 사진');
+    expect(await model.save(), true);
+    expect(model.goal!.previewBytes, isNotEmpty);
+    picker.nextPhoto = const SelectedPhoto(path: 'new.jpg', byteLength: 4);
+    await model.pick(PhotoSource.gallery);
+    expect(await model.save(), true);
+    expect(picker.discarded, contains('new.jpg'));
+    expect(
+      await LocalGoalRepository(photos: LocalPhotoRepository()).load(),
+      isNull,
+    );
+    expect(await model.delete(), true);
+    expect(await repository.load(), isNull);
+    model.dispose();
+  });
+
   test('수정 대상이 사라진 404는 재조회 후 새 목표 등록으로 이어진다', () async {
     final repository = FakeGoalRepository()
       ..goal = goalFixture()

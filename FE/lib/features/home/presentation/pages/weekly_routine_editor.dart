@@ -1,3 +1,4 @@
+import '../../../../ui/core/widgets/app_icon.dart';
 import 'package:flutter/material.dart';
 import '../../../../ui/core/widgets/design_reference_page.dart';
 import '../../../../ui/core/widgets/app_selection.dart';
@@ -144,7 +145,7 @@ class _WeeklyRoutineEditorState extends State<WeeklyRoutineEditor> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(
+                        AppIcon(
                           isRest
                               ? Icons.nights_stay_outlined
                               : Icons.fitness_center_rounded,
@@ -312,7 +313,7 @@ class _WeeklyRoutineEditorState extends State<WeeklyRoutineEditor> {
             onPressed: widget.model.busy
                 ? null
                 : () => Navigator.maybePop(context),
-            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+            icon: const AppIcon(Icons.arrow_back_ios_new_rounded, size: 20),
           ),
           title: Text(editing ? '일정 수정' : '일정 만들기'),
         ),

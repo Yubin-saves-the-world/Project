@@ -70,6 +70,24 @@ class PendingRepository extends LocalCommunityRepository {
   }
 }
 
+class ReactionRepository extends LocalCommunityRepository {
+  ReactionRepository() : super(() => '나');
+  int reads = 0, writes = 0;
+  Completer<void>? gate;
+  @override
+  Future<CommunityPost> post(int id) {
+    reads++;
+    return super.post(id);
+  }
+
+  @override
+  Future<Map<String, dynamic>> like(int id, bool value) async {
+    writes++;
+    if (gate != null) await gate!.future;
+    return super.like(id, value);
+  }
+}
+
 void main() {
   test('multipart PATCH는 반복 삭제 ID·여러 사진과 Bearer 인증을 보존한다', () async {
     final tokens = MemoryTokenStore();
@@ -357,6 +375,31 @@ void main() {
     await model.load();
     expect(model.items, isEmpty);
     expect(model.error, isNotNull);
+    model.dispose();
+  });
+  test('목록 좋아요는 첫 상태를 확인하고 중복 전송 없이 아이콘 상태를 바꾼다', () async {
+    final repo = ReactionRepository()..gate = Completer<void>();
+    final model = CommunityController(
+      CommunityDependencies(
+        repository: repo,
+        picker: NoPicker(),
+        preview: true,
+      ),
+    );
+    await model.load();
+    final id = model.items.last.id;
+    final first = model.toggleLike(id);
+    await Future<void>.delayed(Duration.zero);
+    await model.toggleLike(id);
+    expect(repo.writes, 1);
+    expect(repo.reads, 1);
+    repo.gate!.complete();
+    await first;
+    expect(model.reactions[id], true);
+    await model.toggleLike(id);
+    expect(model.reactions[id], false);
+    expect(repo.reads, 1);
+    expect(repo.writes, 2);
     model.dispose();
   });
 }

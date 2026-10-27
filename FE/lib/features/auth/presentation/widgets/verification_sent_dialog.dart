@@ -1,3 +1,5 @@
+import '../../../../ui/core/theme/app_colors.dart';
+import '../../../../ui/core/widgets/app_icon.dart';
 import 'package:flutter/material.dart';
 import '../../../../ui/core/widgets/design_reference_page.dart';
 
@@ -24,10 +26,10 @@ Future<void> showVerificationSentDialog(
                 width: 60,
                 height: 60,
                 decoration: const BoxDecoration(
-                  color: Color(0xFFF0F1FE),
+                  color: AppColors.primarySoft,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: const AppIcon(
                   Icons.mail_outline_rounded,
                   size: 26,
                   color: ReferenceStyle.blue,
@@ -56,7 +58,7 @@ Future<void> showVerificationSentDialog(
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: const Color(0xFFF6F7FB),
+                color: AppColors.soft,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Column(

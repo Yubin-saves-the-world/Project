@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import '../../../body_analysis/data/models/body_analysis.dart';
 
 class GoalBody {
@@ -8,7 +9,11 @@ class GoalBody {
     this.summary,
     this.description,
     this.errorMessage,
+    this.previewBytes,
   });
+
+  /// 로컬 미리보기의 세션 내 사진. 서버 응답/영구 저장에는 사용하지 않는다.
+  final Uint8List? previewBytes;
   final int id;
   final AnalysisStatus status;
   final DateTime createdAt;

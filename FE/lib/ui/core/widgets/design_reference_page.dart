@@ -1,13 +1,14 @@
+import '../theme/app_colors.dart';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 abstract final class ReferenceStyle {
-  static const blue = Color(0xFF4361EE);
-  static const ink = Color(0xFF1C1C1C);
-  static const muted = Color(0xFF808791);
-  static const border = Color(0xFFE1E1E1);
-  static const signupBorder = Color(0xFFE3E0D6);
+  static const blue = AppColors.primary;
+  static const ink = AppColors.text;
+  static const muted = AppColors.muted;
+  static const border = AppColors.border;
+  static const signupBorder = AppColors.border;
   static TextStyle text(
     double size,
     double line, {
@@ -301,7 +302,7 @@ class ReferenceField extends StatelessWidget {
                 15,
                 17,
                 weight: FontWeight.w500,
-                color: Colors.black,
+                color: AppColors.text,
                 spacing: 1,
               ),
             ),

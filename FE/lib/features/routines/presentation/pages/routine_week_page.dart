@@ -1,3 +1,4 @@
+import '../../../../ui/core/widgets/app_icon.dart';
 import '../../../workout/presentation/workout_dependencies.dart';
 import 'package:flutter/material.dart';
 import '../../../../ui/core/widgets/design_reference_page.dart';
@@ -73,7 +74,7 @@ class _RoutineWeekPageState extends State<RoutineWeekPage> {
                 IconButton(
                   tooltip: '이전 주',
                   onPressed: () => model.move(-1),
-                  icon: const Icon(Icons.chevron_left_rounded),
+                  icon: const AppIcon(Icons.chevron_left_rounded),
                 ),
                 Expanded(
                   child: Text(
@@ -85,7 +86,7 @@ class _RoutineWeekPageState extends State<RoutineWeekPage> {
                 IconButton(
                   tooltip: '다음 주',
                   onPressed: () => model.move(1),
-                  icon: const Icon(Icons.chevron_right_rounded),
+                  icon: const AppIcon(Icons.chevron_right_rounded),
                 ),
               ],
             ),
@@ -151,7 +152,7 @@ class _RoutineWeekPageState extends State<RoutineWeekPage> {
                                   ),
                                 ),
                               ),
-                              const Icon(
+                              const AppIcon(
                                 Icons.chevron_right_rounded,
                                 color: ReferenceStyle.muted,
                               ),

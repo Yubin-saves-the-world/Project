@@ -79,10 +79,12 @@ void main() {
     await tap(t, find.text('3개월 미만'));
     await tap(t, find.text('다음'));
     expect(repository.progress.profile!.weeklyFrequency, 5);
+    expect(find.text('분석 기록'), findsNothing);
+    expect(find.text('준비 중'), findsNothing);
     await tap(t, find.text('글로 설명하기'));
-    await t.enterText(find.byKey(const Key('analysis-text')), '시뮬레이터 입력 확인');
+    expect(find.text('글 분석 준비 중'), findsOneWidget);
     await tap(t, find.text('확인'));
-    await tap(t, find.text('분석 시작'));
+    await tap(t, find.text('다음에 하기'));
     expect(find.textContaining('QA 회원님,'), findsOneWidget);
     await t.scrollUntilVisible(find.text('보기'), 200);
     await tap(t, find.text('보기'));

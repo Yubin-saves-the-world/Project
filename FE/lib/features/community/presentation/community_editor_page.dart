@@ -1,3 +1,5 @@
+import '../../../ui/core/theme/app_colors.dart';
+import '../../../ui/core/widgets/app_icon.dart';
 import 'package:flutter/material.dart';
 import '../../../ui/core/widgets/design_reference_page.dart';
 import '../../../ui/core/widgets/management_page.dart';
@@ -21,6 +23,13 @@ class CommunityEditorPage extends StatefulWidget {
 class _CommunityEditorPageState extends State<CommunityEditorPage> {
   late final TextEditingController _title, _content;
   late String _category;
+  String get _authorName {
+    final current = widget.dependencies.currentNickname?.call().trim();
+    return current != null && current.isNotEmpty
+        ? current
+        : widget.original?.author.name ?? '나';
+  }
+
   final _images = <CommunityUpload>[];
   final _removed = <int>[];
   bool _busy = false, _saved = false, _uncertain = false, _picking = false;
@@ -94,6 +103,7 @@ class _CommunityEditorPageState extends State<CommunityEditorPage> {
 
   Future<void> _save() async {
     if (_busy || _picking) return;
+    FocusScope.of(context).unfocus();
     final draft = CommunityDraft(
       category: _category,
       title: _title.text,
@@ -135,9 +145,7 @@ class _CommunityEditorPageState extends State<CommunityEditorPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            widget.dependencies.preview
-                ? '미리보기에 저장했어요. 실제 게시되지 않아요.'
-                : '게시글을 저장했어요.',
+            widget.dependencies.preview ? '게시글을 현재 앱에 저장했어요.' : '게시글을 저장했어요.',
           ),
         ),
       );
@@ -159,6 +167,7 @@ class _CommunityEditorPageState extends State<CommunityEditorPage> {
             .where((i) => !_removed.contains(i.id))
             .toList() ??
         <CommunityImage>[];
+    final count = retained.length + _images.length;
     return PopScope(
       canPop: _saved || (!_dirty && !_busy && !_picking),
       onPopInvokedWithResult: (didPop, _) {
@@ -167,112 +176,207 @@ class _CommunityEditorPageState extends State<CommunityEditorPage> {
       child: ManagementPage(
         title: widget.original == null ? '글쓰기' : '게시글 수정',
         onBack: _back,
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: TextButton(
+              onPressed: _busy || _picking ? null : _save,
+              child: _busy
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text(widget.original == null ? '게시하기' : '수정 완료'),
+            ),
+          ),
+        ],
         body: ListView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           children: [
-            if (widget.dependencies.preview)
-              const CommunityNotice('기기 미리보기 · 실제 게시/전송 없음'),
-            DropdownButtonFormField<String>(
-              initialValue: _category,
-              decoration: const InputDecoration(
-                labelText: '카테고리',
-                border: OutlineInputBorder(),
-              ),
-              items: [
+            Row(
+              children: [
+                CommunityAvatar(
+                  _authorName,
+                  owner: widget.dependencies.profileOwner,
+                ),
+                const SizedBox(width: 12),
+                Expanded(child: communityText(_authorName, medium: true)),
+              ],
+            ),
+            const SizedBox(height: 20),
+            communityText('카테고리', size: 12, color: ReferenceStyle.muted),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: [
                 for (final e in {
                   ...communityCategories,
                   if (widget.original?.category == 'notice') 'notice': '공지',
                 }.entries)
-                  DropdownMenuItem(value: e.key, child: Text(e.value)),
+                  ChoiceChip(
+                    label: Text('# ${e.value}'),
+                    selected: _category == e.key,
+                    showCheckmark: false,
+                    backgroundColor: communityCard,
+                    selectedColor: AppColors.primarySoft,
+                    labelStyle: ReferenceStyle.text(
+                      12,
+                      18,
+                      color: _category == e.key
+                          ? ReferenceStyle.blue
+                          : ReferenceStyle.muted,
+                    ),
+                    side: BorderSide(
+                      color: _category == e.key
+                          ? ReferenceStyle.blue
+                          : communityBorder,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    onSelected: _busy
+                        ? null
+                        : (_) => setState(() => _category = e.key),
+                  ),
               ],
-              onChanged: _busy ? null : (v) => setState(() => _category = v!),
             ),
-            const SizedBox(height: 20),
-            TextField(
-              key: const Key('community-title'),
-              controller: _title,
-              onChanged: (_) => setState(() {}),
-              enabled: !_busy,
-              maxLength: 50,
-              decoration: const InputDecoration(
-                labelText: '제목',
-                hintText: '제목을 입력해 주세요',
-                border: OutlineInputBorder(),
+            const SizedBox(height: 18),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: communityCard,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: communityBorder),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextField(
+                    key: const Key('community-title'),
+                    controller: _title,
+                    enabled: !_busy,
+                    onChanged: (_) => setState(() {}),
+                    maxLength: 50,
+                    maxLines: 2,
+                    minLines: 1,
+                    style: ReferenceStyle.text(18, 28, weight: FontWeight.w500),
+                    decoration: const InputDecoration(
+                      hintText: '게시글 제목',
+                      filled: false,
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      contentPadding: EdgeInsets.zero,
+                      counterStyle: TextStyle(fontSize: 10),
+                    ),
+                  ),
+                  const Divider(color: communityBorder, height: 24),
+                  TextField(
+                    key: const Key('community-content'),
+                    controller: _content,
+                    enabled: !_busy,
+                    onChanged: (_) => setState(() {}),
+                    maxLength: 2000,
+                    minLines: 7,
+                    maxLines: 16,
+                    style: ReferenceStyle.text(14, 23),
+                    decoration: const InputDecoration(
+                      hintText: '함께 나누고 싶은 이야기를 적어 주세요.',
+                      filled: false,
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      contentPadding: EdgeInsets.zero,
+                      counterStyle: TextStyle(fontSize: 10),
+                    ),
+                  ),
+                  if (count > 0) ...[
+                    const SizedBox(height: 12),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          for (final image in retained)
+                            _attachment(
+                              image,
+                              '기존 사진 삭제',
+                              () => _removed.add(image.id),
+                            ),
+                          for (var i = 0; i < _images.length; i++)
+                            _attachment(
+                              CommunityImage(-1, '', bytes: _images[i].bytes),
+                              '선택한 사진 삭제',
+                              () => _images.removeAt(i),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  const Divider(color: communityBorder, height: 24),
+                  Row(
+                    children: [
+                      TextButton.icon(
+                        onPressed: _busy || _picking || count >= 4
+                            ? null
+                            : _pick,
+                        icon: const AppIcon(
+                          Icons.add_circle_outline_rounded,
+                          size: 22,
+                        ),
+                        label: Text(_picking ? '가져오는 중…' : '사진 추가'),
+                      ),
+                      const Spacer(),
+                      communityText(
+                        '$count/4',
+                        size: 12,
+                        color: ReferenceStyle.muted,
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 12),
-            TextField(
-              key: const Key('community-content'),
-              controller: _content,
-              onChanged: (_) => setState(() {}),
-              enabled: !_busy,
-              maxLength: 2000,
-              minLines: 6,
-              maxLines: 12,
-              decoration: const InputDecoration(
-                labelText: '내용',
-                hintText: '함께 나누고 싶은 이야기를 적어 주세요',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             communityText(
-              '사진 ${retained.length + _images.length}/4 · JPG, PNG · 장당 10MB 이하',
-              size: 12,
+              'JPG, PNG · 사진 한 장당 10MB 이하',
+              size: 11,
               color: ReferenceStyle.muted,
             ),
-            for (final image in retained)
-              Padding(
-                padding: const EdgeInsets.only(top: 12),
-                child: Column(
-                  children: [
-                    CommunityPhoto(image),
-                    TextButton(
-                      onPressed: _busy
-                          ? null
-                          : () => setState(() => _removed.add(image.id)),
-                      child: const Text('기존 사진 삭제'),
-                    ),
-                  ],
-                ),
-              ),
-            for (var i = 0; i < _images.length; i++)
-              Padding(
-                padding: const EdgeInsets.only(top: 12),
-                child: Column(
-                  children: [
-                    CommunityPhoto(
-                      CommunityImage(-1, '', bytes: _images[i].bytes),
-                    ),
-                    TextButton(
-                      onPressed: _busy
-                          ? null
-                          : () => setState(() => _images.removeAt(i)),
-                      child: const Text('선택한 사진 삭제'),
-                    ),
-                  ],
-                ),
-              ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed:
-                  _busy || _picking || retained.length + _images.length >= 4
-                  ? null
-                  : _pick,
-              icon: const Icon(Icons.add_photo_alternate_outlined),
-              label: Text(_picking ? '사진 가져오는 중…' : '사진 추가'),
-            ),
             if (_error != null) CommunityNotice(_error!),
-            const SizedBox(height: 20),
-            ReferenceButton(
-              widget.original == null ? '게시하기' : '수정 완료',
-              busy: _busy,
-              onPressed: _picking ? null : _save,
-            ),
           ],
         ),
       ),
     );
   }
+
+  Widget _attachment(CommunityImage image, String label, VoidCallback remove) =>
+      Padding(
+        padding: const EdgeInsets.only(right: 8),
+        child: SizedBox(
+          width: 112,
+          height: 112,
+          child: Stack(
+            children: [
+              CommunityPhoto(image, height: 112, fit: BoxFit.cover),
+              Positioned(
+                top: 2,
+                right: 2,
+                child: IconButton.filledTonal(
+                  tooltip: label,
+                  onPressed: _busy ? null : () => setState(remove),
+                  constraints: const BoxConstraints(
+                    minWidth: 36,
+                    minHeight: 36,
+                  ),
+                  style: IconButton.styleFrom(backgroundColor: Colors.white),
+                  icon: const AppIcon(Icons.close_rounded, size: 17),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
 }

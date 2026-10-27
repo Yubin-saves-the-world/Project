@@ -1,3 +1,4 @@
+import 'app_icon.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
@@ -57,7 +58,7 @@ Future<T?> showAppSelection<T>(
                                   child: Row(
                                     children: [
                                       if (option.icon != null) ...[
-                                        Icon(
+                                        AppIcon(
                                           option.icon,
                                           size: 20,
                                           color: AppColors.primary,
@@ -80,7 +81,7 @@ Future<T?> showAppSelection<T>(
                                         ),
                                       ),
                                       const SizedBox(width: 12),
-                                      Icon(
+                                      AppIcon(
                                         selected == option.value
                                             ? Icons.check_circle_rounded
                                             : Icons.circle_outlined,
@@ -173,7 +174,7 @@ class AppSelectionField<T> extends StatelessWidget {
               ),
               leadingIcon: option.icon == null
                   ? null
-                  : Icon(
+                  : AppIcon(
                       option.icon,
                       size: 19,
                       color: option.value == value
@@ -181,7 +182,7 @@ class AppSelectionField<T> extends StatelessWidget {
                           : AppColors.muted,
                     ),
               trailingIcon: option.value == value
-                  ? const Icon(
+                  ? const AppIcon(
                       Icons.check_rounded,
                       size: 20,
                       color: AppColors.primary,
@@ -277,7 +278,7 @@ class AppPickerField extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              Icon(icon, size: 22, color: AppColors.muted),
+              AppIcon(icon, size: 22, color: AppColors.muted),
             ],
           ),
         ),
@@ -322,7 +323,7 @@ class _SheetHeader extends StatelessWidget {
       IconButton(
         tooltip: '닫기',
         onPressed: () => Navigator.pop(context),
-        icon: const Icon(Icons.close_rounded, size: 22),
+        icon: const AppIcon(Icons.close_rounded, size: 22),
         style: IconButton.styleFrom(
           backgroundColor: AppColors.soft,
           foregroundColor: AppColors.muted,

@@ -1,3 +1,4 @@
+import '../../features/auth/data/local_onboarding_repository.dart';
 import '../../features/community/data/community_repository.dart';
 import '../../features/community/data/local_community_repository.dart';
 import '../../features/community/presentation/community_controller.dart';
@@ -40,7 +41,6 @@ import '../../features/routines/data/server_routine_refresh_repository.dart';
 import '../../features/auth/presentation/pages/signup_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/consent_page.dart';
-import '../../features/body_analysis/presentation/pages/onboarding_analysis_page.dart';
 import '../../features/profile/presentation/pages/profile_form_page.dart';
 import '../../ui/core/widgets/primary_button.dart';
 import '../shell/main_shell.dart';
@@ -197,6 +197,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       }
 
       return AnalysisDependencies(
+        localPreview: server == null,
         ensureCanAnalyze: server == null
             ? null
             : () => policy.check('POST', ApiContract.photoAnalysis),
@@ -224,7 +225,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
               ? null
               : () => policy.check('POST', ApiContract.goalBodies),
           repository: server == null
-              ? LocalGoalRepository()
+              ? LocalGoalRepository(photos: photos)
               : ServerGoalRepository(server.api),
           photos: photos,
           picker: widget.photoPicker is ImagePickerService
@@ -253,6 +254,8 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     return _communities.putIfAbsent(owner, () {
       final server = widget.repository;
       return CommunityDependencies(
+        profileOwner: owner,
+        currentNickname: () => _model.progress.account?.nickname ?? '나',
         repository: server is ServerOnboardingRepository
             ? ServerCommunityRepository(server.api)
             : LocalCommunityRepository(
@@ -332,6 +335,15 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                   owner: 'photos:${_model.progress.account!.storageOwner}',
                 )
               : widget.photoPicker,
+          onNicknameSave: widget.repository is LocalOnboardingRepository
+              ? (name) async {
+                  final next =
+                      await (widget.repository as LocalOnboardingRepository)
+                          .renameNickname(name);
+                  if (mounted) _model.applySavedAccount(next.account!);
+                  return next.account!.nickname;
+                }
+              : null,
           onProfileSaved: _model.applySavedProfile,
           loggingOut: _model.busy,
           logoutError: _model.error,
@@ -380,21 +392,11 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         child: switch (_model.step) {
           0 => SignupPage(key: const ValueKey('signup'), model: _model),
           1 => ProfileFormPage(key: const ValueKey('profile'), model: _model),
-          _ when widget.repository is ServerOnboardingRepository =>
-            AnalysisEntryPage(
-              key: const ValueKey('server-analysis'),
-              dependencies: _analysis(),
-              onBack: _model.back,
-              onCompleted: () => _model.finish(prepareAnalysis: false),
-            ),
-          _ => OnboardingAnalysisPage(
-            key: const ValueKey('analysis'),
-            model: _model,
-            onCompleted: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('설정이 완료됐어요. 환영합니다!')),
-              );
-            },
+          _ => AnalysisEntryPage(
+            key: const ValueKey('onboarding-analysis'),
+            dependencies: _analysis(),
+            onBack: _model.back,
+            onCompleted: () => _model.finish(prepareAnalysis: false),
           ),
         },
       );

@@ -1,3 +1,5 @@
+import '../../auth/data/local_nickname_registry.dart';
+import '../../profile/data/profile_avatar_store.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -18,6 +20,7 @@ class AccountDataCleaner {
         encoded = base64Url.encode(utf8.encode(account));
     final preview = 'vitality.home.preview.v1.$owner';
     final exact = {
+      ProfileAvatarStore.keyFor(owner),
       preview,
       '$preview.schedule',
       'vitality.home.weekly.v1.${base64Url.encode(utf8.encode(preview))}',
@@ -73,6 +76,7 @@ class AccountDataCleaner {
       }
       await _prefs.remove('vitality.onboarding.preview.v1');
     }
+    await LocalNicknameRegistry(_prefs).removeOwner(owner);
     for (final key in keysFor(await _prefs.getKeys())) {
       await _prefs.remove(key);
     }

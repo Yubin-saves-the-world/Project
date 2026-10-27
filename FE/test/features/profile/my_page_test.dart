@@ -1,3 +1,5 @@
+import 'package:fe/features/profile/data/profile_avatar_store.dart';
+import '../settings/account_settings_test.dart' show MemoryPreferences;
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -67,6 +69,10 @@ void main() {
               child: child!,
             ),
             home: MyPage(
+              avatarStore: ProfileAvatarStore(
+                previewAccount.storageOwner,
+                preferences: MemoryPreferences(),
+              ),
               onboarding: const OnboardingProgress(
                 account: previewAccount,
                 profile: editableProfile,
@@ -106,6 +112,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.textContaining('70.5kg'), findsOneWidget);
       await tester.ensureVisible(find.text('사진 데이터 관리'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('사진 데이터 관리'));
       await tester.pumpAndSettle();
       expect(find.byType(PhotoManagementPage), findsOneWidget);

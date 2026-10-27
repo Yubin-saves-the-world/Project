@@ -1,3 +1,5 @@
+import '../../../../ui/core/widgets/app_icon.dart';
+import '../../../../ui/core/widgets/edit_icon.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../analysis_form_controller.dart';
@@ -57,12 +59,12 @@ class _OnboardingAnalysisPageState extends State<OnboardingAnalysisPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.camera_alt_outlined),
+              leading: const AppIcon(Icons.camera_alt_outlined),
               title: const Text('카메라로 촬영'),
               onTap: () => Navigator.pop(context, PhotoSource.camera),
             ),
             ListTile(
-              leading: const Icon(Icons.photo_library_outlined),
+              leading: const AppIcon(Icons.photo_library_outlined),
               title: const Text('앨범에서 선택'),
               onTap: () => Navigator.pop(context, PhotoSource.gallery),
             ),
@@ -230,20 +232,7 @@ class _OnboardingAnalysisPageState extends State<OnboardingAnalysisPage> {
               child: Center(
                 child: photo
                     ? _svg('521_55', 16.9, 14.2)
-                    : SizedBox(
-                        width: 14.9,
-                        height: 14.9,
-                        child: Stack(
-                          children: [
-                            _svg('521_58', 14.9, 14.9),
-                            Positioned(
-                              left: 9.6,
-                              top: 2.8,
-                              child: _svg('521_59', 2.5, 2.5),
-                            ),
-                          ],
-                        ),
-                      ),
+                    : const EditIcon(size: 14.9, color: ReferenceStyle.muted),
               ),
             ),
             const SizedBox(width: 12),

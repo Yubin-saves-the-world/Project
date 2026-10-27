@@ -1,3 +1,4 @@
+import 'package:image/image.dart' as img;
 import 'package:http/testing.dart';
 import 'package:fe/core/network/api_client.dart';
 import 'package:fe/features/auth/data/token_store.dart';
@@ -13,6 +14,7 @@ import 'package:fe/features/community/presentation/community_controller.dart';
 import 'package:fe/features/community/presentation/community_page.dart';
 import 'package:fe/features/community/presentation/community_editor_page.dart';
 import 'package:fe/features/community/presentation/community_detail_page.dart';
+import 'package:fe/features/community/presentation/community_widgets.dart';
 import 'package:fe/ui/core/theme/app_theme.dart';
 import '../profile/my_page_test.dart' show capture;
 import 'community_repository_test.dart'
@@ -89,11 +91,13 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
-      final repo = LocalCommunityRepository(() => '나');
+      var nickname = '이전닉네임';
+      final repo = LocalCommunityRepository(() => nickname);
       final deps = CommunityDependencies(
         repository: repo,
         picker: NoPicker(),
         preview: true,
+        currentNickname: () => nickname,
       );
       await app(
         tester,
@@ -101,19 +105,45 @@ void main() {
         scale: scale,
       );
       expect(find.text('꾸준히 운동한 3개월의 기록'), findsOneWidget);
-      expect(find.textContaining('기기 미리보기'), findsOneWidget);
+      expect(find.textContaining('기기 미리보기'), findsNothing);
+      expect(find.text('커뮤니티'), findsOneWidget);
+      expect(find.byTooltip('게시글 검색'), findsNothing);
+      expect(find.byTooltip('커뮤니티 관리'), findsNothing);
+      expect(find.text('차단한 사용자 관리'), findsNothing);
+      final search = find.byKey(const Key('community-search'));
+      final menu = find.byKey(const Key('community-menu'));
+      expect(
+        tester.getCenter(menu).dy,
+        closeTo(tester.getCenter(search).dy, .1),
+      );
+      expect(
+        tester.getTopLeft(menu).dx,
+        greaterThan(tester.getTopRight(search).dx),
+      );
+      expect(tester.getTopLeft(find.byType(ChoiceChip).first).dx, 24);
       await capture(tester, 'community-list-$scale');
-      await tester.tap(find.byTooltip('게시글 검색'));
-      await tester.pumpAndSettle();
       await tester.enterText(find.byKey(const Key('community-search')), '스쿼트');
       await tester.pumpAndSettle();
       expect(find.text('꾸준히 운동한 3개월의 기록'), findsNothing);
       tester.testTextInput.hide();
       await tapText(tester, '스쿼트 60kg 넘겼습니다');
       await capture(tester, 'community-detail-$scale');
-      expect(find.text('좋아요 0'), findsOneWidget);
-      await tapText(tester, '좋아요 0');
-      expect(find.text('좋아요 1'), findsOneWidget);
+      expect(find.textContaining('조회 '), findsNothing);
+      expect(find.byKey(const Key('community-like')), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(AppBar),
+          matching: find.text('스쿼트 60kg 넘겼습니다'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        tester.getTopLeft(find.byKey(const Key('community-like'))).dx,
+        tester.getTopLeft(find.byType(CommunityAvatar).first).dx,
+      );
+      await tester.tap(find.byKey(const Key('community-like')));
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('좋아요 취소'), findsOneWidget);
       await tester.ensureVisible(find.byKey(const Key('community-comment')));
       await tester.enterText(
         find.byKey(const Key('community-comment')),
@@ -121,8 +151,24 @@ void main() {
       );
       tester.testTextInput.hide();
       await tester.pumpAndSettle();
-      await tapText(tester, '댓글 등록');
+      await tester.tap(find.byTooltip('댓글 등록'));
+      await tester.pumpAndSettle();
       expect(find.text('좋은 기록이에요'), findsOneWidget);
+      final comment = (await repo.comments(3)).items.first;
+      expect(
+        (tester
+                    .getCenter(
+                      find.byKey(ValueKey('comment-avatar-${comment.id}')),
+                    )
+                    .dy -
+                tester
+                    .getCenter(
+                      find.byKey(ValueKey('comment-name-${comment.id}')),
+                    )
+                    .dy)
+            .abs(),
+        lessThan(1),
+      );
       await tapText(tester, '답글 달기');
       await tester.enterText(
         find.byKey(const Key('community-comment')),
@@ -130,14 +176,22 @@ void main() {
       );
       tester.testTextInput.hide();
       await tester.pumpAndSettle();
-      await tapText(tester, '댓글 등록');
+      await tester.tap(find.byTooltip('댓글 등록'));
+      await tester.pumpAndSettle();
+      expect(find.text('답글입니다'), findsNothing);
+      await tapText(tester, '답글 1개 보기');
       expect(find.text('답글입니다'), findsOneWidget);
+      await capture(tester, 'community-thread-$scale');
       await tester.tap(find.byTooltip('뒤로가기'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('게시글 검색'));
+      await tester.tap(find.byTooltip('검색 지우기'));
       await tester.pumpAndSettle();
+      nickname = '작성자닉네임';
       await tester.tap(find.byTooltip('글쓰기'));
       await tester.pumpAndSettle();
+      expect(find.text('작성자닉네임'), findsOneWidget);
+      expect(find.text('나의 이야기'), findsNothing);
+      expect(find.text('이전닉네임'), findsNothing);
       await tester.enterText(find.byKey(const Key('community-title')), '나의 운동');
       await tester.enterText(
         find.byKey(const Key('community-content')),
@@ -152,6 +206,10 @@ void main() {
     });
   }
   testWidgets('다른 사용자 글 차단과 관리 화면 해제로 목록을 갱신한다', (tester) async {
+    tester.view.physicalSize = const Size(393, 852);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     final repo = LocalCommunityRepository(() => '나');
     final deps = CommunityDependencies(
       repository: repo,
@@ -163,12 +221,15 @@ void main() {
     await tester.tap(find.byTooltip('게시글 메뉴'));
     await tester.pumpAndSettle();
     expect(find.text('수정'), findsNothing);
+    await capture(tester, 'community-action-sheet');
     await tapText(tester, '작성자 차단');
+    await capture(tester, 'community-block-confirm');
     await tapText(tester, '차단');
     expect(find.text('스쿼트 60kg 넘겼습니다'), findsNothing);
-    await tester.tap(find.byTooltip('커뮤니티 관리'));
+    await tester.tap(find.byTooltip('커뮤니티 메뉴'));
     await tester.pumpAndSettle();
-    await tapText(tester, '차단한 사용자');
+    await capture(tester, 'community-management-menu');
+    await tapText(tester, '차단한 사용자 관리');
     expect(find.text('예준'), findsOneWidget);
     await tapText(tester, '차단 해제');
     await tapText(tester, '차단 해제');
@@ -178,6 +239,10 @@ void main() {
     expect(find.text('스쿼트 60kg 넘겼습니다'), findsOneWidget);
   });
   testWidgets('신고 사유 검증과 미리보기 표시를 제공한다', (tester) async {
+    tester.view.physicalSize = const Size(393, 852);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     final repo = LocalCommunityRepository(() => '나');
     final deps = CommunityDependencies(
       repository: repo,
@@ -190,11 +255,10 @@ void main() {
     await tapText(tester, '신고');
     await tapText(tester, '신고하기');
     expect(find.text('신고 사유를 선택해 주세요.'), findsOneWidget);
-    await tester.tap(find.byType(DropdownButtonFormField<String>));
-    await tester.pumpAndSettle();
     await tapText(tester, '스팸·광고');
+    await capture(tester, 'community-report');
     await tapText(tester, '신고하기');
-    expect(find.textContaining('실제 접수되지 않아요'), findsOneWidget);
+    expect(find.text('현재 앱에서 신고한 항목으로 표시했어요.'), findsOneWidget);
   });
   testWidgets('내 글만 수정·삭제할 수 있다', (tester) async {
     final repo = LocalCommunityRepository(() => '나');
@@ -214,7 +278,7 @@ void main() {
     tester.testTextInput.hide();
     await tester.pumpAndSettle();
     await tapText(tester, '수정 완료');
-    expect(find.text('수정한 제목'), findsOneWidget);
+    expect(find.text('수정한 제목'), findsNWidgets(2));
     await tester.tap(find.byTooltip('게시글 메뉴'));
     await tester.pumpAndSettle();
     await tapText(tester, '삭제');
@@ -305,4 +369,132 @@ void main() {
     expect(calls, 3);
     await capture(tester, 'community-server-list');
   });
+  testWidgets('목록 카드 높이·말줄임·오른쪽 이미지와 상세 전체 내용을 유지한다', (tester) async {
+    tester.view.physicalSize = const Size(393, 852);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final repo = LocalCommunityRepository(() => '작성자');
+    final title = '긴 제목 ' * 8, content = '긴 본문을 상세에서 모두 확인해요. ' * 30;
+    final bytes = Uint8List.fromList(
+      img.encodeJpg(
+        img.Image(width: 48, height: 64)..clear(img.ColorRgb8(120, 140, 180)),
+      ),
+    );
+    final post = await repo.save(
+      CommunityDraft(
+        category: 'info',
+        title: title,
+        content: content,
+        images: [CommunityUpload(bytes, 'photo.jpg')],
+      ),
+    );
+    await app(
+      tester,
+      MainShell(
+        initialIndex: 4,
+        community: CommunityDependencies(
+          repository: repo,
+          picker: NoPicker(),
+          preview: true,
+        ),
+      ),
+    );
+    final items = (await repo.posts()).items;
+    for (final item in items) {
+      expect(
+        tester
+            .getSize(find.byKey(ValueKey('community-card-${item.id}')))
+            .height,
+        148,
+      );
+    }
+    final thumbSize = tester.getSize(
+      find.byKey(ValueKey('community-thumbnail-${post.id}')),
+    );
+    expect(thumbSize.width, thumbSize.height);
+    expect(tester.widget<Image>(find.byType(Image).first).fit, BoxFit.cover);
+    final preview = tester.widget<Text>(find.text(content.trim()));
+    expect(preview.maxLines, 2);
+    expect(preview.overflow, TextOverflow.ellipsis);
+    expect(
+      tester
+          .getTopLeft(find.byKey(ValueKey('community-thumbnail-${post.id}')))
+          .dx,
+      greaterThan(tester.getTopLeft(find.text(title.trim())).dx),
+    );
+    final image = tester.widget<Image>(find.byType(Image).first);
+    await tester.runAsync(
+      () => precacheImage(image.image, tester.element(find.byType(MainShell))),
+    );
+    await tester.pumpAndSettle();
+    await capture(tester, 'community-list-thumbnail');
+    await tapText(tester, title.trim());
+    expect(
+      find.descendant(
+        of: find.byType(AppBar),
+        matching: find.text(title.trim()),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      tester.widget<SelectableText>(find.byType(SelectableText)).data,
+      content.trim(),
+    );
+    final detailImage = tester.widget<Image>(find.byType(Image).first);
+    expect(detailImage.fit, BoxFit.contain);
+    await tester.runAsync(
+      () => precacheImage(
+        detailImage.image,
+        tester.element(find.byType(CommunityDetailPage)),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final fullSize = tester.getSize(find.byType(Image).first);
+    expect(fullSize.height / fullSize.width, closeTo(64 / 48, .01));
+    await tester.ensureVisible(find.byType(Image).first);
+    await tester.pumpAndSettle();
+    await capture(tester, 'community-image-full');
+    expect(find.textContaining('기기 미리보기'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+  for (final scale in [1.0, 1.3]) {
+    testWidgets('긴 댓글은 접고 답글은 눌러서 펼친다 $scale', (tester) async {
+      tester.view.physicalSize = scale == 1
+          ? const Size(393, 852)
+          : const Size(320, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final repo = LocalCommunityRepository(() => '댓글 작성자');
+      final post = await repo.save(draft());
+      final text = '길게 작성한 댓글 내용입니다. ' * 20;
+      await repo.comment(post.id, text);
+      final parent = (await repo.comments(post.id)).items.single;
+      await repo.comment(post.id, '숨겨진 답글입니다.', parentId: parent.id);
+      final deps = CommunityDependencies(
+        repository: repo,
+        picker: NoPicker(),
+        preview: true,
+      );
+      await app(
+        tester,
+        CommunityDetailPage(dependencies: deps, postId: post.id),
+        scale: scale,
+      );
+      final content = find.byKey(ValueKey('comment-content-${parent.id}'));
+      expect(tester.widget<Text>(content).maxLines, 3);
+      expect(find.text('숨겨진 답글입니다.'), findsNothing);
+      await tapText(tester, '더 보기');
+      expect(tester.widget<Text>(content).maxLines, isNull);
+      await tapText(tester, '간략히');
+      expect(tester.widget<Text>(content).maxLines, 3);
+      await tapText(tester, '답글 1개 보기');
+      expect(find.text('숨겨진 답글입니다.'), findsOneWidget);
+      await capture(tester, 'community-comment-fold-$scale');
+      await tapText(tester, '답글 숨기기');
+      expect(find.text('숨겨진 답글입니다.'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
 }

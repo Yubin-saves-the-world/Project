@@ -1,3 +1,4 @@
+import '../../../../ui/core/widgets/app_icon.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -51,7 +52,7 @@ class PhotoInputField extends StatelessWidget {
                       ? Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(
+                            AppIcon(
                               Icons.add_a_photo_outlined,
                               size: 24,
                               color: enabled
@@ -94,7 +95,7 @@ class PhotoInputField extends StatelessWidget {
                   style: IconButton.styleFrom(
                     backgroundColor: AppColors.surface,
                   ),
-                  icon: const Icon(Icons.close, size: 16),
+                  icon: const AppIcon(Icons.close, size: 16),
                 ),
               ),
           ],

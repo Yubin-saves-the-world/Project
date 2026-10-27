@@ -1,3 +1,5 @@
+import '../../../ui/core/theme/app_colors.dart';
+import '../../../ui/core/widgets/app_icon.dart';
 import 'package:flutter/material.dart';
 import '../../../ui/core/widgets/design_reference_page.dart';
 import '../data/community_models.dart';
@@ -18,7 +20,6 @@ class CommunityPage extends StatefulWidget {
 class _CommunityPageState extends State<CommunityPage>
     with WidgetsBindingObserver {
   CommunityController? _model;
-  bool _searching = false;
   final _search = TextEditingController();
   @override
   void initState() {
@@ -40,7 +41,6 @@ class _CommunityPageState extends State<CommunityPage>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.dependencies != widget.dependencies) {
       _search.clear();
-      _searching = false;
       _connect();
     } else if (widget.isActive && !oldWidget.isActive) {
       _model?.load();
@@ -85,181 +85,233 @@ class _CommunityPageState extends State<CommunityPage>
             alignment: Alignment.topCenter,
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 520),
-              child: Stack(
+              child: Column(
                 children: [
-                  RefreshIndicator(
-                    onRefresh: model.load,
-                    child: ListView(
-                      key: const Key('community-list'),
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(24, 24, 24, 100),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 16, 24, 12),
+                    child: Row(
                       children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: communityText(
-                                '커뮤니티',
-                                size: 23,
-                                medium: true,
-                              ),
-                            ),
-                            Container(
-                              width: 38,
-                              height: 38,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                border: Border.all(
-                                  color: const Color(0xFFE4E1D8),
-                                ),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: IconButton(
-                                tooltip: '게시글 검색',
-                                padding: EdgeInsets.zero,
-                                onPressed: () => setState(() {
-                                  _searching = !_searching;
-                                  if (!_searching) {
-                                    _search.clear();
-                                    model.search('');
-                                  }
-                                }),
-                                icon: const CommunityAsset('search'),
-                              ),
-                            ),
-                            PopupMenuButton<String>(
-                              tooltip: '커뮤니티 관리',
-                              onSelected: (_) => _open(
-                                CommunityBlocksPage(dependencies: model.deps),
-                              ),
-                              itemBuilder: (_) => [
-                                const PopupMenuItem(
-                                  value: 'blocks',
-                                  child: Text('차단한 사용자'),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        if (_searching) ...[
-                          TextField(
+                        Expanded(
+                          child: TextField(
                             key: const Key('community-search'),
                             controller: _search,
                             onChanged: model.search,
-                            decoration: const InputDecoration(
+                            style: ReferenceStyle.text(14, 22),
+                            decoration: InputDecoration(
                               hintText: '불러온 게시글에서 검색',
-                              prefixIcon: Icon(Icons.search),
-                              border: OutlineInputBorder(),
+                              prefixIcon: const AppIcon(
+                                Icons.search_rounded,
+                                color: ReferenceStyle.muted,
+                                size: 23,
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                vertical: 16,
+                                horizontal: 16,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: const BorderSide(
+                                  color: ReferenceStyle.border,
+                                ),
+                              ),
+                              suffixIcon: model.query.isEmpty
+                                  ? null
+                                  : IconButton(
+                                      tooltip: '검색 지우기',
+                                      onPressed: () {
+                                        _search.clear();
+                                        model.search('');
+                                      },
+                                      icon: const AppIcon(
+                                        Icons.close_rounded,
+                                        size: 18,
+                                      ),
+                                    ),
                             ),
                           ),
-                          const SizedBox(height: 12),
-                        ],
-                        SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
+                        ),
+                        const SizedBox(width: 8),
+                        PopupMenuButton<String>(
+                          key: const Key('community-menu'),
+                          tooltip: '커뮤니티 메뉴',
+                          position: PopupMenuPosition.under,
+                          color: Colors.white,
+                          surfaceTintColor: Colors.transparent,
+                          elevation: 0,
+                          offset: const Offset(0, 4),
+                          menuPadding: const EdgeInsets.all(6),
+                          constraints: const BoxConstraints(
+                            minWidth: 224,
+                            maxWidth: 260,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            side: const BorderSide(color: communityBorder),
+                          ),
+                          icon: const AppIcon(
+                            Icons.more_horiz_rounded,
+                            size: 22,
+                            color: ReferenceStyle.muted,
+                          ),
+                          onSelected: (_) => _open(
+                            CommunityBlocksPage(dependencies: model.deps),
+                          ),
+                          itemBuilder: (_) => [
+                            PopupMenuItem(
+                              value: 'blocks',
+                              height: 48,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
+                              child: Row(
+                                children: [
+                                  const AppIcon(
+                                    Icons.person_off_outlined,
+                                    size: 18,
+                                    color: ReferenceStyle.muted,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Flexible(
+                                    child: Text(
+                                      '차단한 사용자 관리',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: ReferenceStyle.text(14, 22),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            for (final e in <String?, String>{
+                              null: '전체',
+                              ...communityCategories,
+                            }.entries)
+                              Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: ChoiceChip(
+                                  label: communityText(
+                                    e.value,
+                                    size: 12,
+                                    color: model.category == e.key
+                                        ? Colors.white
+                                        : ReferenceStyle.muted,
+                                  ),
+                                  selected: model.category == e.key,
+                                  showCheckmark: false,
+                                  selectedColor: ReferenceStyle.blue,
+                                  backgroundColor: Colors.white,
+                                  side: BorderSide(
+                                    color: model.category == e.key
+                                        ? ReferenceStyle.blue
+                                        : communityBorder,
+                                  ),
+                                  shape: const StadiumBorder(),
+                                  onSelected: (_) => model.filter(e.key),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Stack(
+                      children: [
+                        RefreshIndicator(
+                          onRefresh: model.load,
+                          child: ListView(
+                            key: const Key('community-list'),
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: const EdgeInsets.fromLTRB(24, 4, 24, 100),
                             children: [
-                              for (final e in <String?, String>{
-                                null: '전체',
-                                ...communityCategories,
-                              }.entries)
+                              if (model.error != null)
+                                CommunityNotice(
+                                  model.error!,
+                                  retry: () =>
+                                      model.load(more: model.items.isNotEmpty),
+                                ),
+                              if (model.loading && model.items.isEmpty)
+                                const Center(
+                                  child: Padding(
+                                    padding: EdgeInsets.all(24),
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                ),
+                              if (!model.loading &&
+                                  model.error == null &&
+                                  model.visible.isEmpty)
+                                CommunityNotice(
+                                  model.query.isEmpty
+                                      ? '아직 게시글이 없어요. 첫 이야기를 남겨 보세요.'
+                                      : '불러온 게시글에 검색 결과가 없어요.',
+                                ),
+                              for (final post in model.visible)
                                 Padding(
-                                  padding: const EdgeInsets.only(right: 8),
-                                  child: ChoiceChip(
-                                    label: communityText(
-                                      e.value,
-                                      size: 12,
-                                      color: model.category == e.key
-                                          ? Colors.white
-                                          : ReferenceStyle.muted,
+                                  padding: const EdgeInsets.only(bottom: 12),
+                                  child: _PostCard(
+                                    post: post,
+                                    onTap: () => _open(
+                                      CommunityDetailPage(
+                                        dependencies: model.deps,
+                                        postId: post.id,
+                                      ),
                                     ),
-                                    selected: model.category == e.key,
-                                    showCheckmark: false,
-                                    selectedColor: ReferenceStyle.blue,
-                                    backgroundColor: Colors.white,
-                                    side: BorderSide(
-                                      color: model.category == e.key
-                                          ? ReferenceStyle.blue
-                                          : const Color(0xFFE4E1D8),
-                                    ),
-                                    shape: const StadiumBorder(),
-                                    onSelected: (_) => model.filter(e.key),
+                                  ),
+                                ),
+                              if (model.hasMore)
+                                TextButton(
+                                  onPressed: model.loading
+                                      ? null
+                                      : () => model.load(more: true),
+                                  child: Text(
+                                    model.loading ? '불러오는 중…' : '게시글 더 보기',
                                   ),
                                 ),
                             ],
                           ),
                         ),
-                        if (model.deps.preview)
-                          const CommunityNotice(
-                            '기기 미리보기 · 실제 게시/전송 없음\n예시 글과 변경 내용은 앱 종료 시 초기화돼요.',
-                          ),
-                        const SizedBox(height: 12),
-                        if (model.error != null)
-                          CommunityNotice(
-                            model.error!,
-                            retry: () =>
-                                model.load(more: model.items.isNotEmpty),
-                          ),
-                        if (model.loading && model.items.isEmpty)
-                          const Center(
-                            child: Padding(
-                              padding: EdgeInsets.all(24),
-                              child: CircularProgressIndicator(),
-                            ),
-                          ),
-                        if (!model.loading &&
-                            model.error == null &&
-                            model.visible.isEmpty)
-                          CommunityNotice(
-                            model.query.isEmpty
-                                ? '아직 게시글이 없어요. 첫 이야기를 남겨 보세요.'
-                                : '불러온 게시글에 검색 결과가 없어요.',
-                          ),
-                        for (final post in model.visible)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: _PostCard(
-                              post: post,
-                              onTap: () => _open(
-                                CommunityDetailPage(
-                                  dependencies: model.deps,
-                                  postId: post.id,
-                                ),
+                        Positioned(
+                          right: 24,
+                          bottom: 24,
+                          child: SizedBox(
+                            width: 56,
+                            height: 56,
+                            child: FloatingActionButton(
+                              heroTag: 'community-write',
+                              tooltip: '글쓰기',
+                              elevation: 0,
+                              focusElevation: 0,
+                              hoverElevation: 0,
+                              highlightElevation: 0,
+                              backgroundColor: ReferenceStyle.blue,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(18),
                               ),
+                              onPressed: () => _open(
+                                CommunityEditorPage(dependencies: model.deps),
+                              ),
+                              child: const CommunityAsset('write'),
                             ),
                           ),
-                        if (model.hasMore)
-                          TextButton(
-                            onPressed: model.loading
-                                ? null
-                                : () => model.load(more: true),
-                            child: Text(model.loading ? '불러오는 중…' : '게시글 더 보기'),
-                          ),
+                        ),
                       ],
-                    ),
-                  ),
-                  Positioned(
-                    right: 24,
-                    bottom: 24,
-                    child: SizedBox(
-                      width: 56,
-                      height: 56,
-                      child: FloatingActionButton(
-                        heroTag: 'community-write',
-                        elevation: 0,
-                        focusElevation: 0,
-                        hoverElevation: 0,
-                        highlightElevation: 0,
-                        tooltip: '글쓰기',
-                        backgroundColor: ReferenceStyle.blue,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                        onPressed: () => _open(
-                          CommunityEditorPage(dependencies: model.deps),
-                        ),
-                        child: const CommunityAsset('write'),
-                      ),
                     ),
                   ),
                 ],
@@ -277,98 +329,113 @@ class _PostCard extends StatelessWidget {
   final CommunityPost post;
   final VoidCallback onTap;
   @override
-  Widget build(BuildContext context) => Material(
-    color: post.pinned ? Colors.white : communityCard,
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(16),
-      side: post.pinned
-          ? const BorderSide(color: Color(0xFF9FA6E2))
-          : BorderSide.none,
-    ),
-    clipBehavior: Clip.antiAlias,
-    child: InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (post.pinned) ...[
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 7,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: ReferenceStyle.blue,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: communityText('공지', size: 10, color: Colors.white),
+  Widget build(BuildContext context) {
+    final scale = MediaQuery.textScalerOf(context).scale(1);
+    final image = post.images.isNotEmpty
+        ? post.images.first
+        : post.thumbnail == null
+        ? null
+        : CommunityImage(0, post.thumbnail!);
+    return SizedBox(
+      key: ValueKey('community-card-${post.id}'),
+      height: 148 * scale,
+      child: Material(
+        color: communityCard,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(
+            color: post.pinned ? AppColors.accentBorder : communityBorder,
+          ),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          if (post.pinned) ...[
+                            const AppIcon(
+                              Icons.push_pin_outlined,
+                              size: 14,
+                              color: ReferenceStyle.blue,
+                            ),
+                            const SizedBox(width: 4),
+                          ],
+                          Expanded(
+                            child: communityText(
+                              post.title,
+                              size: 15,
+                              medium: true,
+                              lines: 1,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      communityText(
+                        post.preview,
+                        size: 13,
+                        color: ReferenceStyle.muted,
+                        lines: 2,
+                      ),
+                      const Spacer(),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: communityText(
+                              '${post.author.name} · ${communityDate(post.created)}',
+                              size: 10,
+                              color: ReferenceStyle.muted,
+                              lines: 1,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          const CommunityAsset('heart'),
+                          const SizedBox(width: 4),
+                          communityText(
+                            '${post.likes}',
+                            size: 10,
+                            color: ReferenceStyle.muted,
+                          ),
+                          const SizedBox(width: 10),
+                          const CommunityAsset('comment'),
+                          const SizedBox(width: 4),
+                          communityText(
+                            '${post.comments}',
+                            size: 10,
+                            color: ReferenceStyle.muted,
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: communityText(
-                      post.author.name,
-                      size: 12,
-                      color: ReferenceStyle.muted,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-            ],
-            communityText(
-              post.title,
-              size: post.pinned ? 14 : 15,
-              medium: true,
-              lines: 2,
-            ),
-            if (!post.pinned) ...[
-              const SizedBox(height: 8),
-              communityText(
-                post.preview,
-                size: 13,
-                color: ReferenceStyle.muted,
-                lines: 2,
-              ),
-              if (post.thumbnail != null) ...[
-                const SizedBox(height: 10),
-                CommunityPhoto(CommunityImage(0, post.thumbnail!), height: 110),
-              ],
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: communityText(
-                      '${post.author.name} · ${communityDate(post.created)}',
-                      size: 11,
-                      color: ReferenceStyle.muted,
-                      lines: 1,
-                    ),
-                  ),
-                  const CommunityAsset('heart'),
-                  const SizedBox(width: 4),
-                  communityText(
-                    '${post.likes}',
-                    size: 11,
-                    color: ReferenceStyle.muted,
-                  ),
+                ),
+                if (image != null) ...[
                   const SizedBox(width: 12),
-                  const CommunityAsset('comment'),
-                  const SizedBox(width: 4),
-                  communityText(
-                    '${post.comments}',
-                    size: 11,
-                    color: ReferenceStyle.muted,
+                  SizedBox(
+                    key: ValueKey('community-thumbnail-${post.id}'),
+                    width: 76 * scale,
+                    height: 76 * scale,
+                    child: CommunityPhoto(
+                      image,
+                      height: 76 * scale,
+                      fit: BoxFit.cover,
+                    ),
                   ),
                 ],
-              ),
-            ],
-          ],
+              ],
+            ),
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }

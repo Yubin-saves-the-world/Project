@@ -185,7 +185,7 @@ class GoalViewModel extends ChangeNotifier {
   }
 
   Future<void> pick(PhotoSource source) async {
-    if (!canEdit || dependencies.localPreview) return;
+    if (!canEdit) return;
     busy = true;
     error = null;
     _notify();
@@ -245,7 +245,8 @@ class GoalViewModel extends ChangeNotifier {
   Future<bool> save() async {
     if (!canEdit) return false;
     final text = description.trim();
-    if (text.length > 200 || (text.isEmpty && photo == null)) {
+    if (text.length > 200 ||
+        (text.isEmpty && photo == null && goal?.previewBytes == null)) {
       validationError = text.length > 200
           ? '설명은 200자 이하로 적어 주세요.'
           : '사진을 추가하거나 목표를 설명해 주세요.';
