@@ -352,85 +352,97 @@ class _PostCard extends StatelessWidget {
           onTap: onTap,
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Column(
               children: [
                 Expanded(
-                  child: Column(
+                  child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          if (post.pinned) ...[
-                            const AppIcon(
-                              Icons.push_pin_outlined,
-                              size: 14,
-                              color: ReferenceStyle.blue,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                if (post.pinned) ...[
+                                  const AppIcon(
+                                    Icons.push_pin_outlined,
+                                    size: 14,
+                                    color: ReferenceStyle.blue,
+                                  ),
+                                  const SizedBox(width: 4),
+                                ],
+                                Expanded(
+                                  child: communityText(
+                                    post.title,
+                                    size: 15,
+                                    medium: true,
+                                    lines: 1,
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 4),
-                          ],
-                          Expanded(
-                            child: communityText(
-                              post.title,
-                              size: 15,
-                              medium: true,
-                              lines: 1,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      communityText(
-                        post.preview,
-                        size: 13,
-                        color: ReferenceStyle.muted,
-                        lines: 2,
-                      ),
-                      const Spacer(),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: communityText(
-                              '${post.author.name} · ${communityDate(post.created)}',
-                              size: 10,
+                            const SizedBox(height: 6),
+                            communityText(
+                              post.preview,
+                              size: 13,
                               color: ReferenceStyle.muted,
-                              lines: 1,
+                              lines: 2,
                             ),
-                          ),
-                          const SizedBox(width: 4),
-                          const CommunityAsset('heart'),
-                          const SizedBox(width: 4),
-                          communityText(
-                            '${post.likes}',
-                            size: 10,
-                            color: ReferenceStyle.muted,
-                          ),
-                          const SizedBox(width: 10),
-                          const CommunityAsset('comment'),
-                          const SizedBox(width: 4),
-                          communityText(
-                            '${post.comments}',
-                            size: 10,
-                            color: ReferenceStyle.muted,
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
+                      if (image != null) ...[
+                        const SizedBox(width: 12),
+                        SizedBox(
+                          key: ValueKey('community-thumbnail-${post.id}'),
+                          width: 76 * scale,
+                          height: 76 * scale,
+                          child: CommunityPhoto(
+                            image,
+                            height: 76 * scale,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
-                if (image != null) ...[
-                  const SizedBox(width: 12),
-                  SizedBox(
-                    key: ValueKey('community-thumbnail-${post.id}'),
-                    width: 76 * scale,
-                    height: 76 * scale,
-                    child: CommunityPhoto(
-                      image,
-                      height: 76 * scale,
-                      fit: BoxFit.cover,
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: communityText(
+                        '${post.author.name} · ${communityDate(post.created)}',
+                        size: 10,
+                        color: ReferenceStyle.muted,
+                        lines: 1,
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 8),
+                    Row(
+                      key: ValueKey('community-reactions-${post.id}'),
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const CommunityAsset('heart'),
+                        const SizedBox(width: 4),
+                        communityText(
+                          '${post.likes}',
+                          size: 10,
+                          color: ReferenceStyle.muted,
+                        ),
+                        const SizedBox(width: 10),
+                        const CommunityAsset('comment'),
+                        const SizedBox(width: 4),
+                        communityText(
+                          '${post.comments}',
+                          size: 10,
+                          color: ReferenceStyle.muted,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ],
             ),
           ),

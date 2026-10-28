@@ -260,7 +260,52 @@ void main() {
     await tapText(tester, '신고하기');
     expect(find.text('현재 앱에서 신고한 항목으로 표시했어요.'), findsOneWidget);
   });
+  testWidgets('작은 화면·확대 글꼴에서도 확인 버튼 크기와 정렬이 일치한다', (tester) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await app(
+      tester,
+      Builder(
+        builder: (context) => Scaffold(
+          body: Center(
+            child: TextButton(
+              onPressed: () => communityConfirm(
+                context,
+                '게시글을 삭제할까요?',
+                '게시글과 첨부 사진, 댓글을 다시 볼 수 없어요.',
+                action: '삭제',
+              ),
+              child: const Text('열기'),
+            ),
+          ),
+        ),
+      ),
+      scale: 1.3,
+    );
+    await tester.tap(find.text('열기'));
+    await tester.pumpAndSettle();
+    final cancel = tester.getRect(
+      find.byKey(const Key('community-confirm-cancel')),
+    );
+    final action = tester.getRect(
+      find.byKey(const Key('community-confirm-action')),
+    );
+    expect(action.size, cancel.size);
+    expect(action.top, cancel.top);
+    expect(action.width, greaterThan(70));
+    expect(tester.takeException(), isNull);
+    await capture(tester, 'community-delete-confirm-small');
+    await tester.tap(find.text('취소'));
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsNothing);
+  });
   testWidgets('내 글만 수정·삭제할 수 있다', (tester) async {
+    tester.view.physicalSize = const Size(393, 852);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     final repo = LocalCommunityRepository(() => '나');
     final own = await repo.save(draft());
     final deps = CommunityDependencies(
@@ -281,7 +326,17 @@ void main() {
     expect(find.text('수정한 제목'), findsNWidgets(2));
     await tester.tap(find.byTooltip('게시글 메뉴'));
     await tester.pumpAndSettle();
+    await capture(tester, 'community-own-actions');
     await tapText(tester, '삭제');
+    final cancel = tester.getSize(
+      find.byKey(const Key('community-confirm-cancel')),
+    );
+    final action = tester.getSize(
+      find.byKey(const Key('community-confirm-action')),
+    );
+    expect(action, cancel);
+    expect(action.height, greaterThanOrEqualTo(48));
+    await capture(tester, 'community-delete-confirm');
     await tapText(tester, '삭제');
     expect(find.text('수정한 제목'), findsNothing);
   });
@@ -408,6 +463,13 @@ void main() {
             .height,
         148,
       );
+      final card = tester.getRect(
+        find.byKey(ValueKey('community-card-${item.id}')),
+      );
+      final reactions = tester.getRect(
+        find.byKey(ValueKey('community-reactions-${item.id}')),
+      );
+      expect(reactions.right, closeTo(card.right - 16, 1));
     }
     final thumbSize = tester.getSize(
       find.byKey(ValueKey('community-thumbnail-${post.id}')),
