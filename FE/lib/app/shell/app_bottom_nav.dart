@@ -1,3 +1,5 @@
+import '../../ui/core/theme/app_colors.dart';
+import '../../ui/core/widgets/app_icon.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../ui/core/widgets/design_reference_page.dart';
@@ -21,7 +23,7 @@ class AppBottomNav extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     decoration: const BoxDecoration(
       color: Colors.white,
-      border: Border(top: BorderSide(color: Color(0xFFE4E1D8))),
+      border: Border(top: BorderSide(color: AppColors.border)),
     ),
     child: SafeArea(
       top: false,
@@ -59,7 +61,7 @@ class AppBottomNav extends StatelessWidget {
                             ),
                           )
                         else
-                          Icon(
+                          AppIcon(
                             items[i].$1,
                             size: 22,
                             color: selectedIndex == i

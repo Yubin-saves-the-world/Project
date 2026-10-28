@@ -1,7 +1,8 @@
 enum Gender {
   male('남성'),
   female('여성'),
-  none('선택 안 함');
+  none('선택 안 함'),
+  unknown('알 수 없음');
 
   const Gender(this.label);
   final String label;
@@ -10,7 +11,8 @@ enum Gender {
 enum GoalType {
   muscle('근육 키우기'),
   diet('체중 줄이기'),
-  posture('자세 교정');
+  posture('자세 교정'),
+  unknown('알 수 없음');
 
   const GoalType(this.label);
   final String label;
@@ -19,7 +21,8 @@ enum GoalType {
 enum ExperienceLevel {
   under3m('3개월 미만'),
   under1y('1년 미만'),
-  over1y('1년 이상');
+  over1y('1년 이상'),
+  unknown('알 수 없음');
 
   const ExperienceLevel(this.label);
   final String label;
@@ -58,11 +61,18 @@ class BodyProfile {
     heightCm: (json['height_cm'] as num).toDouble(),
     weightKg: (json['weight_kg'] as num).toDouble(),
     age: json['age'] as int,
-    gender: Gender.values.byName(json['gender'] as String),
-    goalType: GoalType.values.byName(json['goal_type'] as String),
+    gender: Gender.values.firstWhere(
+      (v) => v.name == json['gender'],
+      orElse: () => json['gender'] == null ? Gender.none : Gender.unknown,
+    ),
+    goalType: GoalType.values.firstWhere(
+      (v) => v.name == json['goal_type'],
+      orElse: () => GoalType.unknown,
+    ),
     weeklyFrequency: json['weekly_frequency'] as int,
-    experienceLevel: ExperienceLevel.values.byName(
-      json['experience_level'] as String,
+    experienceLevel: ExperienceLevel.values.firstWhere(
+      (v) => v.name == json['experience_level'],
+      orElse: () => ExperienceLevel.unknown,
     ),
   );
 }

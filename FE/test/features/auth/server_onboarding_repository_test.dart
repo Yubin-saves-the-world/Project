@@ -45,18 +45,20 @@ http.Response _json(int status, Object body) => http.Response.bytes(
   headers: {'content-type': 'application/json; charset=utf-8'},
 );
 
-Map<String, dynamic> _error(int status, String code, String message, [List<Map<String, String>>? fields]) => {
-  'code': code,
-  'message': message,
-  'status': status,
-  'fields': fields,
-};
+Map<String, dynamic> _error(
+  int status,
+  String code,
+  String message, [
+  List<Map<String, String>>? fields,
+]) => {'code': code, 'message': message, 'status': status, 'fields': fields};
 
 void main() {
   late MemoryTokenStore tokens;
   late List<http.BaseRequest> calls;
 
-  ServerOnboardingRepository build(Future<http.Response> Function(http.Request) handler) {
+  ServerOnboardingRepository build(
+    Future<http.Response> Function(http.Request) handler,
+  ) {
     calls = [];
     return ServerOnboardingRepository(
       baseUrl: 'http://server.test/',
@@ -78,17 +80,24 @@ void main() {
       expect(body['email'], 'user@example.com');
       expect(body['terms_agreed'], true);
       expect(body['ai_processing_agreed'], true);
-      return _json(201, {'user_id': 7, 'email': 'user@example.com', 'nickname': '유빈', 'created_at': '2026-10-12T10:00:00+09:00'});
+      return _json(201, {
+        'user_id': 7,
+        'email': 'user@example.com',
+        'nickname': '유빈',
+        'created_at': '2026-10-12T10:00:00+09:00',
+      });
     });
-    final progress = await repo.register(const SignupRequest(
-      nickname: ' 유빈 ',
-      email: 'USER@example.com',
-      password: 'abcd1234',
-      termsAgreed: true,
-      privacyAgreed: true,
-      bodyPhotoAgreed: true,
-      aiProcessingAgreed: true,
-    ));
+    final progress = await repo.register(
+      const SignupRequest(
+        nickname: ' 유빈 ',
+        email: 'USER@example.com',
+        password: 'abcd1234',
+        termsAgreed: true,
+        privacyAgreed: true,
+        bodyPhotoAgreed: true,
+        aiProcessingAgreed: true,
+      ),
+    );
     expect(progress.signedIn, isFalse);
     expect(progress.account!.nickname, '유빈');
     expect(await tokens.read(), isNull);
@@ -97,14 +106,25 @@ void main() {
   test('로그인하면 토큰을 저장하고 내 정보를 조회하며, 설문 전이면 신체정보를 부르지 않는다', () async {
     final repo = build((r) async {
       if (r.url.path == '/api/auth/login') {
-        expect(jsonDecode(r.body), {'email': 'user@example.com', 'password': 'abcd1234'});
+        expect(jsonDecode(r.body), {
+          'email': 'user@example.com',
+          'password': 'abcd1234',
+        });
         expect(r.headers.containsKey('Authorization'), isFalse);
-        return _json(200, {'access_token': 'tok', 'token_type': 'Bearer', 'expires_in': 604800, 'onboarding_completed': false});
+        return _json(200, {
+          'access_token': 'tok',
+          'token_type': 'Bearer',
+          'expires_in': 604800,
+          'onboarding_completed': false,
+        });
       }
       expect(r.headers['Authorization'], 'Bearer tok');
       return _json(200, {..._me, 'onboarding_completed': false});
     });
-    final progress = await repo.login(email: ' User@Example.com ', password: 'abcd1234');
+    final progress = await repo.login(
+      email: ' User@Example.com ',
+      password: 'abcd1234',
+    );
     expect(await tokens.read(), 'tok');
     expect(progress.signedIn, isTrue);
     expect(progress.profile, isNull);
@@ -115,12 +135,22 @@ void main() {
   test('설문을 마친 계정은 로그인 때 신체정보까지 읽어 홈으로 갈 수 있다', () async {
     final repo = build((r) async {
       if (r.url.path == '/api/auth/login') {
-        return _json(200, {'access_token': 'tok', 'token_type': 'Bearer', 'expires_in': 604800, 'onboarding_completed': true});
+        return _json(200, {
+          'access_token': 'tok',
+          'token_type': 'Bearer',
+          'expires_in': 604800,
+          'onboarding_completed': true,
+        });
       }
-      if (r.url.path == '/api/users/me/profile') return _json(200, _profileJson);
+      if (r.url.path == '/api/users/me/profile') {
+        return _json(200, _profileJson);
+      }
       return _json(200, {..._me, 'onboarding_completed': true});
     });
-    final progress = await repo.login(email: 'user@example.com', password: 'abcd1234');
+    final progress = await repo.login(
+      email: 'user@example.com',
+      password: 'abcd1234',
+    );
     expect(progress.onboardingCompleted, isTrue);
     expect(progress.profile!.heightCm, 175.0);
     expect(progress.profile!.goalType, GoalType.muscle);
@@ -131,14 +161,22 @@ void main() {
     var created = false;
     final repo = build((r) async {
       if (r.url.path == '/api/users/me/profile' && r.method == 'POST') {
-        return _json(409, _error(409, 'PROFILE_ALREADY_EXISTS', '이미 신체정보가 등록되어 있어요.'));
+        return _json(
+          409,
+          _error(409, 'PROFILE_ALREADY_EXISTS', '이미 신체정보가 등록되어 있어요.'),
+        );
       }
       if (r.url.path == '/api/users/me/profile' && r.method == 'PATCH') {
         created = true;
         expect(jsonDecode(r.body)['weekly_frequency'], 5);
-        return _json(200, {..._profileJson, 'routine_refresh_recommended': false});
+        return _json(200, {
+          ..._profileJson,
+          'routine_refresh_recommended': false,
+        });
       }
-      if (r.url.path == '/api/users/me/profile') return _json(200, _profileJson);
+      if (r.url.path == '/api/users/me/profile') {
+        return _json(200, _profileJson);
+      }
       return _json(200, {..._me, 'onboarding_completed': true});
     });
     await tokens.write('tok');
@@ -150,37 +188,73 @@ void main() {
   });
 
   test('이메일 중복 같은 서버 오류는 서버 문구를 그대로 보여 준다', () async {
-    final repo = build((r) async => _json(409, _error(409, 'EMAIL_DUPLICATED', '이미 가입된 이메일이에요.')));
+    final repo = build(
+      (r) async =>
+          _json(409, _error(409, 'EMAIL_DUPLICATED', '이미 가입된 이메일이에요.')),
+    );
     await expectLater(
-      repo.register(const SignupRequest(
-        nickname: '유빈', email: 'a@b.com', password: 'abcd1234',
-        termsAgreed: true, privacyAgreed: true, bodyPhotoAgreed: true, aiProcessingAgreed: true,
-      )),
-      throwsA(isA<StateError>().having((e) => e.message, 'message', '이미 가입된 이메일이에요.')),
+      repo.register(
+        const SignupRequest(
+          nickname: '유빈',
+          email: 'a@b.com',
+          password: 'abcd1234',
+          termsAgreed: true,
+          privacyAgreed: true,
+          bodyPhotoAgreed: true,
+          aiProcessingAgreed: true,
+        ),
+      ),
+      throwsA(
+        isA<StateError>().having((e) => e.message, 'message', '이미 가입된 이메일이에요.'),
+      ),
     );
   });
 
   test('입력 오류는 fields 목록의 첫 사유를 보여 준다', () async {
-    final repo = build((r) async => _json(400, _error(400, 'VALIDATION_FAILED', '입력값을 확인해 주세요.', [
-      {'field': 'password', 'reason': '8자 이상 영문+숫자 조합이어야 합니다.'},
-    ])));
+    final repo = build(
+      (r) async => _json(
+        400,
+        _error(400, 'VALIDATION_FAILED', '입력값을 확인해 주세요.', [
+          {'field': 'password', 'reason': '8자 이상 영문+숫자 조합이어야 합니다.'},
+        ]),
+      ),
+    );
     await expectLater(
       repo.login(email: 'a@b.com', password: 'x'),
-      throwsA(isA<StateError>().having((e) => e.message, 'message', '8자 이상 영문+숫자 조합이어야 합니다.')),
+      throwsA(
+        isA<StateError>().having(
+          (e) => e.message,
+          'message',
+          '8자 이상 영문+숫자 조합이어야 합니다.',
+        ),
+      ),
     );
   });
 
   test('로그인 실패는 INVALID_CREDENTIALS 문구를 보여 주고 토큰을 저장하지 않는다', () async {
-    final repo = build((r) async => _json(401, _error(401, 'INVALID_CREDENTIALS', '이메일 또는 비밀번호가 올바르지 않아요.')));
+    final repo = build(
+      (r) async => _json(
+        401,
+        _error(401, 'INVALID_CREDENTIALS', '이메일 또는 비밀번호가 올바르지 않아요.'),
+      ),
+    );
     await expectLater(
       repo.login(email: 'a@b.com', password: 'wrong1234'),
-      throwsA(isA<StateError>().having((e) => e.message, 'message', '이메일 또는 비밀번호가 올바르지 않아요.')),
+      throwsA(
+        isA<StateError>().having(
+          (e) => e.message,
+          'message',
+          '이메일 또는 비밀번호가 올바르지 않아요.',
+        ),
+      ),
     );
     expect(await tokens.read(), isNull);
   });
 
   test('저장된 토큰이 만료되면 토큰을 지우고 로그아웃 상태로 시작한다', () async {
-    final repo = build((r) async => _json(401, _error(401, 'UNAUTHORIZED', '로그인이 필요해요.')));
+    final repo = build(
+      (r) async => _json(401, _error(401, 'UNAUTHORIZED', '로그인이 필요해요.')),
+    );
     await tokens.write('expired');
     final progress = await repo.load();
     expect(progress.signedIn, isFalse);
@@ -199,7 +273,13 @@ void main() {
     final repo = build((r) async => throw http.ClientException('refused'));
     await expectLater(
       repo.login(email: 'a@b.com', password: 'abcd1234'),
-      throwsA(isA<StateError>().having((e) => e.message, 'message', contains('서버에 연결하지 못했어요'))),
+      throwsA(
+        isA<StateError>().having(
+          (e) => e.message,
+          'message',
+          contains('서버에 연결하지 못했어요'),
+        ),
+      ),
     );
   });
 
@@ -226,26 +306,49 @@ void main() {
   test('인증번호 확인은 가입에 쓸 토큰을 돌려준다', () async {
     final repo = build((r) async {
       expect(r.url.path, '/api/auth/email-verifications/confirm');
-      expect(jsonDecode(r.body), {'email': 'user@example.com', 'code': '123456'});
+      expect(jsonDecode(r.body), {
+        'email': 'user@example.com',
+        'code': '123456',
+      });
       return _json(200, {'verification_token': 'tok-abc', 'expires_in': 1800});
     });
-    final token = await repo.confirmEmailCode(email: 'User@example.com', code: ' 123456 ');
+    final token = await repo.confirmEmailCode(
+      email: 'User@example.com',
+      code: ' 123456 ',
+    );
     expect(token, 'tok-abc');
   });
 
   test('틀린 인증번호와 너무 잦은 요청은 서버 문구를 그대로 보여 준다', () async {
     var status = 400;
-    final repo = build((r) async => status == 400
-        ? _json(400, _error(400, 'EMAIL_CODE_INVALID', '인증번호가 일치하지 않아요.'))
-        : _json(429, _error(429, 'EMAIL_CODE_TOO_FREQUENT', '잠시 후에 다시 요청해 주세요.')));
+    final repo = build(
+      (r) async => status == 400
+          ? _json(400, _error(400, 'EMAIL_CODE_INVALID', '인증번호가 일치하지 않아요.'))
+          : _json(
+              429,
+              _error(429, 'EMAIL_CODE_TOO_FREQUENT', '잠시 후에 다시 요청해 주세요.'),
+            ),
+    );
     await expectLater(
       repo.confirmEmailCode(email: 'a@b.com', code: '000000'),
-      throwsA(isA<StateError>().having((e) => e.message, 'message', '인증번호가 일치하지 않아요.')),
+      throwsA(
+        isA<StateError>().having(
+          (e) => e.message,
+          'message',
+          '인증번호가 일치하지 않아요.',
+        ),
+      ),
     );
     status = 429;
     await expectLater(
       repo.sendEmailCode('a@b.com'),
-      throwsA(isA<StateError>().having((e) => e.message, 'message', '잠시 후에 다시 요청해 주세요.')),
+      throwsA(
+        isA<StateError>().having(
+          (e) => e.message,
+          'message',
+          '잠시 후에 다시 요청해 주세요.',
+        ),
+      ),
     );
   });
 
@@ -253,12 +356,87 @@ void main() {
     final repo = build((r) async {
       final body = jsonDecode(r.body) as Map<String, dynamic>;
       expect(body['email_verification_token'], 'tok-abc');
-      return _json(201, {'user_id': 7, 'email': 'user@example.com', 'nickname': '유빈', 'created_at': '2026-10-12T10:00:00+09:00'});
+      return _json(201, {
+        'user_id': 7,
+        'email': 'user@example.com',
+        'nickname': '유빈',
+        'created_at': '2026-10-12T10:00:00+09:00',
+      });
     });
-    await repo.register(const SignupRequest(
-      nickname: '유빈', email: 'user@example.com', password: 'abcd1234',
-      termsAgreed: true, privacyAgreed: true, bodyPhotoAgreed: true, aiProcessingAgreed: true,
-      emailVerificationToken: 'tok-abc',
-    ));
+    await repo.register(
+      const SignupRequest(
+        nickname: '유빈',
+        email: 'user@example.com',
+        password: 'abcd1234',
+        termsAgreed: true,
+        privacyAgreed: true,
+        bodyPhotoAgreed: true,
+        aiProcessingAgreed: true,
+        emailVerificationToken: 'tok-abc',
+      ),
+    );
+  });
+  test('서버 consent_completed가 false면 사진 동의와 무관하게 동의 화면이 우선이다', () async {
+    final repo = build(
+      (r) async => _json(200, {
+        ..._me,
+        'consent_completed': false,
+        'onboarding_completed': true,
+      }),
+    );
+    await tokens.write('tok');
+    final progress = await repo.load();
+    expect(progress.consentCompleted, false);
+    expect(progress.profile, isNull);
+    expect(calls.map((r) => r.url.path), ['/api/users/me']);
+  });
+  test('필수 동의는 PATCH로 저장한 뒤 내 정보를 다시 조회한다', () async {
+    var accepted = false;
+    final repo = build((r) async {
+      if (r.method == 'PATCH') {
+        expect(jsonDecode(r.body), {
+          'terms_agreed': true,
+          'privacy_agreed': true,
+          'body_photo_agreed': true,
+          'ai_processing_agreed': true,
+        });
+        accepted = true;
+      }
+      return _json(200, {
+        ..._me,
+        'consent_completed': accepted,
+        'onboarding_completed': false,
+      });
+    });
+    await tokens.write('tok');
+    final progress = await repo.acceptRequiredConsents();
+    expect(progress.consentCompleted, true);
+    expect(progress.nextStep, 1);
+    expect(calls.map((r) => r.method), ['PATCH', 'GET']);
+  });
+  test('가입 완료 후 사진·AI 동의를 철회해도 프로필과 저장 기록 진입을 복원한다', () async {
+    final repo = build(
+      (r) async => _json(
+        200,
+        r.url.path.endsWith('/profile')
+            ? _profileJson
+            : {
+                ..._me,
+                'onboarding_completed': true,
+                'consent_completed': false,
+                'body_photo_agreed': false,
+                'ai_processing_agreed': false,
+              },
+      ),
+    );
+    await tokens.write('tok');
+    final progress = await repo.load();
+    expect(progress.consentCompleted, false);
+    expect(progress.profile, isNotNull);
+    expect(progress.canBrowseAfterWithdrawal, true);
+    expect(calls.map((r) => r.url.path), [
+      '/api/users/me',
+      '/api/users/me/profile',
+    ]);
   });
 }

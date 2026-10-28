@@ -1,13 +1,14 @@
+import '../theme/app_colors.dart';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 abstract final class ReferenceStyle {
-  static const blue = Color(0xFF4361EE);
-  static const ink = Color(0xFF1C1C1C);
-  static const muted = Color(0xFF808791);
-  static const border = Color(0xFFE1E1E1);
-  static const signupBorder = Color(0xFFE3E0D6);
+  static const blue = AppColors.primary;
+  static const ink = AppColors.text;
+  static const muted = AppColors.muted;
+  static const border = AppColors.border;
+  static const signupBorder = AppColors.border;
   static TextStyle text(
     double size,
     double line, {
@@ -34,18 +35,90 @@ class ReferencePage extends StatelessWidget {
     this.onBack,
     this.footer,
     this.alignment = Alignment.center,
+    this.scrollFooter = false,
   });
   final Widget Function(BuildContext, double, double) builder;
   final String? backAsset;
   final VoidCallback? onBack;
   final Widget? footer;
   final AlignmentGeometry alignment;
+  final bool scrollFooter;
   @override
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: Colors.white,
     body: LayoutBuilder(
       builder: (context, c) {
         final width = math.min(c.maxWidth, 520.0);
+        if (scrollFooter) {
+          final safe = MediaQuery.paddingOf(context);
+          // 충분한 높이에서는 아래에 배치하고, 짧은 화면에서는 버튼까지 함께 스크롤한다.
+          return Align(
+            alignment: Alignment.topCenter,
+            child: SizedBox(
+              width: width,
+              child: CustomScrollView(
+                key: const Key('reference-content-scroll'),
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                slivers: [
+                  SliverPadding(
+                    padding: EdgeInsets.only(
+                      top: safe.top,
+                      bottom: safe.bottom,
+                    ),
+                    sliver: SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Stack(
+                            children: [
+                              builder(
+                                context,
+                                width,
+                                c.maxHeight - safe.vertical,
+                              ),
+                              if (backAsset != null)
+                                Positioned(
+                                  left: 12,
+                                  top: 8,
+                                  child: Semantics(
+                                    button: true,
+                                    label: '이전 단계',
+                                    child: InkWell(
+                                      key: const Key('reference-back'),
+                                      onTap: onBack,
+                                      child: SizedBox(
+                                        width: 46,
+                                        height: 46,
+                                        child: Center(
+                                          child: SvgPicture.asset(
+                                            'assets/icons/figma/$backAsset',
+                                            width: 30,
+                                            height: 30,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const Spacer(),
+                          if (footer != null)
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                              child: footer!,
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
         final top = math.max(0.0, MediaQuery.paddingOf(context).top - 44);
         final scroll = SingleChildScrollView(
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
@@ -202,8 +275,10 @@ class ReferenceField extends StatelessWidget {
     this.onSubmitted,
     this.signup = false,
     this.autofillHints,
+    this.errorText,
   });
   final String label, hint;
+  final String? errorText;
   final TextEditingController controller;
   final FormFieldValidator<String>? validator;
   final ValueChanged<String>? onChanged, onSubmitted;
@@ -227,7 +302,7 @@ class ReferenceField extends StatelessWidget {
                 15,
                 17,
                 weight: FontWeight.w500,
-                color: Colors.black,
+                color: AppColors.text,
                 spacing: 1,
               ),
             ),
@@ -240,6 +315,7 @@ class ReferenceField extends StatelessWidget {
       TextFormField(
         controller: controller,
         validator: validator,
+        forceErrorText: errorText,
         onChanged: onChanged,
         onFieldSubmitted: onSubmitted,
         keyboardType: keyboardType,

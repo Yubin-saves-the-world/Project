@@ -1,37 +1,37 @@
-<?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="12121" systemVersion="16G29" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" launchScreen="YES" colorMatched="YES" initialViewController="01J-lp-oVM">
-    <dependencies>
-        <deployment identifier="iOS"/>
-        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="12089"/>
-    </dependencies>
-    <scenes>
-        <!--View Controller-->
-        <scene sceneID="EHf-IW-A2E">
-            <objects>
-                <viewController id="01J-lp-oVM" sceneMemberID="viewController">
-                    <layoutGuides>
-                        <viewControllerLayoutGuide type="top" id="Ydg-fD-yQy"/>
-                        <viewControllerLayoutGuide type="bottom" id="xbc-2k-c8Z"/>
-                    </layoutGuides>
-                    <view key="view" contentMode="scaleToFill" id="Ze5-6b-2t3">
-                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
-                        <subviews>
-                            <imageView opaque="NO" clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="center" image="LaunchImage" translatesAutoresizingMaskIntoConstraints="NO" id="YRO-k0-Ey4">
-                            </imageView>
-                        </subviews>
-                        <color key="backgroundColor" red="1" green="1" blue="1" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
-                        <constraints>
-                            <constraint firstItem="YRO-k0-Ey4" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="1a2-6s-vTC"/>
-                            <constraint firstItem="YRO-k0-Ey4" firstAttribute="centerY" secondItem="Ze5-6b-2t3" secondAttribute="centerY" id="4X2-HB-R7a"/>
-                        </constraints>
-                    </view>
-                </viewController>
-                <placeholder placeholderIdentifier="IBFirstResponder" id="iYj-Kq-Ea1" userLabel="First Responder" sceneMemberID="firstResponder"/>
-            </objects>
-            <point key="canvasLocation" x="53" y="375"/>
-        </scene>
-    </scenes>
-    <resources>
-        <image name="LaunchImage" width="168" height="185"/>
-    </resources>
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="23501" targetRuntime="iOS.CocoaTouch" useAutolayout="YES" launchScreen="YES" useTraitCollections="YES" colorMatched="YES" initialViewController="01J-lp-oVM">
+<dependencies><deployment identifier="iOS"/><plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="23501"/></dependencies>
+<scenes><scene sceneID="EHf-IW-A2E"><objects>
+<viewController id="01J-lp-oVM" sceneMemberID="viewController"><view key="view" contentMode="scaleToFill" id="Ze5-6b-2t3">
+<rect key="frame" x="0" y="0" width="393" height="852"/>
+<autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+<subviews><view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="start-canvas">
+<rect key="frame" x="0" y="0" width="393" height="852"/>
+<subviews>
+<imageView clipsSubviews="YES" contentMode="scaleAspectFit" image="LaunchImage" translatesAutoresizingMaskIntoConstraints="NO" id="start-logo"><rect key="frame" x="81" y="238" width="230" height="230"/></imageView>
+<imageView clipsSubviews="YES" contentMode="scaleAspectFit" image="MOVIDWordmark" translatesAutoresizingMaskIntoConstraints="NO" id="start-wordmark"><rect key="frame" x="153" y="705" width="93" height="39"/></imageView>
+</subviews>
+<constraints>
+<constraint firstAttribute="width" secondItem="start-canvas" secondAttribute="height" multiplier="393:852" id="canvas-aspect"/>
+<constraint firstItem="start-logo" firstAttribute="centerX" secondItem="start-canvas" secondAttribute="centerX" multiplier="392:393" id="logo-x"/>
+<constraint firstItem="start-logo" firstAttribute="centerY" secondItem="start-canvas" secondAttribute="centerY" multiplier="353:426" id="logo-y"/>
+<constraint firstItem="start-logo" firstAttribute="width" secondItem="start-canvas" secondAttribute="width" multiplier="230:393" id="logo-width"/>
+<constraint firstItem="start-logo" firstAttribute="height" secondItem="start-logo" secondAttribute="width" id="logo-aspect"/>
+<constraint firstItem="start-wordmark" firstAttribute="centerX" secondItem="start-canvas" secondAttribute="centerX" multiplier="399:393" id="wordmark-x"/>
+<constraint firstItem="start-wordmark" firstAttribute="centerY" secondItem="start-canvas" secondAttribute="centerY" multiplier="724.5:426" id="wordmark-y"/>
+<constraint firstItem="start-wordmark" firstAttribute="width" secondItem="start-canvas" secondAttribute="width" multiplier="93:393" id="wordmark-width"/>
+<constraint firstItem="start-wordmark" firstAttribute="height" secondItem="start-wordmark" secondAttribute="width" multiplier="39:93" id="wordmark-aspect"/>
+</constraints>
+</view></subviews>
+<color key="backgroundColor" red="0.9803921569" green="0.9803921569" blue="0.9725490196" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+<constraints>
+<constraint firstItem="start-canvas" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="canvas-x"/>
+<constraint firstItem="start-canvas" firstAttribute="centerY" secondItem="Ze5-6b-2t3" secondAttribute="centerY" id="canvas-y"/>
+<constraint firstItem="start-canvas" firstAttribute="width" relation="lessThanOrEqual" secondItem="Ze5-6b-2t3" secondAttribute="width" id="canvas-max-width"/>
+<constraint firstItem="start-canvas" firstAttribute="height" relation="lessThanOrEqual" secondItem="Ze5-6b-2t3" secondAttribute="height" id="canvas-max-height"/>
+<constraint firstItem="start-canvas" firstAttribute="width" secondItem="Ze5-6b-2t3" secondAttribute="width" priority="750" id="canvas-fit-width"/>
+</constraints>
+</view></viewController><placeholder placeholderIdentifier="IBFirstResponder" id="iYj-Kq-Ea1" sceneMemberID="firstResponder"/>
+</objects></scene></scenes>
+<resources><image name="LaunchImage" width="230" height="230"/><image name="MOVIDWordmark" width="93" height="39"/></resources>
 </document>

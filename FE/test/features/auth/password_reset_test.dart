@@ -73,8 +73,6 @@ void main() {
     final repository = PreviewPasswordResetRepository(now: () => now);
     await repository.request('user@example.com');
     final token = repository.previewToken!;
-    await repository.request('user@example.com');
-    expect(repository.previewToken, token);
     expect(
       PasswordResetViewModel.parseToken(
         'https://example.com/password-reset?token=$token',
@@ -113,6 +111,7 @@ void main() {
       isFalse,
     );
     expect(model.codeError, contains('입력 횟수'));
+    now = now.add(const Duration(seconds: 60));
     await model.request('user@example.com');
     now = now.add(const Duration(minutes: 5));
     expect(
@@ -178,7 +177,7 @@ void main() {
     await tester.ensureVisible(find.text('비밀번호 변경'));
     await tester.tap(find.text('비밀번호 변경'));
     await tester.pumpAndSettle();
-    expect(find.text('비밀번호 변경 미리보기 완료'), findsOneWidget);
+    expect(find.text('비밀번호 변경 요청 완료'), findsOneWidget);
     expect(find.text('로그인하러 가기'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -379,5 +378,42 @@ void main() {
     expect(jsonDecode(requests[1].body)['code'], '482916');
     expect(find.text('비밀번호가 변경됐어요'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+  test('비밀번호 저장 응답이 끊기면 확인 토큰을 보존하고 변경 요청만 다시 보낸다', () async {
+    var confirms = 0, resets = 0;
+    final model = PasswordResetViewModel(
+      ServerPasswordResetRepository(
+        baseUrl: 'http://server.test',
+        client: MockClient((request) async {
+          if (request.url.path.endsWith('/reset-verification')) {
+            confirms++;
+            return http.Response(
+              jsonEncode({
+                'reset_token': 'server-reset-token-123456789',
+                'expires_in': 1800,
+              }),
+              200,
+            );
+          }
+          if (++resets == 1) throw http.ClientException('connection lost');
+          expect(
+            jsonDecode(request.body)['token'],
+            'server-reset-token-123456789',
+          );
+          return http.Response('', 204);
+        }),
+      ),
+    );
+    expect(
+      await model.resetWithServerCode('user@example.com', '482916', 'abcd1234'),
+      false,
+    );
+    expect(
+      await model.resetWithServerCode('user@example.com', '482916', 'abcd1234'),
+      true,
+    );
+    expect(confirms, 1);
+    expect(resets, 2);
+    model.dispose();
   });
 }

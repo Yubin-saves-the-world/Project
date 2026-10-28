@@ -1,3 +1,4 @@
+import 'local_nickname_registry.dart';
 import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
@@ -9,7 +10,7 @@ import 'models/onboarding_progress.dart';
 import 'models/signup_request.dart';
 import 'onboarding_repository.dart';
 
-/// 개발용 저장소. 실제 가입/중복 검사/로그인/AI 요청을 수행하지 않는다.
+/// 개발용 저장소. 실제 서버 가입/로그인/AI 요청을 수행하지 않는다. 닉네임 중복은 이 기기 계정 범위다.
 class LocalOnboardingRepository implements OnboardingRepository {
   LocalOnboardingRepository({SharedPreferencesAsync? preferences})
     : _preferences = preferences ?? SharedPreferencesAsync();
@@ -100,15 +101,47 @@ class LocalOnboardingRepository implements OnboardingRepository {
         !request.aiProcessingAgreed) {
       throw StateError('필수 항목에 동의해 주세요.');
     }
-    return _save(
-      const OnboardingProgress(signedIn: false).copyWith(
-        account: OnboardingAccount(
-          nickname: request.nickname.trim(),
-          email: request.email.trim().toLowerCase(),
-          bodyPhotoAgreed: request.bodyPhotoAgreed,
-          aiProcessingAgreed: request.aiProcessingAgreed,
+    final previous = (await load()).account;
+    if (previous != null &&
+        previous.storageOwner.isNotEmpty &&
+        previous.nickname.trim().runes.length >= 2) {
+      await LocalNicknameRegistry(
+        _preferences,
+      ).save(previous.storageOwner, previous.nickname, () async {});
+    }
+    return LocalNicknameRegistry(_preferences).save(
+      request.email.trim().toLowerCase(),
+      request.nickname,
+      () => _save(
+        const OnboardingProgress(signedIn: false).copyWith(
+          account: OnboardingAccount(
+            nickname: request.nickname.trim(),
+            email: request.email.trim().toLowerCase(),
+            bodyPhotoAgreed: request.bodyPhotoAgreed,
+            aiProcessingAgreed: request.aiProcessingAgreed,
+          ),
         ),
       ),
+    );
+  }
+
+  Future<OnboardingProgress> renameNickname(String value) async {
+    final current = await load();
+    final account = current.account;
+    if (account == null || !current.signedIn) {
+      throw StateError('로그인 후 다시 시도해 주세요.');
+    }
+    final updated = OnboardingAccount(
+      nickname: value.trim(),
+      email: account.email,
+      userId: account.userId,
+      bodyPhotoAgreed: account.bodyPhotoAgreed,
+      aiProcessingAgreed: account.aiProcessingAgreed,
+    );
+    return LocalNicknameRegistry(_preferences).save(
+      account.storageOwner,
+      value,
+      () => _save(current.copyWith(account: updated)),
     );
   }
 

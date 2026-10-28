@@ -261,7 +261,7 @@ void main() {
     await tester.tap(find.text('바벨 스쿼트').last);
     await tester.pumpAndSettle();
     expect(repo.workouts, isEmpty);
-    Navigator.of(tester.element(find.text('하체 집중 · 예시 루틴'))).pop();
+    Navigator.of(tester.element(find.text('하체 집중'))).pop();
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.byKey(const ValueKey('home-weekday-0')));
     await tester.tap(find.byKey(const ValueKey('home-weekday-0')));

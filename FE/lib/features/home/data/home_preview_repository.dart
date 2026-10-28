@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'models/weekly_schedule.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class PreviewWorkout {
@@ -50,6 +51,8 @@ class PreviewWorkout {
 }
 
 abstract interface class HomePreviewRepository {
+  Future<WeeklySchedule?> loadWeeklySchedule();
+  Future<void> saveWeeklySchedule(WeeklySchedule schedule);
   Future<List<PreviewWorkout>> load();
   Future<void> save(List<PreviewWorkout> workouts);
   Future<Map<String, bool>> loadDayOverrides();
@@ -61,7 +64,23 @@ class LocalHomePreviewRepository implements HomePreviewRepository {
   LocalHomePreviewRepository(String owner)
     : _key = 'vitality.home.preview.v1.$owner';
   final String _key;
+  String get _weeklyKey =>
+      'vitality.home.weekly.v1.${base64Url.encode(utf8.encode(_key))}';
   SharedPreferencesAsync get _preferences => SharedPreferencesAsync();
+  @override
+  Future<WeeklySchedule?> loadWeeklySchedule() async {
+    final raw = await _preferences.getString(_weeklyKey);
+    return raw == null
+        ? null
+        : WeeklySchedule.fromJson(
+            Map<String, dynamic>.from(jsonDecode(raw) as Map),
+          );
+  }
+
+  @override
+  Future<void> saveWeeklySchedule(WeeklySchedule schedule) =>
+      _preferences.setString(_weeklyKey, jsonEncode(schedule.toJson()));
+
   @override
   Future<Map<String, bool>> loadDayOverrides() async {
     final raw = await _preferences.getString('$_key.schedule');

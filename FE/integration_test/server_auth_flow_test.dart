@@ -17,8 +17,16 @@ const _mailPeekUrl = String.fromEnvironment(
 
 /// 테스트용 메일 서버가 마지막으로 받은 인증번호를 읽는다.
 Future<String> _codeFor(String email) async {
-  final res = await http.get(Uri.parse('$_mailPeekUrl/last?to=$email'));
-  return res.body.trim();
+  final uri = Uri.parse(
+    '$_mailPeekUrl/last',
+  ).replace(queryParameters: {'to': email});
+  for (var i = 0; i < 30; i++) {
+    final res = await http.get(uri).timeout(const Duration(seconds: 5));
+    final code = res.body.trim();
+    if (res.statusCode == 200 && RegExp(r'^\d{6}$').hasMatch(code)) return code;
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+  }
+  throw StateError('테스트 메일 서버에서 인증번호를 받지 못했어요.');
 }
 
 Future<void> _enter(WidgetTester tester, String key, String text) async {
@@ -61,7 +69,11 @@ Future<TokenStore> _openSignup(WidgetTester tester) async {
   return tokens;
 }
 
-Future<void> _requestCode(WidgetTester tester, String nickname, String email) async {
+Future<void> _requestCode(
+  WidgetTester tester,
+  String nickname,
+  String email,
+) async {
   await _enter(tester, 'signup-nickname', nickname);
   await _enter(tester, 'signup-email', email);
   await _tap(tester, find.text('인증번호 받기'));
@@ -76,13 +88,21 @@ void main() {
     final tokens = await _openSignup(tester);
 
     await _requestCode(tester, 'it$run'.substring(0, 8), email);
-    expect(find.text('인증번호를 보냈어요'), findsOneWidget, reason: '서버가 메일을 보내면 안내 창이 떠야 한다');
+    expect(
+      find.text('인증번호를 보냈어요'),
+      findsOneWidget,
+      reason: '서버가 메일을 보내면 안내 창이 떠야 한다',
+    );
     await _tap(tester, find.text('확인'));
 
     await _enter(tester, 'signup-code', '000000');
     await _enter(tester, 'signup-password', 'abcd1234');
     await _tap(tester, find.text('다음'));
-    expect(find.text('인증번호가 일치하지 않아요.'), findsOneWidget, reason: '틀린 번호는 서버 문구가 보여야 한다');
+    expect(
+      find.text('인증번호가 일치하지 않아요.'),
+      findsOneWidget,
+      reason: '틀린 번호는 서버 문구가 보여야 한다',
+    );
     expect(find.text('필수 약관 동의'), findsNothing);
 
     await _enter(tester, 'signup-code', await _codeFor(email));
@@ -92,20 +112,30 @@ void main() {
     await _tap(tester, find.text('동의하고 계속'));
     await _settleNetwork(tester);
 
-    expect(find.text('신체 정보'), findsOneWidget, reason: '가입·로그인 직후 설문(신체정보) 화면으로 이동해야 한다');
+    expect(
+      find.text('신체 정보'),
+      findsOneWidget,
+      reason: '가입·로그인 직후 설문(신체정보) 화면으로 이동해야 한다',
+    );
     expect(await tokens.read(), isNotNull, reason: '로그인 토큰이 저장되어야 한다');
 
     await _enter(tester, 'profile-height', '175');
     await _enter(tester, 'profile-weight', '73.5');
     await _enter(tester, 'profile-age', '18');
-    for (final label in ['남', '근육 키우기', '1년 이상']) {
-      await _tap(tester, find.text(label));
-    }
+    await _tap(tester, find.text('남'));
+    await _tap(tester, find.text('다음'));
+    await _tap(tester, find.text('근육 키우기'));
     await _tap(tester, find.text('4 ~ 5회'));
+    await _tap(tester, find.text('다음'));
+    await _tap(tester, find.text('1년 이상'));
     await _tap(tester, find.text('다음'));
     await _settleNetwork(tester);
 
-    expect(find.text('체형 분석'), findsOneWidget, reason: '신체정보 저장 후 체형분석 단계로 이동해야 한다');
+    expect(
+      find.text('체형 분석'),
+      findsOneWidget,
+      reason: '신체정보 저장 후 체형분석 단계로 이동해야 한다',
+    );
   });
 
   testWidgets('이미 가입된 이메일은 인증번호 단계에서 서버 문구로 막힌다', (tester) async {

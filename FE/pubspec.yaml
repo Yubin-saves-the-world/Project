@@ -39,9 +39,11 @@ dependencies:
   image_picker: ^1.2.4
   image: ^4.10.1
   shared_preferences: ^2.5.6
+  flutter_secure_storage: ^10.3.1
   path_provider: ^2.1.6
   flutter_svg: ^2.3.0
   http: ^1.2.2
+  url_launcher: ^6.3.3
 
 dev_dependencies:
   flutter_test:
@@ -67,9 +69,12 @@ flutter:
   # the material Icons class.
   uses-material-design: true
   assets:
+    - assets/branding/
     - assets/icons/home.svg
     - assets/icons/bell.svg
+    - assets/icons/profile.svg
     - assets/icons/figma/
+    - assets/icons/figma/community/
   fonts:
     - family: CapstoneUI
       fonts:

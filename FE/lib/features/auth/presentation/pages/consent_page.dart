@@ -53,15 +53,6 @@ class ConsentPage extends StatelessWidget {
                   title: const Text('[필수] AI 처리'),
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  '현재는 동의 화면의 개발용 미리보기입니다. 정식 약관·처리방침과 동의 저장은 서비스 연결 시 적용합니다.',
-                  style: TextStyle(
-                    fontSize: 12,
-                    height: 1.6,
-                    color: AppColors.muted,
-                  ),
-                ),
-                const SizedBox(height: 16),
                 if (model.error != null)
                   Text(
                     model.error!,

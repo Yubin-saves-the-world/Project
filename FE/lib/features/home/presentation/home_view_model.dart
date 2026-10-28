@@ -1,5 +1,9 @@
+import '../data/models/exercise_catalog.dart';
+export '../data/models/exercise_catalog.dart';
 import 'package:flutter/foundation.dart';
 import '../data/home_preview_repository.dart';
+import '../data/models/weekly_schedule.dart';
+export '../data/models/weekly_schedule.dart';
 
 DateTime koreaToday([DateTime? instant]) {
   final now = (instant ?? DateTime.now()).toUtc().add(const Duration(hours: 9));
@@ -8,12 +12,6 @@ DateTime koreaToday([DateTime? instant]) {
 
 bool sameDate(DateTime a, DateTime b) =>
     a.year == b.year && a.month == b.month && a.day == b.day;
-
-class PreviewExercise {
-  const PreviewExercise(this.name, this.sets, this.reps);
-  final String name;
-  final int sets, reps;
-}
 
 class HomeViewModel extends ChangeNotifier {
   HomeViewModel({
@@ -40,44 +38,63 @@ class HomeViewModel extends ChangeNotifier {
   bool loaded = false;
   bool get canWrite => loaded && !loading && !busy;
   bool get isToday => sameDate(selectedDate, today);
-  bool get routineDone => doneCount == exercises.length;
+  DayRoutine? routineFor(DateTime day) => schedule.forDate(day);
+  DayRoutine? get selectedRoutine => routineFor(selectedDate);
+  List<RoutineItem> get routineItems => selectedRoutine?.items ?? [];
+  int get routineDoneCount =>
+      routineItems.where((item) => exerciseDone(item.exercise)).length;
+  bool get routineDone =>
+      routineItems.isNotEmpty && routineDoneCount == routineItems.length;
+  bool get hasSchedule =>
+      schedule.weekly.isNotEmpty || schedule.dates.isNotEmpty;
+  int get plannedDays => week.where(planned).length;
+  RoutineItem? itemFor(DateTime day, int exercise) {
+    for (final item in routineFor(day)?.items ?? <RoutineItem>[]) {
+      if (item.exercise == exercise) return item;
+    }
+    return null;
+  }
+
   bool exerciseDone(int index) => dayWorkouts.any((w) => w.exercise == index);
   List<PreviewWorkout> workouts = [];
-  static const exercises = [
-    PreviewExercise('바벨 스쿼트', 4, 12),
-    PreviewExercise('루마니안 데드리프트', 4, 10),
-    PreviewExercise('레그 프레스', 3, 15),
-    PreviewExercise('레그 컬', 3, 12),
-  ];
+  static const exercises = workoutCatalog;
   DateTime get monday => today.subtract(Duration(days: today.weekday - 1));
   List<DateTime> get week =>
       List.generate(7, (i) => monday.add(Duration(days: i)));
-  Map<String, bool> _dayOverrides = {};
-  static String dateKey(DateTime day) =>
-      '${day.year.toString().padLeft(4, '0')}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
-  bool planned(DateTime day) => _dayOverrides.containsKey(dateKey(day))
-      ? !_dayOverrides[dateKey(day)]!
-      : List.generate(
-          frequency,
-          (i) => i * 7 ~/ frequency,
-        ).contains(day.weekday - 1);
+  WeeklySchedule schedule = WeeklySchedule();
+  static String dateKey(DateTime day) => WeeklySchedule.dateKey(day);
+  bool planned(DateTime day) =>
+      routineFor(day) != null && !routineFor(day)!.rest;
 
-  Future<bool> setRestDay(DateTime day, {required bool rest}) async {
+  Future<bool> saveRoutine(
+    DateTime day,
+    DayRoutine routine, {
+    required bool repeat,
+  }) async {
     await refreshClock();
     if (!canWrite) return false;
-    final date = DateTime(day.year, day.month, day.day);
-    if (rest && active != null && sameDate(active!.date, date)) {
-      error = '진행 중인 운동을 완료하거나 취소한 뒤 휴식일로 지정해 주세요.';
+    try {
+      routine.validate(exercises.length);
+    } catch (_) {
+      error = '운동 종목과 세트·횟수를 확인해 주세요.';
       _notify();
       return false;
     }
-    final next = {..._dayOverrides, dateKey(date): rest};
+    final date = DateTime(day.year, day.month, day.day);
+    final next = schedule.changed(date, routine, repeat: repeat, today: today);
+    final current = active;
+    if (current != null &&
+        next.forDate(current.date) != schedule.forDate(current.date)) {
+      error = '진행 중인 운동을 완료하거나 취소한 뒤 해당 일정을 수정해 주세요.';
+      _notify();
+      return false;
+    }
     busy = true;
     error = null;
     _notify();
     try {
-      await repository.saveDayOverrides(next);
-      _dayOverrides = next;
+      await repository.saveWeeklySchedule(next);
+      schedule = next;
       return true;
     } catch (_) {
       error = '운동 일정을 저장하지 못했어요. 다시 시도해 주세요.';
@@ -86,6 +103,17 @@ class HomeViewModel extends ChangeNotifier {
       busy = false;
       _notify();
     }
+  }
+
+  Future<bool> setRestDay(DateTime day, {required bool rest}) async {
+    if (rest) return saveRoutine(day, DayRoutine.rest(), repeat: false);
+    final original = schedule.templateFor(day);
+    if (original == null || original.rest) {
+      error = '운동일로 바꾸려면 운동 종목을 선택해 주세요.';
+      _notify();
+      return false;
+    }
+    return saveRoutine(day, original, repeat: false);
   }
 
   List<PreviewWorkout> get completed =>
@@ -177,12 +205,22 @@ class HomeViewModel extends ChangeNotifier {
           throw const FormatException('Invalid schedule date');
         }
       }
+      final storedWeek = await repository.loadWeeklySchedule();
+      final weekSchedule =
+          storedWeek ??
+          WeeklySchedule(
+            dates: {
+              for (final entry in schedule.entries)
+                if (entry.value) entry.key: DayRoutine.rest(),
+            },
+          );
+      weekSchedule.validate(exercises.length);
       final next = _expire(saved);
       if (next.asMap().entries.any((e) => !identical(e.value, saved[e.key]))) {
         await repository.save(next);
       }
       workouts = next;
-      _dayOverrides = schedule;
+      this.schedule = weekSchedule;
       loaded = true;
     } catch (_) {
       error = '기록을 불러오지 못했어요. 다시 불러온 뒤 운동을 시작해 주세요.';
@@ -264,6 +302,12 @@ class HomeViewModel extends ChangeNotifier {
       _notify();
       return false;
     }
+    final item = itemFor(today, index);
+    if (item == null) {
+      error = '오늘의 루틴에 등록된 운동을 선택해 주세요.';
+      _notify();
+      return false;
+    }
     if (index < 0 || index >= exercises.length) return false;
     if (active != null) {
       if (active!.exercise == index) return true;
@@ -278,7 +322,13 @@ class HomeViewModel extends ChangeNotifier {
     }
     return _save([
       ...workouts,
-      PreviewWorkout(date: today, exercise: index, startedAt: _now()),
+      PreviewWorkout(
+        date: today,
+        exercise: index,
+        startedAt: _now(),
+        sets: item.sets,
+        reps: item.reps,
+      ),
     ]);
   }
 

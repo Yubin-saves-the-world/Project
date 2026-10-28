@@ -12,11 +12,13 @@ class VitalityApp extends StatelessWidget {
     this.initialRoute = RoutePaths.login,
     this.onboardingRepository,
     this.photoPicker,
+    this.navigatorKey,
   });
 
   final String initialRoute;
   final OnboardingRepository? onboardingRepository;
   final PhotoPicker? photoPicker;
+  final GlobalKey<NavigatorState>? navigatorKey;
 
   @override
   Widget build(BuildContext context) {
@@ -25,7 +27,8 @@ class VitalityApp extends StatelessWidget {
       photoPicker: photoPicker,
     );
     return MaterialApp(
-      title: 'Project Vitality',
+      title: 'MOVID',
+      navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       initialRoute: initialRoute,

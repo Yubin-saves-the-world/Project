@@ -1,7 +1,9 @@
+import '../../../../ui/core/widgets/app_icon.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../../app/router/route_paths.dart';
 import '../../../../core/config/app_config.dart';
+import '../../../../core/network/api_client.dart';
 import '../../../../core/validation/input_validators.dart';
 import '../../../../ui/core/widgets/design_reference_page.dart';
 import '../../data/password_reset_repository.dart';
@@ -14,10 +16,12 @@ class PasswordResetPage extends StatefulWidget {
     this.repository,
     this.initialToken,
     this.preview,
+    this.apiClient,
   });
   final PasswordResetRepository? repository;
   final String? initialToken;
   final bool? preview;
+  final ApiClient? apiClient;
   @override
   State<PasswordResetPage> createState() => _PasswordResetPageState();
 }
@@ -40,7 +44,10 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
       widget.repository ??
           ((widget.preview ?? AppConfig.useLocalPreview)
               ? PreviewPasswordResetRepository()
-              : ServerPasswordResetRepository(baseUrl: AppConfig.apiBaseUrl)),
+              : ServerPasswordResetRepository(
+                  baseUrl: AppConfig.apiBaseUrl,
+                  apiClient: widget.apiClient,
+                )),
       initialToken: widget.initialToken,
     );
     code.text = widget.initialToken ?? '';
@@ -78,21 +85,33 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
     return '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
   }
 
-  Future<void> _issue() async {
-    FocusScope.of(context).unfocus();
-    if (!emailForm.currentState!.validate()) return;
-    if (!await model.request(email.text) || !mounted) return;
-    code.clear();
+  void _startCountdown() {
     timer?.cancel();
     timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
       setState(() {});
-      if (model.verification.remaining == Duration.zero) timer?.cancel();
+      if ((model.verification.remaining == null ||
+              model.verification.remaining == Duration.zero) &&
+          model.verification.retryAfter(email.text) == Duration.zero) {
+        timer?.cancel();
+      }
     });
+  }
+
+  Future<void> _issue() async {
+    FocusScope.of(context).unfocus();
+    if (!emailForm.currentState!.validate()) return;
+    final sent = await model.request(email.text);
+    if (!mounted) return;
+    if (!sent) {
+      emailForm.currentState!.validate();
+      return;
+    }
+    code.clear();
+    _startCountdown();
     await showVerificationSentDialog(
       context,
       email: email.text,
-      preview: preview,
       code: codeMode,
     );
   }
@@ -107,7 +126,7 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
     final bool success;
     if (preview) {
       success = await model.resetWithCode(email.text, code.text, password.text);
-    } else if (widget.initialToken == null) {
+    } else if (codeMode) {
       success = await model.resetWithServerCode(
         email.text,
         code.text,
@@ -118,7 +137,9 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
       if (model.step != PasswordResetStep.password) return;
       success = await model.reset(password.text, password.text);
     }
-    if (success && mounted) {
+    if (!mounted) return;
+    resetForm.currentState!.validate();
+    if (success) {
       password.clear();
       code.clear();
       timer?.cancel();
@@ -135,10 +156,9 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
       !model.busy &&
       password.text.isNotEmpty &&
       code.text.isNotEmpty &&
-      (preview
-          ? (model.verification.remaining != null &&
-                model.verification.remaining != Duration.zero)
-          : model.verification.remaining != Duration.zero);
+      (!codeMode ||
+          (model.verification.remaining != null &&
+              model.verification.remaining != Duration.zero));
 
   Widget _complete() => Scaffold(
     backgroundColor: Colors.white,
@@ -163,7 +183,7 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
                             color: ReferenceStyle.blue,
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(
+                          child: const AppIcon(
                             Icons.check_rounded,
                             size: 32,
                             color: Colors.white,
@@ -171,7 +191,7 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
                         ),
                         const SizedBox(height: 24),
                         Text(
-                          preview ? '비밀번호 변경 미리보기 완료' : '비밀번호가 변경됐어요',
+                          preview ? '비밀번호 변경 요청 완료' : '비밀번호가 변경됐어요',
                           textAlign: TextAlign.center,
                           style: ReferenceStyle.text(
                             20,
@@ -179,14 +199,14 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
                             weight: FontWeight.w500,
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        Text(
-                          preview
-                              ? '개발용 미리보기로, 실제 비밀번호는 변경되지 않았어요.'
-                              : '새 비밀번호로 로그인해 주세요.',
-                          textAlign: TextAlign.center,
-                          style: _text(12, muted: true),
-                        ),
+                        if (!preview) ...[
+                          const SizedBox(height: 12),
+                          Text(
+                            '새 비밀번호로 로그인해 주세요.',
+                            textAlign: TextAlign.center,
+                            style: _text(12, muted: true),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -240,9 +260,12 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
                         key: const Key('reset-email'),
                         label: '이메일',
                         controller: email,
+                        errorText: model.fieldErrors['email'],
                         hint: 'name@example.com',
                         validator: widget.initialToken == null
-                            ? InputValidators.email
+                            ? (value) =>
+                                  InputValidators.email(value) ??
+                                  model.fieldErrors['email']
                             : null,
                         keyboardType: TextInputType.emailAddress,
                         enabled: !model.busy,
@@ -250,6 +273,10 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
                           model.emailChanged();
                           code.clear();
                           timer?.cancel();
+                          if (model.verification.retryAfter(email.text) !=
+                              Duration.zero) {
+                            _startCountdown();
+                          }
                         },
                         labelTrailing: _timeLeft == null
                             ? null
@@ -262,12 +289,20 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
                                 ),
                               ),
                         suffix: TextButton(
-                          onPressed: model.busy ? null : _issue,
+                          onPressed:
+                              model.busy ||
+                                  (model.verification.retryAfter(email.text) !=
+                                      Duration.zero)
+                              ? null
+                              : _issue,
                           style: TextButton.styleFrom(
                             textStyle: ReferenceStyle.text(12, 18),
                           ),
                           child: Text(
-                            model.step == PasswordResetStep.sent
+                            model.verification.retryAfter(email.text) !=
+                                    Duration.zero
+                                ? '${(model.verification.retryAfter(email.text).inMilliseconds / 1000).ceil()}초 후 재요청'
+                                : model.step == PasswordResetStep.sent
                                 ? '재전송'
                                 : codeMode
                                 ? '인증번호 받기'
@@ -293,6 +328,7 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
                             key: const Key('reset-code'),
                             label: codeMode ? '인증번호' : '재설정 링크',
                             controller: code,
+                            onChanged: (_) => model.clearFieldError('code'),
                             hint: codeMode
                                 ? '인증번호를 입력하세요.'
                                 : '메일의 링크를 붙여 넣어 주세요',
@@ -330,8 +366,13 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
                             key: const Key('reset-password'),
                             label: '새 비밀번호',
                             controller: password,
+                            errorText: model.fieldErrors['new_password'],
+                            onChanged: (_) =>
+                                model.clearFieldError('new_password'),
                             hint: '8자 이상 입력하세요.',
-                            validator: InputValidators.password,
+                            validator: (value) =>
+                                InputValidators.password(value) ??
+                                model.fieldErrors['new_password'],
                             enabled: !model.busy,
                             obscure: true,
                             action: TextInputAction.done,
@@ -342,7 +383,9 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
                         ],
                       ),
                     ),
-                    if (model.error != null) ...[
+                    if (model.error != null &&
+                        model.error != model.codeError &&
+                        !model.fieldErrors.containsValue(model.error)) ...[
                       const SizedBox(height: 12),
                       Text(
                         model.error!,
@@ -355,14 +398,6 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
                       busy: model.busy,
                       onPressed: _canSubmit ? _submit : null,
                     ),
-                    if (preview) ...[
-                      const SizedBox(height: 12),
-                      Text(
-                        '개발용 미리보기 · 실제 메일 발송 및 비밀번호 변경 없음',
-                        textAlign: TextAlign.center,
-                        style: _text(10, muted: true),
-                      ),
-                    ],
                     const SizedBox(height: 40),
                   ],
                 ),

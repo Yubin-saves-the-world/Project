@@ -1,6 +1,8 @@
+import '../../../../ui/core/widgets/app_icon.dart';
+import '../../../../ui/core/widgets/edit_icon.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import '../../../../app/onboarding/onboarding_view_model.dart';
+import '../analysis_form_controller.dart';
 import '../../../../ui/core/widgets/design_reference_page.dart';
 import '../../../photos/data/models/selected_photo.dart';
 import '../../../photos/presentation/widgets/photo_input_field.dart';
@@ -11,16 +13,31 @@ class OnboardingAnalysisPage extends StatefulWidget {
     super.key,
     required this.model,
     required this.onCompleted,
+    this.onSelectGoal,
+    this.goalCaption,
+    this.goalTitle = '목표 체형 사진',
+    this.supportsText = true,
+    this.topAction,
+    this.notice,
+    this.onBack,
+    this.showBack = true,
   });
-  final OnboardingViewModel model;
+  final AnalysisFormController model;
   final VoidCallback onCompleted;
+  final VoidCallback? onSelectGoal;
+  final String? goalCaption;
+  final String goalTitle;
+  final bool supportsText;
+  final Widget? topAction, notice;
+  final VoidCallback? onBack;
+  final bool showBack;
   @override
   State<OnboardingAnalysisPage> createState() => _OnboardingAnalysisPageState();
 }
 
 class _OnboardingAnalysisPageState extends State<OnboardingAnalysisPage> {
   late final TextEditingController _text;
-  OnboardingViewModel get model => widget.model;
+  AnalysisFormController get model => widget.model;
   @override
   void initState() {
     super.initState();
@@ -42,12 +59,12 @@ class _OnboardingAnalysisPageState extends State<OnboardingAnalysisPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.camera_alt_outlined),
+              leading: const AppIcon(Icons.camera_alt_outlined),
               title: const Text('카메라로 촬영'),
               onTap: () => Navigator.pop(context, PhotoSource.camera),
             ),
             ListTile(
-              leading: const Icon(Icons.photo_library_outlined),
+              leading: const AppIcon(Icons.photo_library_outlined),
               title: const Text('앨범에서 선택'),
               onTap: () => Navigator.pop(context, PhotoSource.gallery),
             ),
@@ -118,6 +135,22 @@ class _OnboardingAnalysisPageState extends State<OnboardingAnalysisPage> {
   }
 
   Future<void> _description() async {
+    if (!widget.supportsText) {
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('글 분석 준비 중'),
+          content: const Text('현재는 사진으로 체형을 분석할 수 있어요.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('확인'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
     model.setMethod(AnalysisMethod.text);
     await showModalBottomSheet<void>(
       context: context,
@@ -199,20 +232,7 @@ class _OnboardingAnalysisPageState extends State<OnboardingAnalysisPage> {
               child: Center(
                 child: photo
                     ? _svg('521_55', 16.9, 14.2)
-                    : SizedBox(
-                        width: 14.9,
-                        height: 14.9,
-                        child: Stack(
-                          children: [
-                            _svg('521_58', 14.9, 14.9),
-                            Positioned(
-                              left: 9.6,
-                              top: 2.8,
-                              child: _svg('521_59', 2.5, 2.5),
-                            ),
-                          ],
-                        ),
-                      ),
+                    : const EditIcon(size: 14.9, color: ReferenceStyle.muted),
               ),
             ),
             const SizedBox(width: 12),
@@ -322,17 +342,27 @@ class _OnboardingAnalysisPageState extends State<OnboardingAnalysisPage> {
   );
   @override
   Widget build(BuildContext context) => ReferencePage(
-    backAsset: 'figma-655_782.svg',
+    scrollFooter: true,
+    backAsset: widget.showBack ? 'figma-655_782.svg' : null,
     footer: ReferenceButton('분석 시작', onPressed: _finish, busy: model.busy),
-    onBack: model.busy ? null : model.back,
+    onBack: model.busy ? null : widget.onBack ?? model.back,
     builder: (context, width, height) => SizedBox(
       width: width,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const SizedBox(height: 96),
-          const ReferenceTitle('체형 분석', sourceX: 151, sourceWidth: 109),
-          const SizedBox(height: 43),
+          SizedBox(
+            height: widget.showBack || widget.topAction != null ? 64 : 24,
+            child: widget.topAction == null
+                ? null
+                : Align(
+                    alignment: Alignment.centerRight,
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 24),
+                      child: widget.topAction,
+                    ),
+                  ),
+          ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Column(
@@ -345,7 +375,9 @@ class _OnboardingAnalysisPageState extends State<OnboardingAnalysisPage> {
                 _guide(),
                 const SizedBox(height: 15),
                 InkWell(
-                  onTap: model.busy ? null : () => _photos(goal: true),
+                  onTap: model.busy
+                      ? null
+                      : widget.onSelectGoal ?? () => _photos(goal: true),
                   borderRadius: BorderRadius.circular(16),
                   child: Container(
                     constraints: const BoxConstraints(minHeight: 86),
@@ -364,7 +396,7 @@ class _OnboardingAnalysisPageState extends State<OnboardingAnalysisPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                '목표 체형 사진',
+                                widget.goalTitle,
                                 style: ReferenceStyle.text(
                                   14,
                                   21,
@@ -373,9 +405,10 @@ class _OnboardingAnalysisPageState extends State<OnboardingAnalysisPage> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                model.analysis.goal == null
-                                    ? '되고 싶은 몸 사진을 올리면 반영돼요 (선택)'
-                                    : '목표 사진 선택됨 · 눌러서 확인하기',
+                                widget.goalCaption ??
+                                    (model.analysis.goal == null
+                                        ? '되고 싶은 몸 사진을 올리면 반영돼요 (선택)'
+                                        : '목표 사진 선택됨 · 눌러서 확인하기'),
                                 style: ReferenceStyle.text(
                                   11,
                                   17,
@@ -416,15 +449,24 @@ class _OnboardingAnalysisPageState extends State<OnboardingAnalysisPage> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                if (model.error != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Text(
-                      model.error!,
-                      style: ReferenceStyle.text(12, 18, color: Colors.red),
-                    ),
-                  ),
-                const SizedBox(height: 24),
+                if (widget.notice != null) widget.notice!,
+                ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 48),
+                  child: model.error == null
+                      ? const SizedBox.shrink()
+                      : Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Text(
+                            model.error!,
+                            style: ReferenceStyle.text(
+                              12,
+                              18,
+                              color: Colors.red,
+                            ),
+                          ),
+                        ),
+                ),
+                const SizedBox(height: 16),
               ],
             ),
           ),

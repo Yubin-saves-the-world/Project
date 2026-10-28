@@ -1,8 +1,7 @@
-import 'dart:async';
-import 'dart:convert';
 import 'dart:math';
 import 'package:http/http.dart' as http;
 import '../../../core/network/api_contract.dart';
+import '../../../core/network/api_client.dart';
 
 abstract class PasswordResetRepository {
   Future<void> request(String email);
@@ -14,20 +13,19 @@ abstract class PasswordResetRepository {
   void dispose() {}
 }
 
-/// F-13: 회원 존재 여부를 묻지 않고 링크 요청과 1회용 토큰 변경만 수행합니다.
+/// 인증번호 확인 후 받은 토큰으로 비밀번호를 변경한다.
 class ServerPasswordResetRepository extends PasswordResetRepository {
   ServerPasswordResetRepository({
     required String baseUrl,
     http.Client? client,
-    this.timeout = const Duration(seconds: 10),
-  }) : _baseUrl = baseUrl.replaceFirst(RegExp(r'/$'), ''),
-       _client = client ?? http.Client(),
-       _ownsClient = client == null;
-  final String _baseUrl;
-  final http.Client _client;
-  final bool _ownsClient;
-  final Duration timeout;
-
+    Duration timeout = const Duration(seconds: 10),
+    ApiClient? apiClient,
+  }) : api =
+           apiClient ??
+           ApiClient(baseUrl: baseUrl, client: client, timeout: timeout),
+       _ownsApi = apiClient == null;
+  final ApiClient api;
+  final bool _ownsApi;
   @override
   Future<void> request(String email) => _send(
     'POST',
@@ -58,38 +56,11 @@ class ServerPasswordResetRepository extends PasswordResetRepository {
     String method,
     String path,
     Map<String, String> body,
-  ) async {
-    final request = http.Request(method, Uri.parse('$_baseUrl$path'))
-      ..headers.addAll(ApiContract.jsonHeaders(null))
-      ..body = jsonEncode(body);
-    final http.Response response;
-    try {
-      response = await http.Response.fromStream(
-        await _client.send(request).timeout(timeout),
-      );
-    } on TimeoutException {
-      throw StateError('서버 응답이 늦어요. 잠시 후 다시 시도해 주세요.');
-    } on http.ClientException {
-      throw StateError('서버에 연결하지 못했어요. 잠시 후 다시 시도해 주세요.');
-    }
-    if (response.statusCode == 204) return null;
-    try {
-      final json = jsonDecode(utf8.decode(response.bodyBytes));
-      if (response.statusCode == 200 && json is Map<String, dynamic>) {
-        return json;
-      }
-      if (json is Map<String, dynamic> && json['code'] is String) {
-        throw StateError(ApiFailure.fromJson(json).displayMessage);
-      }
-    } on FormatException {
-      // HTML 오류 페이지 등 JSON이 아닌 응답도 화면에서 다시 시도할 수 있게 합니다.
-    }
-    throw StateError('비밀번호 재설정 요청을 처리하지 못했어요. 다시 시도해 주세요.');
-  }
+  ) => api.send(method, path, body: body, authorized: false);
 
   @override
   void dispose() {
-    if (_ownsClient) _client.close();
+    if (_ownsApi) api.dispose();
   }
 }
 
@@ -98,7 +69,7 @@ class PreviewPasswordResetRepository extends PasswordResetRepository {
   PreviewPasswordResetRepository({DateTime Function()? now})
     : _now = now ?? DateTime.now;
   final DateTime Function() _now;
-  final Map<String, DateTime> _lastRequests = {};
+
   String? _token;
   DateTime? _issuedAt;
   @override
@@ -107,18 +78,12 @@ class PreviewPasswordResetRepository extends PasswordResetRepository {
   String? get previewToken => _token;
   @override
   Future<void> request(String email) async {
-    final key = email.trim().toLowerCase();
-    final last = _lastRequests[key];
-    if (last != null && _now().difference(last) < const Duration(minutes: 5)) {
-      return;
-    }
     final random = Random.secure();
     _token = List.generate(
       32,
       (_) => random.nextInt(16).toRadixString(16),
     ).join();
     _issuedAt = _now();
-    _lastRequests[key] = _issuedAt!;
   }
 
   @override

@@ -43,7 +43,7 @@ void main() {
     )..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'))).load();
   });
 
-  testWidgets('개발용 인증·동의·범위 상한 저장·텍스트 입력 후 가입 완료', (tester) async {
+  testWidgets('개발용 가입도 공통 분석 화면을 사용하고 홈으로 이동한다', (tester) async {
     tester.view.physicalSize = const Size(393, 852);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -83,31 +83,52 @@ void main() {
     await enter(tester, 'profile-height', '174');
     await enter(tester, 'profile-weight', '68');
     await enter(tester, 'profile-age', '20');
-    for (final label in ['남', '근육 키우기', '3개월 미만']) {
-      await tester.ensureVisible(find.text(label));
-      await tester.tap(find.text(label));
-      await tester.pumpAndSettle();
-    }
+    await tester.tap(find.text('남'));
+    await tester.tap(find.text('다음'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('근육 키우기'));
     await tester.tap(find.text('4 ~ 5회'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('다음'));
     await tester.tap(find.text('다음'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('3개월 미만'));
+    await tester.tap(find.text('다음'));
+    await tester.pumpAndSettle();
     expect(repository.progress.profile!.weeklyFrequency, 5);
-    expect(find.text('체형 분석'), findsOneWidget);
+    expect(find.text('체형 분석'), findsNothing);
+    expect(find.text('사진으로 분석'), findsOneWidget);
+    expect(find.text('준비 중'), findsNothing);
+    expect(find.text('글 분석 준비 중'), findsNothing);
     await tester.tap(find.text('글로 설명하기'));
     await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const Key('analysis-text')),
-      '어깨가 앞으로 굽는 느낌이 있어요.',
-    );
+    expect(find.text('글 분석 준비 중'), findsOneWidget);
+    expect(find.byKey(const Key('analysis-text')), findsNothing);
     await tester.tap(find.text('확인'));
     await tester.pumpAndSettle();
+    expect(find.text('분석 기록'), findsNothing);
+    expect(find.text('다음에 하기').hitTestable(), findsOneWidget);
+    expect(find.text('목표 체형'), findsOneWidget);
+    expect(find.textContaining('로컬 미리보기에서는 실제 체형 분석'), findsOneWidget);
     await tester.ensureVisible(find.text('분석 시작'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('분석 시작'));
+    await tester.pumpAndSettle();
+    expect(find.text('정면 사진을 추가해 주세요.'), findsOneWidget);
+    expect(repository.progress.completed, isFalse);
+    await tester.ensureVisible(find.text('다음에 하기'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('다음에 하기'));
     await tester.pumpAndSettle();
     expect(find.textContaining('유빈님,'), findsOneWidget);
     expect(repository.progress.completed, isTrue);
+    expect(repository.progress.analysisPrepared, isFalse);
+    await tester.tap(find.byKey(const ValueKey('nav-분석')));
+    await tester.pumpAndSettle();
+    expect(find.text('분석 기록'), findsOneWidget);
+    expect(find.text('목표 체형'), findsOneWidget);
+    expect(find.textContaining('로컬 미리보기에서는 실제 체형 분석'), findsOneWidget);
+    expect(find.text('다음에 하기'), findsNothing);
   });
 
   testWidgets('인증번호 없이 가입되지 않고 뒤로 이동하면 초안을 유지한다', (tester) async {
@@ -146,16 +167,26 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    expect(find.byTooltip('계정 메뉴'), findsNothing);
+    expect(find.byIcon(Icons.more_horiz_rounded), findsNothing);
     repository.failNext = true;
-    await tester.tap(find.byTooltip('계정 메뉴'));
+    await tester.tap(find.byTooltip('마이페이지'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('로그아웃'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('로그아웃'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '로그아웃'));
     await tester.pumpAndSettle();
     expect(find.text('로그아웃하지 못했어요. 다시 시도해 주세요.'), findsOneWidget);
     expect(repository.progress.completed, isTrue);
-    await tester.tap(find.byTooltip('계정 메뉴'));
+    await tester.tap(find.byTooltip('마이페이지'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('로그아웃'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('로그아웃'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '로그아웃'));
     await tester.pumpAndSettle();
     expect(find.text('로그인'), findsOneWidget);
     expect(repository.progress.account, isNotNull);
@@ -390,6 +421,16 @@ void main() {
         }
         await tester.pumpAndSettle();
         await tester.pump(const Duration(milliseconds: 100));
+        await tester.runAsync(() async {
+          final context = tester.element(find.byType(MaterialApp));
+          for (final icon in ['681_31', '681_33', '681_39', '681_41']) {
+            await precacheImage(
+              AssetImage('assets/icons/figma/figma-$icon.png'),
+              context,
+            );
+          }
+        });
+        await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
         final target = modal == 'otp'
             ? find.byType(Dialog)
@@ -474,20 +515,28 @@ void main() {
     expect(model.goalType, isNull);
     expect(model.frequency, isNull);
     expect(model.experienceLevel, isNull);
+    expect(find.text('주 운동 횟수'), findsNothing);
+    await tester.tap(find.text('남'));
+    await tester.tap(find.text('다음'));
+    await tester.pumpAndSettle();
     expect(find.text('주 운동 횟수'), findsOneWidget);
+    await tester.tap(find.text('근육 키우기'));
+    await tester.tap(find.text('2 ~ 3회'));
+    await tester.tap(find.text('다음'));
+    await tester.pumpAndSettle();
     expect(find.text('운동 기간'), findsOneWidget);
-    for (final label in ['남', '근육 키우기', '2 ~ 3회', '3개월 미만']) {
-      await tester.ensureVisible(find.text(label));
-      await tester.tap(find.text(label));
-      await tester.pumpAndSettle();
-    }
+    await tester.tap(find.text('3개월 미만'));
     await tester.ensureVisible(find.text('다음'));
     await tester.tap(find.text('다음'));
     await tester.pumpAndSettle();
     expect(repository.progress.profile!.heightCm, 174);
     expect(repository.progress.profile!.weightKg, 68.5);
     expect(repository.progress.profile!.age, 20);
-    expect(tester.getTopLeft(find.byType(FilledButton)).dy, 758);
+    expect(find.text('분석 시작').hitTestable(), findsOneWidget);
+    expect(
+      tester.getBottomLeft(find.byType(FilledButton)).dy,
+      lessThanOrEqualTo(852),
+    );
   });
 
   testWidgets('미선택 안내는 각 항목 아래에 표시되고 선택하면 사라진다', (tester) async {
@@ -520,6 +569,12 @@ void main() {
       ('주 운동 횟수', '2 ~ 3회'),
       ('운동 기간', '3개월 미만'),
     ]) {
+      if (item.$1 == '운동 목적' || item.$1 == '운동 기간') {
+        await tester.tap(find.text('다음'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('다음'));
+        await tester.pumpAndSettle();
+      }
       final section = find.byKey(ValueKey('profile-choice-${item.$1}'));
       final error = find.descendant(
         of: section,
@@ -614,7 +669,7 @@ void main() {
     expect(repository.progress.profile, previewProfile);
   });
 
-  testWidgets('체형 분석 오류와 스크롤에도 분석 시작 버튼 위치를 유지한다', (tester) async {
+  testWidgets('체형 분석 오류는 여백에 표시하고 짧은 화면에서는 버튼도 함께 스크롤한다', (tester) async {
     tester.view.physicalSize = const Size(393, 852);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -642,7 +697,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     final before = tester.getTopLeft(find.byType(FilledButton));
-    expect(before.dy, 758);
+    expect(before.dy, inInclusiveRange(0, 798));
     await tester.tap(find.text('분석 시작'));
     await tester.pumpAndSettle();
     expect(find.text('정면 사진을 추가해 주세요. 측면과 목표 사진은 선택이에요.'), findsOneWidget);
@@ -654,11 +709,16 @@ void main() {
     await tester.pumpAndSettle();
     final smallBefore = tester.getTopLeft(find.byType(FilledButton));
     await tester.drag(
-      find.byType(SingleChildScrollView).first,
+      find.byKey(const Key('reference-content-scroll')),
       const Offset(0, -200),
     );
     await tester.pumpAndSettle();
-    expect(tester.getTopLeft(find.byType(FilledButton)), smallBefore);
+    expect(
+      tester.getTopLeft(find.byType(FilledButton)).dy,
+      lessThan(smallBefore.dy),
+    );
+    await tester.ensureVisible(find.text('분석 시작'));
+    await tester.pumpAndSettle();
     expect(find.text('분석 시작').hitTestable(), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -710,6 +770,16 @@ void main() {
       }
       await tester.pumpAndSettle();
       await tester.pump(const Duration(milliseconds: 100));
+      await tester.runAsync(() async {
+        final context = tester.element(find.byType(MaterialApp));
+        for (final icon in ['681_31', '681_33', '681_39', '681_41']) {
+          await precacheImage(
+            AssetImage('assets/icons/figma/figma-$icon.png'),
+            context,
+          );
+        }
+      });
+      await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       await expectLater(
         find.byType(MaterialApp),

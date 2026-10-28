@@ -41,17 +41,27 @@ void main() {
     await model.initialize();
     final tomorrow = day.add(const Duration(days: 1));
     expect(model.planned(tomorrow), isFalse);
-    expect(await model.setRestDay(tomorrow, rest: false), isTrue);
+    expect(
+      await model.saveRoutine(
+        tomorrow,
+        DayRoutine(
+          title: '직접 루틴',
+          items: const [RoutineItem(exercise: 0, sets: 3, reps: 10)],
+        ),
+        repeat: false,
+      ),
+      isTrue,
+    );
     expect(model.planned(tomorrow), isTrue);
     repository.failSchedule = true;
     expect(await model.setRestDay(tomorrow, rest: true), isFalse);
     expect(model.planned(tomorrow), isTrue);
-    expect(repository.dayOverrides['2026-10-13'], isFalse);
+    expect(repository.weeklySchedule!.forDate(tomorrow)!.rest, isFalse);
     expect(
       await model.setRestDay(day.subtract(const Duration(days: 1)), rest: true),
       isFalse,
     );
-    expect(repository.dayOverrides.length, 1);
+    expect(repository.weeklySchedule!.dates.length, 1);
     model.dispose();
   });
   test('손상된 일정은 기존 기록을 덮어쓰지 않고 재시도를 요구한다', () async {
@@ -67,7 +77,7 @@ void main() {
     expect(repository.writes, 0);
     model.dispose();
   });
-  testWidgets('월·화를 포함한 모든 요일에서 휴식일 지정과 해제를 한다', (tester) async {
+  testWidgets('월·화를 포함한 모든 요일은 편집 화면에서 휴식일로 저장할 수 있다', (tester) async {
     final repository = FakeHomeRepository();
     await tester.pumpWidget(
       MaterialApp(
@@ -81,40 +91,18 @@ void main() {
       await tester.ensureVisible(weekday);
       await tester.tap(weekday);
       await tester.pumpAndSettle();
-      final button = find.byKey(const Key('home-rest-toggle'));
-      await tester.ensureVisible(button);
-      expect(tester.widget<TextButton>(button).onPressed, isNotNull);
-      final initiallyPlanned = [0, 2, 4].contains(i);
-      final key = HomeViewModel.dateKey(DateTime(2026, 10, 12 + i));
-      await tester.tap(button);
+      await tester.ensureVisible(find.byKey(const Key('home-rest-toggle')));
+      await tester.tap(find.byKey(const Key('home-rest-toggle')));
       await tester.pumpAndSettle();
-      expect(repository.dayOverrides[key], initiallyPlanned);
-      await tester.tap(button);
+      await tester.tap(find.text('휴식일').last);
       await tester.pumpAndSettle();
-      expect(repository.dayOverrides[key], !initiallyPlanned);
+      await tester.ensureVisible(find.byKey(const Key('routine-save')));
+      await tester.tap(find.byKey(const Key('routine-save')));
+      await tester.pumpAndSettle();
+      final next = DateTime(2026, 10, 19 + i);
+      expect(repository.weeklySchedule!.forDate(next)!.rest, isTrue);
     }
-    expect(repository.dayOverrides.length, 7);
     expect(repository.workouts, isEmpty);
-    expect(tester.takeException(), isNull);
-  });
-  testWidgets('홈에서 선택한 날짜의 휴식일을 지정·해제한다', (tester) async {
-    final repository = FakeHomeRepository();
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.light,
-        home: HomePage(repository: repository, today: DateTime(2026, 10, 14)),
-      ),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('home-rest-toggle')));
-    await tester.pumpAndSettle();
-    expect(find.text('오늘은 휴식일'), findsOneWidget);
-    expect(find.text('휴식일 해제'), findsOneWidget);
-    expect(repository.dayOverrides['2026-10-14'], isTrue);
-    await tester.tap(find.byKey(const Key('home-rest-toggle')));
-    await tester.pumpAndSettle();
-    expect(find.text('하체 집중 · 4종목'), findsOneWidget);
-    expect(find.text('휴식일 지정'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

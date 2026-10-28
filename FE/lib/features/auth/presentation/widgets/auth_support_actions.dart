@@ -8,9 +8,6 @@ void showAuthComingSoon(BuildContext context, String name) {
     builder: (context) => AlertDialog(
       scrollable: true,
       title: Text('$name 준비 중'),
-      content: Text(
-        '$name 기능은 서버 연결 후 이용할 수 있어요. 현재는 이메일 가입과 기기 내 로그인 흐름을 테스트할 수 있습니다. 비밀번호 인증과 실제 메일 발송은 제공되지 않습니다.',
-      ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),

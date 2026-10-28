@@ -1,3 +1,10 @@
+import '../../../../ui/core/theme/app_colors.dart';
+import '../../../workout/presentation/pages/workout_page.dart';
+import '../../../../ui/core/widgets/app_icon.dart';
+import '../../../workout/presentation/pages/workout_history_page.dart';
+import '../home_server_dependencies.dart';
+import '../home_server_view_model.dart';
+import '../widgets/server_home_cards.dart';
 import 'dart:math' as math;
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -7,30 +14,50 @@ import '../../../../ui/core/widgets/design_reference_page.dart';
 import '../../data/home_preview_repository.dart';
 import '../home_view_model.dart';
 import 'workout_calendar_page.dart';
+import 'weekly_routine_editor.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({
     super.key,
     this.onboarding,
-    this.onLogout,
+    this.onOpenMyPage,
+    this.onOpenExercises,
     this.loggingOut = false,
     this.logoutError,
     this.repository,
     this.today,
+    this.server,
+    this.onOpenAnalysis,
+    this.refreshToken = 0,
+    this.isActive = true,
   });
   final OnboardingProgress? onboarding;
-  final VoidCallback? onLogout;
+  final VoidCallback? onOpenMyPage;
+  final VoidCallback? onOpenExercises;
   final bool loggingOut;
   final String? logoutError;
   final HomePreviewRepository? repository;
   final DateTime? today;
+  final HomeServerDependencies? server;
+  final VoidCallback? onOpenAnalysis;
+  final int refreshToken;
+  final bool isActive;
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Timer? _clockTimer;
+  bool _openingManual = false;
+  bool _exerciseDone(int index) =>
+      model.exerciseDone(index) || (server?.manualDone(index) ?? false);
+  int get _routineDoneCount =>
+      model.routineItems.where((e) => _exerciseDone(e.exercise)).length;
+  bool get _routineDone =>
+      model.routineItems.isNotEmpty &&
+      _routineDoneCount == model.routineItems.length;
   late final HomeViewModel model;
+  HomeServerViewModel? server;
   static const weekdays = ['월', '화', '수', '목', '금', '토', '일'];
   @override
   void initState() {
@@ -39,15 +66,28 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       repository:
           widget.repository ??
           LocalHomePreviewRepository(
-            widget.onboarding?.account?.email ?? 'demo',
+            widget.onboarding?.account?.storageOwner ?? 'demo',
           ),
       today: widget.today,
       frequency: widget.onboarding?.profile?.weeklyFrequency ?? 3,
     );
     WidgetsBinding.instance.addObserver(this);
-    model.initialize();
+    server = widget.server == null
+        ? null
+        : HomeServerViewModel(widget.server!, model);
+    _refresh();
     _clockTimer = Timer.periodic(const Duration(minutes: 1), (_) {
-      if (mounted) model.refreshClock();
+      if (mounted) {
+        final previous = HomeViewModel.dateKey(model.today);
+        model.refreshClock().then((_) {
+          if (mounted &&
+              widget.isActive &&
+              (previous != HomeViewModel.dateKey(model.today) ||
+                  server != null)) {
+            server?.refresh();
+          }
+        });
+      }
     });
   }
 
@@ -55,13 +95,61 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   void dispose() {
     _clockTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
+    server?.dispose();
     model.dispose();
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) model.refreshClock();
+    if (state == AppLifecycleState.resumed && widget.isActive) _refresh();
+  }
+
+  @override
+  void didUpdateWidget(covariant HomePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.refreshToken != oldWidget.refreshToken ||
+        (widget.isActive && !oldWidget.isActive)) {
+      _refresh();
+    }
+  }
+
+  Future<void> _refresh() async {
+    if (server?.busy == true) return;
+    await model.refreshClock();
+    await model.initialize();
+    if (mounted) await server?.refresh();
+  }
+
+  Future<void> _chooseRecommended() async {
+    final data = server;
+    if (data == null || !data.canChoose) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        scrollable: true,
+        title: const Text('추천 루틴으로 교체할까요?'),
+        content: const Text(
+          '선택한 날짜에는 추천 루틴을 사용해요. 다른 날짜와 반복 일정, 완료한 기록은 유지돼요.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('내 운동 유지'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('추천 루틴으로 교체'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) await data.chooseRecommended();
+  }
+
+  Future<void> _releaseRest() async {
+    if (server != null && await server!.restoreRestDay()) return;
+    if (mounted) await _editSchedule();
   }
 
   TextStyle _text(
@@ -84,9 +172,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     padding: padding,
     decoration: BoxDecoration(
       color: Colors.white,
-      border: Border.all(
-        color: blue ? ReferenceStyle.blue : const Color(0xFFE4E1D8),
-      ),
+      border: Border.all(color: blue ? ReferenceStyle.blue : AppColors.border),
       borderRadius: BorderRadius.circular(radius),
     ),
     child: Material(type: MaterialType.transparency, child: child),
@@ -105,22 +191,38 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       ],
     ),
   );
+  Future<void> _editSchedule() async {
+    if (!model.canWrite || server?.busy == true) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => WeeklyRoutineEditor(
+          model: model,
+          date: model.selectedDate,
+          onOpenExercises: widget.onOpenExercises,
+        ),
+      ),
+    );
+    if (saved == true && mounted) {
+      await server?.manualSaved();
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('일정을 저장했어요.')));
+    }
+  }
+
   Widget _restButton() => TextButton.icon(
     key: const Key('home-rest-toggle'),
-    onPressed: !model.canWrite
-        ? null
-        : () => model.setRestDay(
-            model.selectedDate,
-            rest: model.planned(model.selectedDate),
-          ),
+    onPressed: model.canWrite ? _editSchedule : null,
     style: TextButton.styleFrom(
       padding: const EdgeInsets.symmetric(horizontal: 8),
       minimumSize: const Size(44, 32),
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       textStyle: _text(12),
     ),
-    icon: const Icon(Icons.hotel_outlined, size: 16),
-    label: Text(model.planned(model.selectedDate) ? '휴식일 지정' : '휴식일 해제'),
+    icon: const AppIcon(Icons.edit_calendar_outlined, size: 16),
+    label: const Text('일정 수정'),
   );
 
   Future<void> _routine() async {
@@ -136,32 +238,27 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('하체 집중 · 예시 루틴', style: _text(20, bold: true)),
-                const SizedBox(height: 8),
                 Text(
-                  '분석 결과가 아닌 화면 테스트용 루틴입니다.',
-                  style: _text(12, color: ReferenceStyle.muted),
+                  model.selectedRoutine?.title ?? '운동 루틴',
+                  style: _text(20, bold: true),
                 ),
-                const SizedBox(height: 12),
-                for (var i = 0; i < HomeViewModel.exercises.length; i++)
+                for (final item in model.routineItems)
                   ListTile(
-                    title: Text(HomeViewModel.exercises[i].name),
-                    subtitle: Text(
-                      '${HomeViewModel.exercises[i].sets}세트 · ${HomeViewModel.exercises[i].reps}회',
-                    ),
-                    trailing: model.exerciseDone(i)
+                    title: Text(HomeViewModel.exercises[item.exercise].name),
+                    subtitle: Text('${item.sets}세트 · ${item.reps}회'),
+                    trailing: _exerciseDone(item.exercise)
                         ? const Text('완료')
                         : !model.isToday
                         ? const Text('조회')
-                        : const Icon(Icons.play_circle_outline_rounded),
+                        : const AppIcon(Icons.play_circle_outline_rounded),
                     onTap:
                         !model.isToday ||
                             !model.canWrite ||
-                            model.exerciseDone(i)
+                            _exerciseDone(item.exercise)
                         ? null
                         : () {
                             Navigator.pop(context);
-                            _exercise(i);
+                            _exercise(item.exercise);
                           },
                   ),
               ],
@@ -172,11 +269,52 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
+  Future<void> _serverExercise(int index) async {
+    if (_openingManual || !model.isToday) return;
+    final dependencies = widget.server;
+    final resolver = server?.manualExercises;
+    if (resolver == null || dependencies?.workouts == null) {
+      _info('운동을 시작할 수 없어요', '서버 운동 연결을 확인한 뒤 다시 시도해 주세요.');
+      return;
+    }
+    setState(() => _openingManual = true);
+    try {
+      final exercise = await resolver.resolve(index);
+      if (!mounted || !model.isToday) return;
+      final item = model.itemFor(model.selectedDate, index);
+      await Navigator.push<void>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => WorkoutPage(
+            dependencies: dependencies!.workouts!,
+            exerciseId: exercise.id,
+            targetSets: item?.sets,
+            targetReps: item?.reps,
+          ),
+        ),
+      );
+      if (mounted) await _refresh();
+    } catch (e) {
+      if (mounted) {
+        _info(
+          '운동을 시작할 수 없어요',
+          e is StateError
+              ? e.message.toString()
+              : '서버 운동 정보를 확인하지 못했어요. 다시 시도해 주세요.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _openingManual = false);
+    }
+  }
+
   Future<void> _exercise(int index, {bool resume = false}) async {
+    if (_openingManual) return;
     if (!model.canWrite) return;
     await model.refreshClock();
     if (!mounted) return;
     final current = model.active;
+    if (server != null && current?.exercise == index) resume = true;
     if (resume) {
       if (current == null) return;
       index = current.exercise;
@@ -214,6 +352,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           return;
         }
       }
+      if (!resume && server != null) {
+        await _serverExercise(index);
+        return;
+      }
       if (!resume && !await model.start(index)) return;
     }
     if (!mounted || model.active == null) return;
@@ -222,17 +364,45 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
-      builder: (context) =>
-          _WorkoutPreviewForm(model: model, exercise: exercise),
+      builder: (context) => server == null
+          ? _WorkoutPreviewForm(model: model, exercise: exercise)
+          : Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (server != null)
+                  const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Text('이 운동 기록은 현재 기기에 저장돼요.'),
+                  ),
+                Flexible(
+                  child: _WorkoutPreviewForm(model: model, exercise: exercise),
+                ),
+              ],
+            ),
     );
   }
 
-  void _records() => Navigator.of(context).push<void>(
-    MaterialPageRoute(builder: (_) => WorkoutCalendarPage(model: model)),
-  );
+  Future<void> _records() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => widget.server?.workouts != null
+            ? WorkoutHistoryPage(
+                server: widget.server,
+                local: model,
+                initialDate: model.selectedDate,
+              )
+            : WorkoutCalendarPage(
+                model: model,
+                serverRepository: widget.server?.repository,
+              ),
+      ),
+    );
+    if (mounted) await server?.refresh();
+  }
+
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
-    animation: model,
+    animation: Listenable.merge([model, ?server]),
     builder: (context, _) => Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -241,463 +411,530 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           alignment: Alignment.topCenter,
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 520),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${widget.onboarding?.account?.nickname ?? '회원'}님, ${model.planned(model.today) ? '하체 가는 날' : '오늘은 휴식일'}',
-                              maxLines: 2,
-                              style: ReferenceStyle.text(
-                                20,
-                                31,
-                                weight: FontWeight.w500,
-                                spacing: -.5,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      InkWell(
-                        onTap: () => _info(
-                          '연속 운동 기록',
-                          '기기 내 미리보기 기준 ${model.streak}일 연속 운동했어요. 완료한 운동이 있는 날짜로 계산합니다.',
-                        ),
-                        borderRadius: BorderRadius.circular(20),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 9,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: const Color(0xFFE4E1D8)),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Row(
+            child: _refreshable(
+              SingleChildScrollView(
+                physics: server == null
+                    ? null
+                    : const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Icon(
-                                Icons.local_fire_department_outlined,
-                                size: 16,
-                                color: ReferenceStyle.blue,
-                              ),
-                              const SizedBox(width: 4),
                               Text(
-                                '${model.streak}일',
-                                style: _text(12, color: ReferenceStyle.blue),
+                                '${widget.onboarding?.account?.nickname ?? '회원'}님, ${_planned(model.today)
+                                    ? '오늘도 함께해요'
+                                    : model.routineFor(model.today) == null
+                                    ? '일정을 정해요'
+                                    : '오늘은 휴식일'}',
+                                maxLines: 2,
+                                style: ReferenceStyle.text(
+                                  20,
+                                  31,
+                                  weight: FontWeight.w500,
+                                  spacing: -.5,
+                                ),
                               ),
                             ],
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 6),
-                      IconButton(
-                        tooltip: '알림',
-                        onPressed: () =>
-                            _info('알림', '운동·식단 알림은 서비스 연결 후 제공됩니다.'),
-                        icon: SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: Center(
-                            child: SvgPicture.asset(
-                              'assets/icons/bell.svg',
-                              width: 17.5,
-                              height: 20,
-                              colorFilter: const ColorFilter.mode(
-                                ReferenceStyle.muted,
-                                BlendMode.srcIn,
-                              ),
+                        InkWell(
+                          onTap: () => _info(
+                            '연속 운동 기록',
+                            server?.streakDescription ??
+                                '${model.streak}일 연속 운동했어요.',
+                          ),
+                          borderRadius: BorderRadius.circular(20),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 9,
+                              vertical: 6,
                             ),
-                          ),
-                        ),
-                        style: IconButton.styleFrom(
-                          side: const BorderSide(color: Color(0xFFE4E1D8)),
-                          minimumSize: const Size(36, 36),
-                        ),
-                      ),
-                      if (widget.onLogout != null)
-                        PopupMenuButton<String>(
-                          tooltip: '계정 메뉴',
-                          icon: const Icon(Icons.more_horiz_rounded, size: 20),
-                          padding: EdgeInsets.zero,
-                          itemBuilder: (context) => [
-                            PopupMenuItem(
-                              value: 'logout',
-                              enabled: !widget.loggingOut,
-                              child: Text(
-                                widget.loggingOut ? '로그아웃 중' : '로그아웃',
-                              ),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: AppColors.border),
+                              borderRadius: BorderRadius.circular(20),
                             ),
-                          ],
-                          onSelected: (_) => widget.onLogout!(),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      border: Border.all(color: ReferenceStyle.border),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Row(
-                      children: [
-                        for (var i = 0; i < 7; i++) ...[
-                          if (i > 0) const SizedBox(width: 2),
-                          Expanded(
-                            child: Semantics(
-                              button: true,
-                              selected: sameDate(
-                                model.week[i],
-                                model.selectedDate,
-                              ),
-                              label:
-                                  '${weekdays[i]}요일 ${model.week[i].day}일, ${completedDay(model.week[i])
-                                      ? '운동 완료'
-                                      : model.planned(model.week[i])
-                                      ? '운동 예정'
-                                      : '휴식일'}',
-                              child: InkWell(
-                                key: ValueKey('home-weekday-$i'),
-                                onTap: () => model.select(model.week[i]),
-                                borderRadius: BorderRadius.circular(12),
-                                child: Container(
-                                  constraints: const BoxConstraints(
-                                    minHeight: 56,
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 8,
-                                    horizontal: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color:
-                                        sameDate(
-                                          model.week[i],
-                                          model.selectedDate,
-                                        )
-                                        ? ReferenceStyle.blue
-                                        : Colors.transparent,
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        weekdays[i],
-                                        style: ReferenceStyle.text(
-                                          11,
-                                          16,
-                                          color:
-                                              sameDate(
-                                                model.week[i],
-                                                model.selectedDate,
-                                              )
-                                              ? Colors.white
-                                              : ReferenceStyle.muted,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        '${model.week[i].day}',
-                                        style: ReferenceStyle.text(
-                                          13,
-                                          20,
-                                          weight: FontWeight.w500,
-                                          color:
-                                              sameDate(
-                                                model.week[i],
-                                                model.selectedDate,
-                                              )
-                                              ? Colors.white
-                                              : completedDay(model.week[i])
-                                              ? ReferenceStyle.blue
-                                              : model.planned(model.week[i])
-                                              ? ReferenceStyle.ink
-                                              : ReferenceStyle.muted,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  if (model.loading) const LinearProgressIndicator(),
-                  if (model.error != null)
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            model.error!,
-                            style: _text(12, color: Colors.red),
-                          ),
-                        ),
-                        if (!model.loaded)
-                          TextButton(
-                            onPressed: model.loading ? null : model.initialize,
-                            child: const Text('다시 불러오기'),
-                          ),
-                      ],
-                    ),
-                  if (widget.logoutError != null)
-                    Text(
-                      '로그아웃하지 못했어요. 다시 시도해 주세요.',
-                      style: _text(12, color: Colors.red),
-                    ),
-                  if (model.active != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: _card(
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: const Icon(
-                            Icons.play_circle_outline_rounded,
-                            color: ReferenceStyle.blue,
-                          ),
-                          title: const Text('이어서 운동하기'),
-                          subtitle: Text(
-                            HomeViewModel
-                                .exercises[model.active!.exercise]
-                                .name,
-                          ),
-                          onTap: () =>
-                              _exercise(model.active!.exercise, resume: true),
-                        ),
-                        blue: true,
-                      ),
-                    ),
-                  _card(
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                sameDate(model.selectedDate, model.today)
-                                    ? '오늘의 루틴'
-                                    : '선택한 날짜의 루틴',
-                                style: ReferenceStyle.text(
-                                  10,
-                                  14,
+                            child: Row(
+                              children: [
+                                const AppIcon(
+                                  Icons.local_fire_department_outlined,
+                                  size: 16,
                                   color: ReferenceStyle.blue,
-                                  spacing: 1,
                                 ),
-                              ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  server?.streakLabel ?? '${model.streak}일',
+                                  style: _text(12, color: ReferenceStyle.blue),
+                                ),
+                              ],
                             ),
-                            _restButton(),
-                          ],
+                          ),
                         ),
-                        const SizedBox(height: 2),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                model.planned(model.selectedDate)
-                                    ? '하체 집중 · 4종목'
-                                    : model.isToday
-                                    ? '오늘은 휴식일'
-                                    : '선택한 날은 휴식일',
-                                style: ReferenceStyle.text(
-                                  17,
-                                  26,
-                                  weight: FontWeight.w500,
+                        const SizedBox(width: 6),
+                        IconButton(
+                          tooltip: '알림',
+                          onPressed: () => _info('알림', '알림을 준비하고 있어요.'),
+                          icon: SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: Center(
+                              child: SvgPicture.asset(
+                                'assets/icons/bell.svg',
+                                width: 17.5,
+                                height: 20,
+                                colorFilter: const ColorFilter.mode(
+                                  ReferenceStyle.muted,
+                                  BlendMode.srcIn,
                                 ),
                               ),
                             ),
-                            if (model.planned(model.selectedDate))
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Text(
-                                    '예시',
-                                    style: _text(
-                                      10,
-                                      color: ReferenceStyle.muted,
+                          ),
+                          style: IconButton.styleFrom(
+                            side: const BorderSide(color: AppColors.border),
+                            minimumSize: const Size(36, 36),
+                          ),
+                        ),
+                        if (widget.onOpenMyPage != null)
+                          IconButton(
+                            tooltip: '마이페이지',
+                            onPressed: widget.loggingOut
+                                ? null
+                                : widget.onOpenMyPage,
+                            icon: SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: Center(
+                                child: SvgPicture.asset(
+                                  'assets/icons/profile.svg',
+                                  width: 20,
+                                  height: 20,
+                                  colorFilter: const ColorFilter.mode(
+                                    ReferenceStyle.muted,
+                                    BlendMode.srcIn,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            style: IconButton.styleFrom(
+                              side: const BorderSide(color: AppColors.border),
+                              minimumSize: const Size(36, 36),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border.all(color: ReferenceStyle.border),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Row(
+                        children: [
+                          for (var i = 0; i < 7; i++) ...[
+                            if (i > 0) const SizedBox(width: 2),
+                            Expanded(
+                              child: Semantics(
+                                button: true,
+                                selected: sameDate(
+                                  model.week[i],
+                                  model.selectedDate,
+                                ),
+                                label:
+                                    '${weekdays[i]}요일 ${model.week[i].day}일, ${completedDay(model.week[i])
+                                        ? '운동 완료'
+                                        : _planned(model.week[i])
+                                        ? '운동 예정'
+                                        : model.routineFor(model.week[i]) == null
+                                        ? '일정 미설정'
+                                        : '휴식일'}',
+                                child: InkWell(
+                                  key: ValueKey('home-weekday-$i'),
+                                  onTap: server?.busy == true
+                                      ? null
+                                      : () {
+                                          model.select(model.week[i]);
+                                          server?.loadDay();
+                                        },
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Container(
+                                    constraints: const BoxConstraints(
+                                      minHeight: 56,
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 8,
+                                      horizontal: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color:
+                                          sameDate(
+                                            model.week[i],
+                                            model.selectedDate,
+                                          )
+                                          ? ReferenceStyle.blue
+                                          : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          weekdays[i],
+                                          style: ReferenceStyle.text(
+                                            11,
+                                            16,
+                                            color:
+                                                sameDate(
+                                                  model.week[i],
+                                                  model.selectedDate,
+                                                )
+                                                ? Colors.white
+                                                : ReferenceStyle.muted,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          '${model.week[i].day}',
+                                          style: ReferenceStyle.text(
+                                            13,
+                                            20,
+                                            weight: FontWeight.w500,
+                                            color:
+                                                sameDate(
+                                                  model.week[i],
+                                                  model.selectedDate,
+                                                )
+                                                ? Colors.white
+                                                : completedDay(model.week[i])
+                                                ? ReferenceStyle.blue
+                                                : _planned(model.week[i])
+                                                ? ReferenceStyle.ink
+                                                : ReferenceStyle.muted,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    if (model.loading) const LinearProgressIndicator(),
+                    if (model.error != null)
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              model.error!,
+                              style: _text(12, color: Colors.red),
+                            ),
+                          ),
+                          if (!model.loaded)
+                            TextButton(
+                              onPressed: model.loading
+                                  ? null
+                                  : model.initialize,
+                              child: const Text('다시 불러오기'),
+                            ),
+                        ],
+                      ),
+                    if (widget.logoutError != null)
+                      Text(
+                        '로그아웃하지 못했어요. 다시 시도해 주세요.',
+                        style: _text(12, color: Colors.red),
+                      ),
+                    if (model.active != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _card(
+                          ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: const AppIcon(
+                              Icons.play_circle_outline_rounded,
+                              color: ReferenceStyle.blue,
+                            ),
+                            title: const Text('이어서 운동하기'),
+                            subtitle: Text(
+                              HomeViewModel
+                                  .exercises[model.active!.exercise]
+                                  .name,
+                            ),
+                            onTap: () =>
+                                _exercise(model.active!.exercise, resume: true),
+                          ),
+                          blue: true,
+                        ),
+                      ),
+                    if (server != null &&
+                        (server!.usesRecommended ||
+                            model.selectedRoutine == null))
+                      ServerRecommendationCard(
+                        model: server!,
+                        onEdit: _editSchedule,
+                        onChoose: _chooseRecommended,
+                        onAnalysis: widget.onOpenAnalysis,
+                      )
+                    else
+                      _card(
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    sameDate(model.selectedDate, model.today)
+                                        ? '오늘의 루틴'
+                                        : '선택한 날짜의 루틴',
+                                    style: ReferenceStyle.text(
+                                      10,
+                                      14,
+                                      color: ReferenceStyle.blue,
+                                      spacing: 1,
+                                    ),
+                                  ),
+                                ),
+                                _restButton(),
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    model.planned(model.selectedDate)
+                                        ? '${model.selectedRoutine!.title} · ${model.routineItems.length}종목'
+                                        : model.selectedRoutine == null
+                                        ? '일주일 운동 일정을 만들어 주세요'
+                                        : model.isToday
+                                        ? '오늘은 휴식일'
+                                        : '선택한 날은 휴식일',
+                                    style: ReferenceStyle.text(
+                                      17,
+                                      26,
+                                      weight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                                if (model.selectedRoutine?.minutes != null)
                                   Text(
-                                    '52분',
+                                    '${model.selectedRoutine!.minutes}분',
                                     style: _text(
                                       11,
                                       color: ReferenceStyle.muted,
                                     ),
                                   ),
-                                ],
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            if (model.planned(model.selectedDate)) ...[
+                              for (final item in model.routineItems.take(3))
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          HomeViewModel
+                                              .exercises[item.exercise]
+                                              .name,
+                                          style: _text(13),
+                                        ),
+                                      ),
+                                      Text(
+                                        '${item.sets}세트 · ${item.reps}회',
+                                        style: _text(
+                                          12,
+                                          color: ReferenceStyle.muted,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              if (_routineDoneCount > 0)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: Text(
+                                    '$_routineDoneCount / ${model.routineItems.length}종목 완료',
+                                    style: _text(
+                                      11,
+                                      color: ReferenceStyle.blue,
+                                    ),
+                                  ),
+                                ),
+                              TextButton(
+                                onPressed: _routine,
+                                child: Text(
+                                  '전체 ${model.routineItems.length}종목 보기',
+                                ),
                               ),
+                              const SizedBox(height: 4),
+                              ReferenceButton(
+                                _routineDone
+                                    ? '운동 완료 · 기록 보기'
+                                    : model.isToday
+                                    ? '운동 시작'
+                                    : '루틴 보기',
+                                onPressed: !model.canWrite
+                                    ? null
+                                    : _routineDone
+                                    ? _records
+                                    : _routine,
+                              ),
+                            ],
+                            if (!model.planned(model.selectedDate)) ...[
+                              ReferenceButton(
+                                model.selectedRoutine == null
+                                    ? '일정 만들기'
+                                    : '운동일로 변경',
+                                onPressed: model.canWrite
+                                    ? (model.selectedRoutine?.rest == true &&
+                                              server != null
+                                          ? _releaseRest
+                                          : _editSchedule)
+                                    : null,
+                              ),
+                            ],
                           ],
                         ),
-                        const SizedBox(height: 16),
-                        if (!model.isToday)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: Text(
-                              model.selectedDate.isBefore(model.today)
-                                  ? '지난 날짜의 운동은 기록만 조회할 수 있어요.'
-                                  : '예정 루틴은 미리보기만 가능해요. 운동은 오늘 시작해 주세요.',
-                              style: _text(12, color: ReferenceStyle.muted),
-                            ),
-                          ),
-                        if (model.planned(model.selectedDate)) ...[
-                          for (final exercise in HomeViewModel.exercises.take(
-                            3,
-                          ))
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      exercise.name,
-                                      style: _text(13),
-                                    ),
-                                  ),
-                                  Text(
-                                    '${exercise.sets}세트 · ${exercise.reps}회',
-                                    style: _text(
-                                      12,
-                                      color: ReferenceStyle.muted,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          if (model.doneCount > 0)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: Text(
-                                '${model.doneCount} / 4종목 완료',
-                                style: _text(11, color: ReferenceStyle.blue),
-                              ),
-                            ),
-                          TextButton(
-                            onPressed: _routine,
-                            child: const Text('전체 4종목 보기'),
-                          ),
-                          const SizedBox(height: 4),
-                          ReferenceButton(
-                            model.routineDone
-                                ? '운동 완료 · 기록 보기'
-                                : model.isToday
-                                ? '운동 시작'
-                                : '루틴 보기',
-                            onPressed: !model.canWrite
-                                ? null
-                                : model.routineDone
-                                ? _records
-                                : _routine,
-                          ),
-                        ],
-                        if (!model.planned(model.selectedDate)) ...[
-                          Text(
-                            '가볍게 쉬고 다음 운동을 준비해 주세요.',
-                            style: _text(13, color: ReferenceStyle.muted),
-                          ),
-                          const SizedBox(height: 12),
-                          OutlinedButton(
-                            onPressed: !model.canWrite ? null : _routine,
-                            child: const Text('운동 종목 보기'),
-                          ),
-                        ],
-                      ],
-                    ),
-                    blue: true,
-                    radius: 18,
-                  ),
-                  const SizedBox(height: 16),
-                  _recordCard(),
-                  const SizedBox(height: 16),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: _shortcut(
-                          Icons.restaurant_outlined,
-                          '맞춤 식단',
-                          '서비스 연결 준비 중',
-                          () => _info(
-                            '맞춤 식단',
-                            '목표 칼로리와 끼니별 식단은 서버·분석 연결 후 제공됩니다.',
-                          ),
+                        blue: true,
+                        radius: 18,
+                      ),
+                    const SizedBox(height: 16),
+                    if (server != null &&
+                        !server!.usesRecommended &&
+                        model.selectedRoutine != null &&
+                        server!.recommendation != null)
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: server!.canChoose
+                              ? _chooseRecommended
+                              : null,
+                          child: const Text('추천 루틴으로 교체'),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _shortcut(
-                          Icons.accessibility_new_rounded,
-                          '자세 교정',
-                          '분석 연결 준비 중',
-                          () => _info(
-                            '자세 교정',
-                            '실제 체형분석 결과의 주의 항목을 바탕으로 안내할 예정입니다.',
-                          ),
-                        ),
+                    if (server?.warning != null) ...[
+                      Text(
+                        server!.warning!,
+                        style: _text(12, color: Colors.red),
+                      ),
+                      TextButton(
+                        onPressed: server!.refresh,
+                        child: const Text('동기화 다시 확인'),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 16),
-                  _card(
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                    if (server?.error != null &&
+                        model.selectedRoutine != null) ...[
+                      Text(server!.error!, style: _text(12, color: Colors.red)),
+                      TextButton(
+                        onPressed: server!.refresh,
+                        child: const Text('서버 다시 확인'),
+                      ),
+                    ],
+                    if (server?.accessCode == 'ONBOARDING_REQUIRED' &&
+                        widget.server?.onAccessRequired != null)
+                      TextButton(
+                        onPressed: widget.server!.onAccessRequired,
+                        child: const Text('신체정보 확인'),
+                      ),
+                    if (server == null)
+                      _recordCard()
+                    else
+                      ServerHomeRecordCard(model: server!, onRecords: _records),
+                    const SizedBox(height: 16),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.track_changes_rounded,
-                              size: 19,
-                              color: ReferenceStyle.blue,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                '이번 주 미션',
-                                style: _text(14, bold: true),
-                              ),
-                            ),
-                            Text(
-                              '${math.min(model.workoutDays, 3)} / 3',
-                              style: _text(12, color: ReferenceStyle.blue),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(2),
-                          child: LinearProgressIndicator(
-                            value: math.min(model.workoutDays / 3, 1),
-                            minHeight: 4,
-                            backgroundColor: const Color(0xFFE4E1D8),
+                        Expanded(
+                          child: _shortcut(
+                            Icons.restaurant_outlined,
+                            '맞춤 식단',
+                            '준비 중',
+                            () => _info('맞춤 식단', '맞춤 식단을 준비하고 있어요.'),
                           ),
                         ),
-                        const SizedBox(height: 10),
-                        Text(
-                          '예시 목표 · 주 3일 운동하기 · 할인권 발급 준비 중',
-                          style: _text(11, color: ReferenceStyle.muted),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _shortcut(
+                            Icons.accessibility_new_rounded,
+                            '자세 교정',
+                            '준비 중',
+                            () => _info('자세 교정', '자세 교정을 준비하고 있어요.'),
+                          ),
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  const SizedBox(height: 12),
-                  Text(
-                    '현재 화면의 루틴과 운동 기록은 개발용 미리보기입니다.',
-                    textAlign: TextAlign.center,
-                    style: _text(10, color: ReferenceStyle.muted),
-                  ),
-                ],
+                    const SizedBox(height: 16),
+                    _card(
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            children: [
+                              const AppIcon(
+                                Icons.track_changes_rounded,
+                                size: 19,
+                                color: ReferenceStyle.blue,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  '이번 주 미션',
+                                  style: _text(14, bold: true),
+                                ),
+                              ),
+                              Text(
+                                server != null &&
+                                        (server!.loading ||
+                                            server!.error != null)
+                                    ? '확인 중'
+                                    : '${math.min(server?.workoutDays ?? model.workoutDays, 3)} / 3',
+                                style: _text(12, color: ReferenceStyle.blue),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(2),
+                            child: server?.error != null
+                                ? const SizedBox(height: 4)
+                                : LinearProgressIndicator(
+                                    value:
+                                        server != null &&
+                                            (server!.loading ||
+                                                server!.error != null)
+                                        ? null
+                                        : math.min(
+                                            (server?.workoutDays ??
+                                                    model.workoutDays) /
+                                                3,
+                                            1,
+                                          ),
+                                    minHeight: 4,
+                                    backgroundColor: AppColors.border,
+                                  ),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            '주 3일 운동하기',
+                            style: _text(11, color: ReferenceStyle.muted),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -742,8 +979,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     ),
     padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
   );
-  bool completedDay(DateTime day) =>
-      model.completed.any((w) => sameDate(w.date, day));
+  bool _planned(DateTime date) => server?.planned(date) ?? model.planned(date);
+  bool completedDay(DateTime day) => server == null
+      ? model.completed.any((w) => sameDate(w.date, day))
+      : server!.completedDates.contains(HomeViewModel.dateKey(day));
+  Widget _refreshable(Widget child) => server == null
+      ? child
+      : RefreshIndicator(onRefresh: _refresh, child: child);
   Widget _shortcut(
     IconData icon,
     String title,
@@ -756,7 +998,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 20, color: ReferenceStyle.muted),
+          AppIcon(icon, size: 20, color: ReferenceStyle.muted),
           const SizedBox(height: 8),
           Text(title, style: _text(14, bold: true)),
           const SizedBox(height: 4),
@@ -783,8 +1025,15 @@ class _WorkoutPreviewFormState extends State<_WorkoutPreviewForm> {
   @override
   void initState() {
     super.initState();
-    reps = TextEditingController(text: '${widget.exercise.reps}');
-    sets = TextEditingController(text: '${widget.exercise.sets}');
+    final active = widget.model.active;
+    reps = TextEditingController(
+      text:
+          '${active != null && active.reps > 0 ? active.reps : widget.exercise.reps}',
+    );
+    sets = TextEditingController(
+      text:
+          '${active != null && active.sets > 0 ? active.sets : widget.exercise.sets}',
+    );
   }
 
   @override
@@ -839,16 +1088,6 @@ class _WorkoutPreviewFormState extends State<_WorkoutPreviewForm> {
                           weight: FontWeight.w500,
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '기기 내 운동 기록 미리보기입니다. 중량은 직접 입력해 주세요.',
-                        style: ReferenceStyle.text(
-                          12,
-                          18,
-                          color: ReferenceStyle.muted,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
                       for (final item in [
                         ('무게(kg)', weight, true),
                         ('횟수', reps, false),

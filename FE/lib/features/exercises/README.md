@@ -12,3 +12,7 @@
 - presentation/widgets: 기능 전용 UI.
 - `.gitkeep`은 비어 있는 폴더를 보존하는 파일이며 Dart 코드가 아닙니다.
 
+
+## 구현 상태 (2026-10-26)
+
+`presentation/pages/exercise_list_page.dart`와 `exercise_detail_page.dart`에서 검색·필터·페이지 조회와 상세/영상 링크를 제공한다. 마이페이지와 일정 편집에서 진입하며 기존 일정 ID는 변환하지 않는다. [T6 상세 보고](../../../docs/project-context/EXERCISES_INTEGRATION.md)를 참고한다.

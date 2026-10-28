@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
 import '../../../core/validation/input_validators.dart';
+import '../../../core/network/api_client.dart';
 import '../data/password_reset_repository.dart';
 import '../data/development_email_verification.dart';
+import '../data/email_verification_state.dart';
 
 enum PasswordResetStep { email, sent, password, complete }
 
@@ -9,18 +11,37 @@ class PasswordResetViewModel extends ChangeNotifier {
   PasswordResetViewModel(
     this.repository, {
     String? initialToken,
-    DevelopmentEmailVerification? verification,
-  }) : verification = verification ?? DevelopmentEmailVerification() {
+    EmailVerificationState? verification,
+  }) : verification =
+           verification ??
+           (repository.isPreview
+               ? DevelopmentEmailVerification()
+               : EmailVerificationState()) {
     if (initialToken != null) openLink(initialToken);
   }
   final PasswordResetRepository repository;
-  final DevelopmentEmailVerification verification;
+  final EmailVerificationState verification;
   String? codeError;
+  Map<String, String> fieldErrors = {};
+
+  void clearFieldError(String field) {
+    final previous = fieldErrors.remove(field);
+    if (error == previous || (field == 'code' && error == codeError)) {
+      error = null;
+    }
+    if (field == 'code') {
+      codeError = null;
+      _token = '';
+      _verifiedEmail = _verifiedCode = '';
+    }
+    _notify();
+  }
 
   void emailChanged() {
     if (busy) return;
     verification.clear();
     codeError = null;
+    fieldErrors = {};
     _token = '';
     error = null;
     step = PasswordResetStep.email;
@@ -30,7 +51,7 @@ class PasswordResetViewModel extends ChangeNotifier {
   bool validateCode(String email, String code) {
     codeError = verification.remaining == Duration.zero
         ? '인증번호가 만료됐어요. 다시 받아 주세요.'
-        : verification.validate(email, code);
+        : (verification as DevelopmentEmailVerification).validate(email, code);
     _notify();
     return codeError == null;
   }
@@ -41,7 +62,7 @@ class PasswordResetViewModel extends ChangeNotifier {
     if (!validateCode(email, code)) return false;
     final token = repository.previewToken;
     if (!repository.isPreview || token == null) {
-      error = '개발용 인증은 실제 비밀번호 변경에 사용할 수 없어요.';
+      error = '인증을 다시 진행해 주세요.';
       _notify();
       return false;
     }
@@ -60,14 +81,29 @@ class PasswordResetViewModel extends ChangeNotifier {
     codeError = RegExp(r'^\d{6}$').hasMatch(code.trim())
         ? null
         : '6자리 인증번호를 입력해 주세요.';
-    error = codeError ?? InputValidators.password(password);
+    error =
+        InputValidators.email(email) ??
+        codeError ??
+        InputValidators.password(password);
+    if (error == null && verification.remaining == Duration.zero) {
+      codeError = error = '인증번호가 만료됐어요. 다시 받아 주세요.';
+    }
     if (error != null) {
       _notify();
       return false;
     }
     return _run(() async {
-      final token = await repository.verify(email, code);
-      await repository.reset(token, password);
+      final target = email.trim().toLowerCase();
+      if (_token.isEmpty ||
+          _verifiedEmail != target ||
+          _verifiedCode != code.trim()) {
+        _token = await repository.verify(target, code.trim());
+        _verifiedEmail = target;
+        _verifiedCode = code.trim();
+      }
+      await repository.reset(_token, password);
+      _token = '';
+      _verifiedEmail = _verifiedCode = '';
       verification.clear();
       step = PasswordResetStep.complete;
     });
@@ -77,6 +113,7 @@ class PasswordResetViewModel extends ChangeNotifier {
   bool busy = false, _disposed = false;
   String? error;
   String _token = '';
+  String _verifiedEmail = '', _verifiedCode = '';
 
   static String? parseToken(String value) {
     final text = value.trim();
@@ -124,9 +161,16 @@ class PasswordResetViewModel extends ChangeNotifier {
       _notify();
       return false;
     }
+    error = verification.requestError(email);
+    if (error != null) {
+      _notify();
+      return false;
+    }
     return _run(() async {
       await repository.request(email);
       verification.issue(email);
+      _token = '';
+      _verifiedEmail = _verifiedCode = '';
       codeError = null;
       step = PasswordResetStep.sent;
     });
@@ -155,11 +199,25 @@ class PasswordResetViewModel extends ChangeNotifier {
   Future<bool> _run(Future<void> Function() action) async {
     busy = true;
     error = null;
+    fieldErrors = {};
     _notify();
     try {
       await action();
       return true;
     } on StateError catch (e) {
+      if (e is ApiRequestError) {
+        fieldErrors = {
+          for (final item in e.failure.fields ?? []) item.field: item.reason,
+        };
+        if (e.code == 'RESET_TOKEN_INVALID') {
+          _token = '';
+          _verifiedEmail = _verifiedCode = '';
+        }
+        if (e.code.startsWith('EMAIL_CODE_') &&
+            e.code != 'EMAIL_CODE_TOO_FREQUENT') {
+          codeError = e.message;
+        }
+      }
       error = e.message;
       return false;
     } catch (_) {

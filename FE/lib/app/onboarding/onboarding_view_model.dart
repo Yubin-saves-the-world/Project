@@ -5,93 +5,152 @@ import '../../core/validation/input_validators.dart';
 import '../../features/auth/data/models/onboarding_progress.dart';
 import '../../features/auth/data/models/signup_request.dart';
 import '../../features/auth/data/onboarding_repository.dart';
+import '../../features/auth/data/server_onboarding_repository.dart';
 import '../../features/auth/data/development_email_verification.dart';
+import '../../features/auth/data/email_verification_state.dart';
 import '../../features/body_analysis/data/models/analysis_input.dart';
+import '../../features/body_analysis/presentation/analysis_form_controller.dart';
 import '../../features/photos/data/models/selected_photo.dart';
 import '../../features/profile/data/models/body_profile.dart';
+import '../../features/profile/presentation/profile_form_controller.dart';
 
-class OnboardingViewModel extends ChangeNotifier {
-  OnboardingViewModel({required this.repository, required this.photoPicker});
+class OnboardingViewModel extends ChangeNotifier
+    implements ProfileFormController, AnalysisFormController {
+  OnboardingViewModel({
+    required this.repository,
+    required this.photoPicker,
+    DateTime Function()? now,
+  }) : _now = now ?? DateTime.now;
+  final DateTime Function() _now;
   final OnboardingRepository repository;
   final PhotoPicker photoPicker;
 
   OnboardingProgress progress = const OnboardingProgress();
+  @override
   AnalysisInput analysis = const AnalysisInput();
   bool loading = true;
+  @override
   bool busy = false;
   bool _disposed = false;
   int step = 0;
+  @override
   String? error;
   bool showLogin = false;
   bool _registrationPendingLogin = false;
-  final emailVerification = DevelopmentEmailVerification();
+  late final EmailVerificationState emailVerification =
+      usesRealEmailVerification
+      ? EmailVerificationState(now: _now)
+      : DevelopmentEmailVerification(now: _now);
   String verificationCode = '';
-  void issueVerification() {
-    emailVerification.issue(email);
-    error = null;
-    _notify();
+  bool issueVerification() {
+    try {
+      emailVerification.issue(email);
+      error = null;
+      _notify();
+      return true;
+    } on StateError catch (e) {
+      showError(e.message);
+      return false;
+    }
   }
 
   String? emailVerificationToken;
   String? _verifiedEmail;
-
+  DateTime? _verificationExpiresAt;
+  String? verificationError;
+  @override
+  Map<String, String> fieldErrors = {};
   bool get usesRealEmailVerification => repository.usesRealEmailVerification;
 
-  /// 서버로 인증번호를 보낸다. 성공하면 남은 시간 표시를 위해 로컬 타이머도 시작한다.
   Future<bool> sendVerification() async {
+    if (busy || loading) return false;
     final target = email.trim().toLowerCase();
-    final ok = await _run(() => repository.sendEmailCode(target));
-    if (ok) {
-      emailVerification.issue(email);
-      emailVerificationToken = null;
-      _verifiedEmail = null;
+    final invalid =
+        InputValidators.email(target) ?? emailVerification.requestError(target);
+    if (invalid != null) {
+      showError(invalid);
+      return false;
     }
-    return ok;
+    if (!usesRealEmailVerification) return issueVerification();
+    return _run(() async {
+      await repository.sendEmailCode(target);
+      resetEmailVerification();
+      emailVerification.issue(target);
+    });
   }
 
-  /// 인증번호를 확인한다. 통과하면 null, 아니면 화면에 보여 줄 문구를 돌려준다.
   Future<String?> verifyEmailCode(String emailInput, String code) async {
-    if (!repository.usesRealEmailVerification) {
-      return emailVerification.validate(emailInput, code);
-    }
+    if (busy || loading) return '처리 중이에요. 잠시만 기다려 주세요.';
+    verificationError = null;
     final target = emailInput.trim().toLowerCase();
-    if (emailVerificationToken != null && _verifiedEmail == target) {
+    if (!usesRealEmailVerification) {
+      return verificationError =
+          (emailVerification as DevelopmentEmailVerification).validate(
+            target,
+            code,
+          );
+    }
+    if (emailVerificationToken != null &&
+        _verifiedEmail == target &&
+        _verificationExpiresAt != null &&
+        _now().isBefore(_verificationExpiresAt!)) {
       return null;
     }
-    busy = true;
-    error = null;
-    _notify();
-    try {
+    emailVerificationToken = null;
+    if (!RegExp(r'^\d{6}$').hasMatch(code.trim())) {
+      return verificationError = '인증번호 6자리를 입력해 주세요.';
+    }
+    final success = await _run(() async {
       emailVerificationToken = await repository.confirmEmailCode(
         email: target,
-        code: code,
+        code: code.trim(),
       );
       _verifiedEmail = target;
-      return null;
-    } on StateError catch (failure) {
-      return failure.message;
-    } catch (_) {
-      return '인증번호를 확인하지 못했어요. 다시 시도해 주세요.';
-    } finally {
-      busy = false;
-      _notify();
-    }
+      _verificationExpiresAt = _now().add(const Duration(minutes: 30));
+    });
+    if (!success) verificationError = error;
+    return verificationError;
   }
 
   void resetEmailVerification() {
+    if (error == verificationError || fieldErrors.containsValue(error)) {
+      error = null;
+    }
     emailVerification.clear();
     verificationCode = '';
     emailVerificationToken = null;
     _verifiedEmail = null;
+    _verificationExpiresAt = null;
+    verificationError = null;
+    fieldErrors = {};
   }
+
+  @override
+  void clearFieldError(String field) {
+    final previous = fieldErrors.remove(field);
+    if (previous != null) {
+      if (error == previous) error = null;
+      _notify();
+    }
+  }
+
+  int loginFailures = 0;
+  bool get suggestPasswordReset => loginFailures >= 5;
 
   String nickname = '', email = '', password = '', passwordConfirmation = '';
   bool termsAgreed = false, privacyAgreed = false;
-  bool bodyPhotoAgreed = false, aiProcessingAgreed = false;
+  @override
+  bool bodyPhotoAgreed = false;
+  bool aiProcessingAgreed = false;
+  @override
   String height = '', weight = '', age = '';
+  @override
   Gender? gender;
+  @override
   GoalType? goalType;
+  @override
   int? frequency;
+  @override
   ExperienceLevel? experienceLevel;
 
   void _notify() {
@@ -129,7 +188,9 @@ class OnboardingViewModel extends ChangeNotifier {
         height = _number(profile.heightCm);
         weight = _number(profile.weightKg);
         age = '${profile.age}';
-        gender = profile.gender == Gender.none ? null : profile.gender;
+        gender = [Gender.male, Gender.female].contains(profile.gender)
+            ? profile.gender
+            : null;
         goalType = profile.goalType;
         frequency = profile.weeklyFrequency;
         experienceLevel = profile.experienceLevel;
@@ -175,12 +236,21 @@ class OnboardingViewModel extends ChangeNotifier {
     _notify();
   }
 
+  @override
   void updateProfile({
     Gender? gender,
     GoalType? goal,
     int? frequency,
     ExperienceLevel? experience,
   }) {
+    for (final field in [
+      if (gender != null) 'gender',
+      if (goal != null) 'goal_type',
+      if (frequency != null) 'weekly_frequency',
+      if (experience != null) 'experience_level',
+    ]) {
+      fieldErrors.remove(field);
+    }
     this.gender = gender ?? this.gender;
     goalType = goal ?? goalType;
     this.frequency = frequency ?? this.frequency;
@@ -189,12 +259,28 @@ class OnboardingViewModel extends ChangeNotifier {
     _notify();
   }
 
+  void applySavedProfile(BodyProfile profile) {
+    progress = progress.copyWith(profile: profile);
+    height = _number(profile.heightCm);
+    weight = _number(profile.weightKg);
+    age = '${profile.age}';
+    gender = [Gender.male, Gender.female].contains(profile.gender)
+        ? profile.gender
+        : null;
+    goalType = profile.goalType;
+    frequency = profile.weeklyFrequency;
+    experienceLevel = profile.experienceLevel;
+    _notify();
+  }
+
+  @override
   void setMethod(AnalysisMethod method) {
     analysis = analysis.copyWith(method: method);
     error = null;
     _notify();
   }
 
+  @override
   void setText(String value) {
     analysis = analysis.copyWith(text: value);
   }
@@ -203,12 +289,14 @@ class OnboardingViewModel extends ChangeNotifier {
     analysis = analysis.copyWith(goalDescription: value);
   }
 
+  @override
   SelectedPhoto? photoFor(PhotoSlot slot) => switch (slot) {
     PhotoSlot.front => analysis.front,
     PhotoSlot.side => analysis.side,
     PhotoSlot.goal => analysis.goal,
   };
 
+  @override
   void back() {
     if (busy || step == 0) return;
     step--;
@@ -225,11 +313,28 @@ class OnboardingViewModel extends ChangeNotifier {
     if (busy || loading) return false;
     busy = true;
     error = null;
+    fieldErrors = {};
     _notify();
     try {
       await action();
       return true;
     } catch (failure) {
+      if (failure is ServerRequestError) {
+        fieldErrors = {
+          for (final item in failure.failure.fields ?? [])
+            item.field: item.reason,
+        };
+        final field = switch (failure.code) {
+          'EMAIL_DUPLICATED' => 'email',
+          'NICKNAME_DUPLICATED' => 'nickname',
+          _ => null,
+        };
+        if (field != null) fieldErrors[field] = failure.message;
+        if (failure.code == 'EMAIL_NOT_VERIFIED') {
+          emailVerificationToken = null;
+          _verificationExpiresAt = null;
+        }
+      }
       error = failure is PhotoPickerException
           ? failure.message
           : failure is StateError
@@ -265,16 +370,18 @@ class OnboardingViewModel extends ChangeNotifier {
         return;
       }
       if (!_registrationPendingLogin) {
-        final token = usesRealEmailVerification &&
-                _verifiedEmail == email.trim().toLowerCase()
-            ? emailVerificationToken
-            : null;
-        if (usesRealEmailVerification && token == null) {
+        if (usesRealEmailVerification &&
+            (emailVerificationToken == null ||
+                _verifiedEmail != email.trim().toLowerCase() ||
+                _verificationExpiresAt == null ||
+                !_now().isBefore(_verificationExpiresAt!))) {
           throw StateError('이메일 인증을 먼저 완료해 주세요.');
         }
         progress = await repository.register(
           SignupRequest(
-            emailVerificationToken: token,
+            emailVerificationToken: usesRealEmailVerification
+                ? emailVerificationToken
+                : null,
             nickname: nickname,
             email: email,
             password: password,
@@ -293,10 +400,23 @@ class OnboardingViewModel extends ChangeNotifier {
     });
   }
 
+  @override
   Future<bool> submitProfile() async {
     final validation =
-        InputValidators.metric(height, label: '키', min: 100, max: 250) ??
-        InputValidators.metric(weight, label: '몸무게', min: 30, max: 250) ??
+        InputValidators.metric(
+          height,
+          label: '키',
+          min: 100,
+          max: 250,
+          decimalPlaces: 1,
+        ) ??
+        InputValidators.metric(
+          weight,
+          label: '몸무게',
+          min: 30,
+          max: 250,
+          decimalPlaces: 1,
+        ) ??
         InputValidators.metric(
           age,
           label: '나이',
@@ -316,7 +436,10 @@ class OnboardingViewModel extends ChangeNotifier {
       showError('성별을 선택해 주세요.');
       return false;
     }
-    if (goalType == null || experienceLevel == null) {
+    if (goalType == null ||
+        goalType == GoalType.unknown ||
+        experienceLevel == null ||
+        experienceLevel == ExperienceLevel.unknown) {
       showError('운동 목적과 운동 기간을 선택해 주세요.');
       return false;
     }
@@ -336,6 +459,7 @@ class OnboardingViewModel extends ChangeNotifier {
     });
   }
 
+  @override
   Future<void> pickPhoto(PhotoSlot slot, PhotoSource source) async {
     if (!bodyPhotoAgreed) {
       showError('사진 이용 동의가 필요해요. 첫 단계에서 동의를 선택해 주세요.');
@@ -358,6 +482,7 @@ class OnboardingViewModel extends ChangeNotifier {
     });
   }
 
+  @override
   Future<void> removePhoto(PhotoSlot slot) async {
     await _run(() async {
       final previous = analysis;
@@ -380,6 +505,7 @@ class OnboardingViewModel extends ChangeNotifier {
     }
   }
 
+  @override
   Future<bool> finish({required bool prepareAnalysis}) async {
     if (analysis.text.length > 500 || analysis.goalDescription.length > 200) {
       showError('몸 상태는 500자, 목표 설명은 200자 이하로 적어 주세요.');
@@ -416,12 +542,23 @@ class OnboardingViewModel extends ChangeNotifier {
       return false;
     }
     final success = await _run(() async {
-      progress = await repository.login(
-        email: emailInput,
-        password: passwordInput,
-      );
+      try {
+        progress = await repository.login(
+          email: emailInput,
+          password: passwordInput,
+        );
+      } on ServerRequestError catch (e) {
+        if (e.code == 'INVALID_CREDENTIALS') loginFailures++;
+        rethrow;
+      } on StateError catch (e) {
+        if (e.message.contains('이메일') && e.message.contains('비밀번호')) {
+          loginFailures++;
+        }
+        rethrow;
+      }
     });
     if (success) {
+      loginFailures = 0;
       await initialize();
       if (progress.onboardingCompleted) {
         progress = progress.copyWith(completed: true);
@@ -461,6 +598,24 @@ class OnboardingViewModel extends ChangeNotifier {
     if (busy) return;
     showLogin = true;
     error = null;
+    _notify();
+  }
+
+  void completeAccountDeletion() {
+    progress = const OnboardingProgress(signedIn: false);
+    step = 0;
+    showLogin = true;
+    error = null;
+    _clearDraft();
+    _notify();
+  }
+
+  void applySavedAccount(OnboardingAccount value) {
+    progress = progress.copyWith(account: value);
+    nickname = value.nickname;
+    email = value.email;
+    bodyPhotoAgreed = value.bodyPhotoAgreed;
+    aiProcessingAgreed = value.aiProcessingAgreed;
     _notify();
   }
 

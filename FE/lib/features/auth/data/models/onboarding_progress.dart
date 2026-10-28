@@ -7,13 +7,21 @@ class OnboardingAccount {
     required this.email,
     required this.bodyPhotoAgreed,
     required this.aiProcessingAgreed,
+    this.userId,
   });
+  final int? userId;
+  String get storageOwner => email.isNotEmpty
+      ? email
+      : userId == null
+      ? ''
+      : 'user:$userId';
   final String nickname;
   final String email;
   final bool bodyPhotoAgreed;
   final bool aiProcessingAgreed;
 
   Map<String, dynamic> toJson() => {
+    'user_id': ?userId,
     'nickname': nickname,
     'email': email,
     'body_photo_agreed': bodyPhotoAgreed,
@@ -21,6 +29,7 @@ class OnboardingAccount {
   };
   factory OnboardingAccount.fromJson(Map<String, dynamic> json) =>
       OnboardingAccount(
+        userId: json['user_id'] as int?,
         nickname: json['nickname'] as String,
         email: json['email'] as String,
         bodyPhotoAgreed: json['body_photo_agreed'] as bool,
@@ -36,6 +45,7 @@ class OnboardingProgress {
     this.completed = false,
     this.analysisPrepared = false,
     this.signedIn = true,
+    this.serverConsentCompleted,
   });
   final OnboardingAccount? account;
   final BodyProfile? profile;
@@ -43,11 +53,18 @@ class OnboardingProgress {
   final bool completed;
   final bool analysisPrepared;
   final bool signedIn;
+  final bool? serverConsentCompleted;
   bool get onboardingCompleted => profile != null;
-  bool get consentCompleted =>
+  bool get canBrowseAfterWithdrawal =>
+      serverConsentCompleted == false &&
+      onboardingCompleted &&
       account != null &&
-      account!.bodyPhotoAgreed &&
-      account!.aiProcessingAgreed;
+      (!account!.bodyPhotoAgreed || !account!.aiProcessingAgreed);
+  bool get consentCompleted =>
+      serverConsentCompleted ??
+      (account != null &&
+          account!.bodyPhotoAgreed &&
+          account!.aiProcessingAgreed);
   int get nextStep => profile != null
       ? 2
       : account != null
@@ -68,6 +85,7 @@ class OnboardingProgress {
     completed: completed ?? this.completed,
     analysisPrepared: analysisPrepared ?? this.analysisPrepared,
     signedIn: signedIn ?? this.signedIn,
+    serverConsentCompleted: serverConsentCompleted,
   );
 
   // 비밀번호·토큰은 로컬 미리보기 데이터에 저장하지 않는다.

@@ -50,7 +50,9 @@ class _SignupPageState extends State<SignupPage> {
     _countdown = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
       setState(() {});
-      if (model.emailVerification.remaining == Duration.zero) {
+      if ((model.emailVerification.remaining == null ||
+              model.emailVerification.remaining == Duration.zero) &&
+          model.emailVerification.retryAfter(_email.text) == Duration.zero) {
         _countdown?.cancel();
       }
     });
@@ -62,30 +64,8 @@ class _SignupPageState extends State<SignupPage> {
       _form.currentState!.validate();
       return;
     }
-    if (model.usesRealEmailVerification) {
-      final sent = await model.sendVerification();
-      if (!mounted || !sent) return;
-      _startCountdown();
-      setState(() {});
-      await showDialog<void>(
-        context: context,
-        builder: (context) => AlertDialog(
-          scrollable: true,
-          title: const Text('인증번호를 보냈어요'),
-          content: Text(
-            '${model.email.trim()}로 6자리 인증번호를 보냈어요.\n메일이 보이지 않으면 스팸함도 확인해 주세요. 유효 시간은 5분이며, 5회 틀리면 다시 받아야 합니다.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('확인'),
-            ),
-          ],
-        ),
-      );
-      return;
-    }
-    model.issueVerification();
+    if (!await model.sendVerification() || !mounted) return;
+    _code.clear();
     _startCountdown();
     setState(() {});
     showVerificationSentDialog(context, email: model.email);
@@ -106,6 +86,7 @@ class _SignupPageState extends State<SignupPage> {
         : await model.verifyEmailCode(_email.text, _code.text);
     if (!mounted) return;
     if (verification != null) {
+      _form.currentState!.validate();
       model.showError(verification);
       return;
     }
@@ -125,10 +106,6 @@ class _SignupPageState extends State<SignupPage> {
                   Text(
                     '필수 약관 동의',
                     style: ReferenceStyle.text(20, 28, weight: FontWeight.w500),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    '현재는 기기 내 가입 미리보기입니다. 정식 약관·처리방침은 서비스 연결 전에 제공됩니다.',
                   ),
                   CheckboxListTile(
                     title: const Text('전체 동의'),
@@ -225,9 +202,15 @@ class _SignupPageState extends State<SignupPage> {
                       key: const Key('signup-nickname'),
                       label: '닉네임',
                       controller: _nickname,
+                      errorText: model.fieldErrors['nickname'],
                       hint: '닉네임을 입력하세요.',
-                      validator: InputValidators.nickname,
-                      onChanged: (v) => model.nickname = v,
+                      validator: (value) =>
+                          InputValidators.nickname(value) ??
+                          model.fieldErrors['nickname'],
+                      onChanged: (v) {
+                        model.nickname = v;
+                        model.clearFieldError('nickname');
+                      },
                       enabled: !model.busy,
                     ),
                     const SizedBox(height: 18),
@@ -246,8 +229,11 @@ class _SignupPageState extends State<SignupPage> {
                               ),
                             ),
                       controller: _email,
+                      errorText: model.fieldErrors['email'],
                       hint: 'name@example.com',
-                      validator: InputValidators.email,
+                      validator: (value) =>
+                          InputValidators.email(value) ??
+                          model.fieldErrors['email'],
                       keyboardType: TextInputType.emailAddress,
                       onChanged: (v) {
                         if (model.email.trim().toLowerCase() !=
@@ -257,16 +243,31 @@ class _SignupPageState extends State<SignupPage> {
                           _countdown?.cancel();
                         }
                         model.email = v;
+                        model.clearFieldError('email');
+                        if (model.emailVerification.retryAfter(v) !=
+                            Duration.zero) {
+                          _startCountdown();
+                        }
                         setState(() {});
                       },
                       enabled: !model.busy,
                       suffix: TextButton(
-                        onPressed: model.busy ? null : _issue,
+                        onPressed:
+                            model.busy ||
+                                model.emailVerification.retryAfter(
+                                      _email.text,
+                                    ) !=
+                                    Duration.zero
+                            ? null
+                            : _issue,
                         style: TextButton.styleFrom(
                           padding: const EdgeInsets.symmetric(horizontal: 20),
                         ),
                         child: Text(
-                          '인증번호 받기',
+                          model.emailVerification.retryAfter(_email.text) ==
+                                  Duration.zero
+                              ? '인증번호 받기'
+                              : '${(model.emailVerification.retryAfter(_email.text).inMilliseconds / 1000).ceil()}초 후 재요청',
                           style: ReferenceStyle.text(
                             14,
                             21,
@@ -287,10 +288,13 @@ class _SignupPageState extends State<SignupPage> {
                           (model.progress.account != null &&
                               model.progress.signedIn)
                           ? null
-                          : (v == null || v.length != 6
+                          : (!RegExp(r'^\d{6}$').hasMatch(v ?? '')
                                 ? '인증번호 6자리를 입력해 주세요.'
-                                : null),
-                      onChanged: (v) => model.verificationCode = v,
+                                : model.verificationError),
+                      onChanged: (v) {
+                        model.verificationCode = v;
+                        model.verificationError = null;
+                      },
                       enabled: !model.busy,
                     ),
                     const SizedBox(height: 18),
@@ -299,17 +303,25 @@ class _SignupPageState extends State<SignupPage> {
                       key: const Key('signup-password'),
                       label: '비밀번호',
                       controller: _password,
+                      errorText: model.fieldErrors['password'],
                       hint: '8자 이상 입력하세요.',
                       obscure: true,
-                      validator: InputValidators.password,
-                      onChanged: (v) => model.password = v,
+                      validator: (value) =>
+                          InputValidators.password(value) ??
+                          model.fieldErrors['password'],
+                      onChanged: (v) {
+                        model.password = v;
+                        model.clearFieldError('password');
+                      },
                       enabled: !model.busy,
                       action: TextInputAction.done,
                       onSubmitted: (_) => _submit(),
                       autofillHints: const [AutofillHints.newPassword],
                     ),
                     const SizedBox(height: 18),
-                    if (model.error != null)
+                    if (model.error != null &&
+                        model.error != model.verificationError &&
+                        !model.fieldErrors.containsValue(model.error))
                       Padding(
                         padding: const EdgeInsets.only(bottom: 12),
                         child: Text(
