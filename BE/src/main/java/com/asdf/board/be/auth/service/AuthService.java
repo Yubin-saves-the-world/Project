@@ -34,6 +34,16 @@ public class AuthService {
     }
 
     @Transactional(readOnly = true)
+    public TokenResponse refresh(Long userId) {
+        User user = userRepository.findById(userId)
+                .filter(u -> u.getStatus() == User.Status.active)
+                .orElseThrow(() -> new ApiException(ErrorCode.UNAUTHORIZED));
+        TokenService.IssuedToken token = tokenService.issue(user);
+        boolean onboardingCompleted = userProfileRepository.existsByUserId(user.getId());
+        return TokenResponse.bearer(token.value(), token.expiresInSeconds(), onboardingCompleted);
+    }
+
+    @Transactional(readOnly = true)
     public TokenResponse login(LoginRequest request) {
         // 이메일로 유저를 조회하고, 활성화 상태이며 비밀번호가 존재하는지 확인
         User user = userRepository.findByEmail(request.email()) // 데이터베이스에서 유저를 찾는다

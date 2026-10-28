@@ -6,6 +6,19 @@ import 'package:http/http.dart' as http;
 import '../../features/auth/data/token_store.dart';
 import 'api_contract.dart';
 
+DateTime? _jwtExpiry(String token) {
+  try {
+    final parts = token.split('.');
+    if (parts.length != 3) return null;
+    final payload = parts[1];
+    final padded = payload + '=' * ((4 - payload.length % 4) % 4);
+    final decoded = jsonDecode(utf8.decode(base64Url.decode(padded)));
+    final exp = decoded['exp'];
+    if (exp is int) return DateTime.fromMillisecondsSinceEpoch(exp * 1000);
+  } catch (_) {}
+  return null;
+}
+
 class ApiRequestError extends StateError {
   ApiRequestError(this.failure) : super(failure.displayMessage);
   final ApiFailure failure;
@@ -40,6 +53,24 @@ class ApiClient {
     _expiredToken = null;
   }
 
+  Future<void> _tryRefresh(String token) async {
+    final expiry = _jwtExpiry(token);
+    if (expiry == null) return;
+    final remaining = expiry.difference(DateTime.now());
+    if (remaining.inDays > 3) return;
+    try {
+      final request = http.Request('POST', Uri.parse('$_baseUrl${ApiContract.refresh}'))
+        ..headers.addAll(ApiContract.jsonHeaders(token));
+      final result = await (() async => http.Response.fromStream(await _client.send(request)))()
+          .timeout(timeout);
+      if (result.statusCode == 200) {
+        final body = jsonDecode(utf8.decode(result.bodyBytes));
+        final newToken = body['access_token'] as String?;
+        if (newToken != null && newToken != token) await tokens.write(newToken);
+      }
+    } catch (_) {}
+  }
+
   Future<Map<String, dynamic>?> send(
     String method,
     String path, {
@@ -47,7 +78,9 @@ class ApiClient {
     bool authorized = true,
   }) async {
     if (authorized) beforeAuthorizedRequest?.call(method, path);
-    final token = authorized ? await tokens.read() : null;
+    var token = authorized ? await tokens.read() : null;
+    if (token != null) await _tryRefresh(token);
+    token = authorized ? await tokens.read() : null;
     final request = http.Request(method, Uri.parse('$_baseUrl$path'))
       ..headers.addAll(ApiContract.jsonHeaders(token));
     if (body != null) request.body = jsonEncode(body);
