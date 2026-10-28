@@ -853,29 +853,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     else
                       ServerHomeRecordCard(model: server!, onRecords: _records),
                     const SizedBox(height: 16),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: _shortcut(
-                            Icons.restaurant_outlined,
-                            '맞춤 식단',
-                            '준비 중',
-                            () => _info('맞춤 식단', '맞춤 식단을 준비하고 있어요.'),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _shortcut(
-                            Icons.accessibility_new_rounded,
-                            '자세 교정',
-                            '준비 중',
-                            () => _info('자세 교정', '자세 교정을 준비하고 있어요.'),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
                     _card(
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -986,28 +963,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Widget _refreshable(Widget child) => server == null
       ? child
       : RefreshIndicator(onRefresh: _refresh, child: child);
-  Widget _shortcut(
-    IconData icon,
-    String title,
-    String description,
-    VoidCallback action,
-  ) => InkWell(
-    onTap: action,
-    borderRadius: BorderRadius.circular(16),
-    child: _card(
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          AppIcon(icon, size: 20, color: ReferenceStyle.muted),
-          const SizedBox(height: 8),
-          Text(title, style: _text(14, bold: true)),
-          const SizedBox(height: 4),
-          Text(description, style: _text(11, color: ReferenceStyle.muted)),
-        ],
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-    ),
-  );
 }
 
 class _WorkoutPreviewForm extends StatefulWidget {
