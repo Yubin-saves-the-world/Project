@@ -29,7 +29,7 @@ class ApiClient {
   final http.Client _client;
   final bool _ownsClient;
   TokenStore? _tokens;
-  TokenStore get tokens => _tokens ??= PreferencesTokenStore();
+  TokenStore get tokens => _tokens ??= SecureTokenStore();
   final Duration timeout;
   void Function(String method, String path)? beforeAuthorizedRequest;
   final Future<void> Function()? onSessionExpired;

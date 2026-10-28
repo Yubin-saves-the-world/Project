@@ -1,3 +1,4 @@
+import '../start_screen.dart';
 import '../../features/auth/data/local_onboarding_repository.dart';
 import '../../features/community/data/community_repository.dart';
 import '../../features/community/data/local_community_repository.dart';
@@ -290,7 +291,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     listenable: _model,
     builder: (context, child) {
       if (_model.loading) {
-        return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        return const AppStartScreen();
       }
       if (_model.showLogin) return LoginPage(model: _model);
       if (_model.progress.signedIn &&

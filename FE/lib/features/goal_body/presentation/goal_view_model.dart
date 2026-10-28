@@ -245,6 +245,12 @@ class GoalViewModel extends ChangeNotifier {
   Future<bool> save() async {
     if (!canEdit) return false;
     final text = description.trim();
+    if (goal?.description?.trim().isNotEmpty == true && text.isEmpty) {
+      validationError =
+          '기존 설명만 삭제하는 기능은 아직 지원하지 않아요. 설명을 수정하거나 목표를 삭제한 뒤 다시 등록해 주세요.';
+      _notify();
+      return false;
+    }
     if (text.length > 200 ||
         (text.isEmpty && photo == null && goal?.previewBytes == null)) {
       validationError = text.length > 200

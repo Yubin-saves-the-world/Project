@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../data/manual_exercise_resolver.dart';
 import '../../../core/network/api_client.dart';
 import '../../routines/data/models/routine.dart';
 import '../data/models/server_home_data.dart';
@@ -7,9 +8,57 @@ import 'home_server_dependencies.dart';
 
 /// 서버 추천은 날짜별 별도 선택으로 적용한다. 기존 로컬 일정/기록의 번호나 원본은 수정하지 않는다.
 class HomeServerViewModel extends ChangeNotifier {
-  HomeServerViewModel(this.dependencies, this.local);
+  HomeServerViewModel(this.dependencies, this.local)
+    : manualExercises = dependencies.exercises == null
+          ? null
+          : ManualExerciseResolver(dependencies.exercises!);
   final HomeServerDependencies dependencies;
   final HomeViewModel local;
+  final ManualExerciseResolver? manualExercises;
+  bool manualDone(int index) {
+    final id = manualExercises?.match(index)?.id;
+    return id != null &&
+        (stats?.items.any(
+              (w) => w.exerciseId == id && w.status == 'completed',
+            ) ??
+            false);
+  }
+
+  Future<ServerWorkoutPage> _completedDay(DateTime date) async {
+    final first = await dependencies.repository.records(
+      date,
+      date,
+      status: 'completed',
+    );
+    final items = [...first.items];
+    var page = 1;
+    if (first.page != page) throw StateError('운동 기록 페이지를 확인하지 못했어요.');
+    while (items.length < first.total) {
+      final next = await dependencies.repository.records(
+        date,
+        date,
+        status: 'completed',
+        page: ++page,
+      );
+      if (next.page != page ||
+          next.items.isEmpty ||
+          next.items.any((e) => items.any((old) => old.id == e.id))) {
+        throw StateError('운동 기록을 모두 확인하지 못했어요.');
+      }
+      items.addAll(next.items);
+    }
+    return ServerWorkoutPage(
+      items: items,
+      page: 1,
+      total: first.total,
+      count: first.count,
+      sets: first.sets,
+      volume: first.volume,
+      seconds: first.seconds,
+      dates: first.dates,
+    );
+  }
+
   bool loading = false,
       dayLoading = false,
       busy = false,
@@ -247,12 +296,16 @@ class HomeServerViewModel extends ChangeNotifier {
           .where((d) => sameDate(d.date, date))
           .firstOrNull;
       final result = await Future.wait<Object?>([
-        dependencies.repository.records(date, date, status: 'completed'),
+        _completedDay(date),
         if (summary != null &&
             routines[routineDateKey(date)]?.id != summary.routine!.id)
           dependencies.routines.detail(summary.routine!.id),
       ]);
       if (_disposed || generation != _dayGeneration) return;
+      if (local.routineItems.isNotEmpty && manualExercises != null) {
+        await manualExercises!.load();
+        if (_disposed || generation != _dayGeneration) return;
+      }
       stats = result[0] as ServerWorkoutPage;
       if (result.length > 1) {
         final routine = result[1] as RecommendedRoutine;

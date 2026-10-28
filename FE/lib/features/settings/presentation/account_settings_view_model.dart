@@ -51,13 +51,21 @@ class AccountSettingsViewModel extends ChangeNotifier {
   }
 
   Future<bool> rename(String value) async {
-    if (!canWrite) return false;
+    if (loading || busy || serverDeleted || deleted) return false;
     final name = value.trim();
     if (name.runes.length < 2 || name.runes.length > 20) {
       nicknameError = '닉네임은 2~20자로 입력해 주세요.';
       _notify();
       return false;
     }
+    if (needsReload) {
+      // A previous PATCH may have succeeded before its response was lost.
+      // Reconcile first; never blindly repeat that write.
+      await load();
+      if (!canWrite) return false;
+      if (user!.nickname == name) return true;
+    }
+    if (!canWrite) return false;
     return _patch({'nickname': name}, nickname: true);
   }
 

@@ -35,6 +35,36 @@ class RecordingGoalPhotos extends FakePhotoRepository {
 }
 
 void main() {
+  test('기존 설명 삭제는 사진 교체 여부와 무관하게 요청 전 안내하고 유지한다', () async {
+    for (final replacePhoto in [false, true]) {
+      final repository = FakeGoalRepository()..goal = goalFixture();
+      final picker = FakePhotoPicker()
+        ..nextPhoto = const SelectedPhoto(path: 'new.jpg', byteLength: 4);
+      final model = GoalViewModel(
+        GoalDependencies(
+          repository: repository,
+          photos: FakePhotoRepository(),
+          picker: picker,
+          preparer: FakePhotoPreparer(),
+        ),
+      );
+      await model.load();
+      if (replacePhoto) await model.pick(PhotoSource.gallery);
+      model.setDescription('   ');
+      expect(await model.save(), false);
+      expect(model.validationError, contains('기존 설명만 삭제'));
+      expect(repository.updates, 0);
+      expect(repository.goal!.description, '균형 잡힌 어깨');
+      model.setDescription('새 설명');
+      expect(await model.save(), true);
+      model.dispose();
+    }
+  });
+  test('가짜 목표 저장소도 서버처럼 생략한 설명을 유지한다', () async {
+    final repository = FakeGoalRepository()..goal = goalFixture();
+    final updated = await repository.update(7, photoId: 15);
+    expect(updated.description, '균형 잡힌 어깨');
+  });
   test('로컬 목표 사진을 선택·등록·교체·삭제하고 계정별로 분리한다', () async {
     final photos = LocalPhotoRepository();
     final repository = LocalGoalRepository(photos: photos);

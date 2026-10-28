@@ -48,6 +48,7 @@ class LocalGoalRepository implements GoalRepository {
   @override
   Future<GoalBody> update(int id, {int? photoId, String? description}) async {
     if (_goal?.id != id) throw StateError('목표를 다시 불러와 주세요.');
+    description ??= _goal!.description;
     // 설명만 변경할 때도 이미 등록한 로컬 사진을 유지한다.
     if (photoId == null && _goal!.previewBytes != null) {
       return _goal = GoalBody(

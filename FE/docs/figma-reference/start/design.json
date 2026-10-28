@@ -1,0 +1,34 @@
+{
+  "fileKey": "pdQ0Dn4jcL4m7FC0hXAQ7x",
+  "nodeId": "846:2",
+  "name": "0 시작 화면",
+  "size": {
+    "width": 393,
+    "height": 852
+  },
+  "background": "#FAFAF8",
+  "logo": {
+    "nodeId": "850:12",
+    "asset": "assets/branding/movid-start.png",
+    "x": 81,
+    "y": 238,
+    "width": 230,
+    "height": 230,
+    "sha256": "fb2e35435cee42ab4aff1059aad4d3778de744fecc018fabf5416a575c612dc2"
+  },
+  "wordmark": {
+    "nodeId": "846:8",
+    "text": "MOVID",
+    "x": 153,
+    "y": 705,
+    "width": 93,
+    "height": 39,
+    "font": "Pretendard Variable Medium (existing CapstoneUIMedium)",
+    "fontSize": 30,
+    "lineHeight": 39,
+    "letterSpacing": -0.7,
+    "color": "#3C64FD"
+  },
+  "implementation": "lib/app/start_screen.dart",
+  "verified": "2026-10-28"
+}

@@ -1,4 +1,5 @@
 import '../../../../ui/core/theme/app_colors.dart';
+import '../../../workout/presentation/pages/workout_page.dart';
 import '../../../../ui/core/widgets/app_icon.dart';
 import '../../../workout/presentation/pages/workout_history_page.dart';
 import '../home_server_dependencies.dart';
@@ -47,6 +48,14 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Timer? _clockTimer;
+  bool _openingManual = false;
+  bool _exerciseDone(int index) =>
+      model.exerciseDone(index) || (server?.manualDone(index) ?? false);
+  int get _routineDoneCount =>
+      model.routineItems.where((e) => _exerciseDone(e.exercise)).length;
+  bool get _routineDone =>
+      model.routineItems.isNotEmpty &&
+      _routineDoneCount == model.routineItems.length;
   late final HomeViewModel model;
   HomeServerViewModel? server;
   static const weekdays = ['월', '화', '수', '목', '금', '토', '일'];
@@ -237,7 +246,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   ListTile(
                     title: Text(HomeViewModel.exercises[item.exercise].name),
                     subtitle: Text('${item.sets}세트 · ${item.reps}회'),
-                    trailing: model.exerciseDone(item.exercise)
+                    trailing: _exerciseDone(item.exercise)
                         ? const Text('완료')
                         : !model.isToday
                         ? const Text('조회')
@@ -245,7 +254,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     onTap:
                         !model.isToday ||
                             !model.canWrite ||
-                            model.exerciseDone(item.exercise)
+                            _exerciseDone(item.exercise)
                         ? null
                         : () {
                             Navigator.pop(context);
@@ -260,11 +269,52 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
+  Future<void> _serverExercise(int index) async {
+    if (_openingManual || !model.isToday) return;
+    final dependencies = widget.server;
+    final resolver = server?.manualExercises;
+    if (resolver == null || dependencies?.workouts == null) {
+      _info('운동을 시작할 수 없어요', '서버 운동 연결을 확인한 뒤 다시 시도해 주세요.');
+      return;
+    }
+    setState(() => _openingManual = true);
+    try {
+      final exercise = await resolver.resolve(index);
+      if (!mounted || !model.isToday) return;
+      final item = model.itemFor(model.selectedDate, index);
+      await Navigator.push<void>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => WorkoutPage(
+            dependencies: dependencies!.workouts!,
+            exerciseId: exercise.id,
+            targetSets: item?.sets,
+            targetReps: item?.reps,
+          ),
+        ),
+      );
+      if (mounted) await _refresh();
+    } catch (e) {
+      if (mounted) {
+        _info(
+          '운동을 시작할 수 없어요',
+          e is StateError
+              ? e.message.toString()
+              : '서버 운동 정보를 확인하지 못했어요. 다시 시도해 주세요.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _openingManual = false);
+    }
+  }
+
   Future<void> _exercise(int index, {bool resume = false}) async {
+    if (_openingManual) return;
     if (!model.canWrite) return;
     await model.refreshClock();
     if (!mounted) return;
     final current = model.active;
+    if (server != null && current?.exercise == index) resume = true;
     if (resume) {
       if (current == null) return;
       index = current.exercise;
@@ -301,6 +351,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         } else if (!await model.cancelActive() || !mounted) {
           return;
         }
+      }
+      if (!resume && server != null) {
+        await _serverExercise(index);
+        return;
       }
       if (!resume && !await model.start(index)) return;
     }
@@ -707,11 +761,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                     ],
                                   ),
                                 ),
-                              if (model.doneCount > 0)
+                              if (_routineDoneCount > 0)
                                 Padding(
                                   padding: const EdgeInsets.only(bottom: 8),
                                   child: Text(
-                                    '${model.routineDoneCount} / ${model.routineItems.length}종목 완료',
+                                    '$_routineDoneCount / ${model.routineItems.length}종목 완료',
                                     style: _text(
                                       11,
                                       color: ReferenceStyle.blue,
@@ -726,14 +780,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                               ),
                               const SizedBox(height: 4),
                               ReferenceButton(
-                                model.routineDone
+                                _routineDone
                                     ? '운동 완료 · 기록 보기'
                                     : model.isToday
                                     ? '운동 시작'
                                     : '루틴 보기',
                                 onPressed: !model.canWrite
                                     ? null
-                                    : model.routineDone
+                                    : _routineDone
                                     ? _records
                                     : _routine,
                               ),

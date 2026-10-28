@@ -48,7 +48,7 @@ class FakeGoalRepository implements GoalRepository {
     if (saveError != null) throw saveError!;
     return goal = goalFixture(
       status: photoId == null ? AnalysisStatus.done : AnalysisStatus.pending,
-      description: description,
+      description: description ?? goal?.description,
     );
   }
 

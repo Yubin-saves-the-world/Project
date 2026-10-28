@@ -32,6 +32,47 @@ class MemoryPreferences implements SharedPreferencesAsync {
 }
 
 void main() {
+  test('닉네임 응답 손실은 재조회한 값이 같으면 중복 PATCH 없이 성공한다', () async {
+    final repo = FakeAccountRepository();
+    final m = AccountSettingsViewModel(
+      AccountSettingsDependencies(
+        repository: repo,
+        cleanup: () async {},
+        onDeleted: () async {},
+      ),
+    );
+    await m.load();
+    repo.patchError = StateError('response lost');
+    expect(await m.rename('새 닉네임'), false);
+    repo.patchError = null;
+    repo.user = CurrentUser.fromJson(accountJson(nickname: '새 닉네임'));
+    expect(await m.rename('새 닉네임'), true);
+    expect(repo.reads, 2);
+    expect(repo.patches.length, 1);
+    m.dispose();
+  });
+  test('닉네임 재조회 실패는 초안을 덮거나 다시 쓰지 않고 다음 저장에서 복구한다', () async {
+    final repo = FakeAccountRepository();
+    final m = AccountSettingsViewModel(
+      AccountSettingsDependencies(
+        repository: repo,
+        cleanup: () async {},
+        onDeleted: () async {},
+      ),
+    );
+    await m.load();
+    repo.patchError = StateError('network');
+    expect(await m.rename('새 닉네임'), false);
+    repo.patchError = null;
+    repo.loadError = StateError('still offline');
+    expect(await m.rename('새 닉네임'), false);
+    expect(repo.patches.length, 1);
+    repo.loadError = null;
+    expect(await m.rename('새 닉네임'), true);
+    expect(repo.patches.length, 2);
+    expect(m.user!.nickname, '새 닉네임');
+    m.dispose();
+  });
   test('내 정보 API는 GET/PATCH/DELETE와 최소 수정 필드만 전송한다', () async {
     final calls = <http.Request>[];
     final tokens = MemoryTokenStore();
