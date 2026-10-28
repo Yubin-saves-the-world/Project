@@ -40,6 +40,14 @@ class FakeOnboardingRepository implements OnboardingRepository {
   int loginCalls = 0;
   bool failLoginOnce = false;
   @override
+  @override
+  Future<OnboardingProgress> loginWithGoogleIdToken(String idToken) async =>
+      progress = progress.copyWith(signedIn: true);
+
+  @override
+  Future<OnboardingProgress> loginWithKakaoAccessToken(String accessToken) async =>
+      progress = progress.copyWith(signedIn: true);
+
   Future<OnboardingProgress> login({
     required String email,
     required String password,

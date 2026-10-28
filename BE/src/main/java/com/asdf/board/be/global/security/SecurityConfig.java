@@ -88,13 +88,16 @@ public class SecurityConfig {
                 PathPatternRequestMatcher.pathPattern(HttpMethod.POST, "/api/auth/login"),
                 PathPatternRequestMatcher.pathPattern(HttpMethod.POST, "/api/auth/email-verifications"),
                 PathPatternRequestMatcher.pathPattern(HttpMethod.POST, "/api/auth/email-verifications/confirm"),
+                PathPatternRequestMatcher.pathPattern(HttpMethod.POST, "/api/auth/oauth/google"),
+                PathPatternRequestMatcher.pathPattern(HttpMethod.POST, "/api/auth/oauth/kakao"),
                 PathPatternRequestMatcher.pathPattern(HttpMethod.POST, "/api/auth/password/reset-request"),
                 PathPatternRequestMatcher.pathPattern(HttpMethod.POST, "/api/auth/password/reset-verification"),
                 PathPatternRequestMatcher.pathPattern(HttpMethod.PATCH, "/api/auth/password/reset"),
                 PathPatternRequestMatcher.pathPattern("/actuator/health"),
                 PathPatternRequestMatcher.pathPattern("/swagger-ui.html"),
                 PathPatternRequestMatcher.pathPattern("/swagger-ui/**"),
-                PathPatternRequestMatcher.pathPattern("/v3/api-docs/**")
+                PathPatternRequestMatcher.pathPattern("/v3/api-docs/**"),
+                PathPatternRequestMatcher.pathPattern("/uploads/**")
         };
     }
 

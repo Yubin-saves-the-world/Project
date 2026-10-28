@@ -13,6 +13,10 @@ abstract interface class OnboardingRepository {
     required String password,
   });
 
+  Future<OnboardingProgress> loginWithGoogleIdToken(String idToken);
+
+  Future<OnboardingProgress> loginWithKakaoAccessToken(String accessToken);
+
   /// Consent boundary: server adapter uses PATCH /api/users/me.
   Future<OnboardingProgress> acceptRequiredConsents();
   Future<OnboardingProgress> register(SignupRequest request);

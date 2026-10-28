@@ -145,7 +145,11 @@ class _LoginPageState extends State<LoginPage> {
                       busy: widget.model.busy,
                     ),
                     const SizedBox(height: 23),
-                    AuthSocialButtons(enabled: !widget.model.busy),
+                    AuthSocialButtons(
+                      enabled: !widget.model.busy,
+                      onGoogle: (idToken) => widget.model.loginWithGoogleIdToken(idToken),
+                      onKakao: (accessToken) => widget.model.loginWithKakaoAccessToken(accessToken),
+                    ),
                     const SizedBox(height: 28),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../ui/core/widgets/design_reference_page.dart';
+import '../../data/oauth_service.dart';
 
 void showAuthComingSoon(BuildContext context, String name) {
   FocusScope.of(context).unfocus();
@@ -23,14 +24,31 @@ class AuthSocialButtons extends StatelessWidget {
     super.key,
     this.enabled = true,
     this.signup = false,
+    this.onGoogle,
+    this.onKakao,
   });
   final bool enabled, signup;
+  final Future<void> Function(String idToken)? onGoogle;
+  final Future<void> Function(String accessToken)? onKakao;
+
+  Future<void> _handleGoogle(BuildContext context) async {
+    final token = await OAuthService.signInWithGoogle();
+    if (token == null) return;
+    if (context.mounted) await onGoogle?.call(token);
+  }
+
+  Future<void> _handleKakao(BuildContext context) async {
+    final token = await OAuthService.signInWithKakao();
+    if (token == null) return;
+    if (context.mounted) await onKakao?.call(token);
+  }
+
   Widget _button(BuildContext context, bool google) => SizedBox(
     height: 52,
     width: double.infinity,
     child: OutlinedButton(
       onPressed: enabled
-          ? () => showAuthComingSoon(context, google ? '구글 로그인' : '카카오 로그인')
+          ? () => google ? _handleGoogle(context) : _handleKakao(context)
           : null,
       style: OutlinedButton.styleFrom(
         padding: EdgeInsets.zero,

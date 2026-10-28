@@ -56,6 +56,16 @@ class LocalOnboardingRepository implements OnboardingRepository {
   }
 
   @override
+  Future<OnboardingProgress> loginWithGoogleIdToken(String idToken) async {
+    throw StateError('로컬 미리보기에서는 소셜 로그인을 사용할 수 없어요.');
+  }
+
+  @override
+  Future<OnboardingProgress> loginWithKakaoAccessToken(String accessToken) async {
+    throw StateError('로컬 미리보기에서는 소셜 로그인을 사용할 수 없어요.');
+  }
+
+  @override
   Future<OnboardingProgress> load() async {
     final raw = await _preferences.getString(storageKey);
     if (raw == null) return const OnboardingProgress();

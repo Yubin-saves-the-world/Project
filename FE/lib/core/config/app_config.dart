@@ -4,4 +4,12 @@ abstract final class AppConfig {
     defaultValue: 'http://localhost:8080',
   );
   static const useLocalPreview = bool.fromEnvironment('USE_LOCAL_PREVIEW');
+  static const kakaoNativeAppKey = String.fromEnvironment(
+    'KAKAO_NATIVE_APP_KEY',
+    defaultValue: '',
+  );
+  static const googleClientId = String.fromEnvironment(
+    'GOOGLE_CLIENT_ID',
+    defaultValue: '',
+  );
 }
