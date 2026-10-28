@@ -86,6 +86,16 @@ public class UserService {
         return UserCreatedResponse.from(user);
     }
 
+    @Transactional
+    public void withdraw(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ApiException(ErrorCode.UNAUTHORIZED));
+        user.setStatus(User.Status.withdrawn);
+        user.setEmail(null);
+        user.setPasswordHash(null);
+        userRepository.save(user);
+    }
+
     @Transactional(readOnly = true)
     public UserMeResponse getMe(Long userId) {
         // ID로 유저를 조회하고, 없으면 인증 에러를 발생시킨다.
