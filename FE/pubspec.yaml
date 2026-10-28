@@ -44,6 +44,8 @@ dependencies:
   flutter_svg: ^2.3.0
   http: ^1.2.2
   url_launcher: ^6.3.3
+  google_sign_in: ^6.2.2
+  kakao_flutter_sdk_user: ^1.9.8
 
 dev_dependencies:
   flutter_test:

@@ -108,6 +108,32 @@ class ServerOnboardingRepository implements OnboardingRepository {
   }
 
   @override
+  Future<OnboardingProgress> loginWithGoogleIdToken(String idToken) async {
+    final json = await _send(
+      'POST',
+      ApiContract.googleLogin,
+      body: {'id_token': idToken},
+      authorized: false,
+    );
+    await _tokens.write(AuthSession.fromJson(json!).accessToken);
+    api.sessionStarted();
+    return _fetchProgress();
+  }
+
+  @override
+  Future<OnboardingProgress> loginWithKakaoAccessToken(String accessToken) async {
+    final json = await _send(
+      'POST',
+      ApiContract.kakaoLogin,
+      body: {'access_token': accessToken},
+      authorized: false,
+    );
+    await _tokens.write(AuthSession.fromJson(json!).accessToken);
+    api.sessionStarted();
+    return _fetchProgress();
+  }
+
+  @override
   Future<OnboardingProgress> load() async {
     if (await _tokens.read() == null) {
       return const OnboardingProgress(signedIn: false);

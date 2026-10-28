@@ -7,17 +7,22 @@ import com.asdf.board.be.auth.dto.LoginRequest;
 import com.asdf.board.be.auth.dto.TokenResponse;
 import com.asdf.board.be.auth.service.AuthService;
 import com.asdf.board.be.auth.service.EmailVerificationService;
+import com.asdf.board.be.auth.service.OAuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.Map;
 
 @Tag(name = "auth", description = "회원 · 인증")
 @RestController
@@ -27,6 +32,7 @@ public class AuthController {
 
     private final AuthService authService;
     private final EmailVerificationService emailVerificationService;
+    private final OAuthService oAuthService;
 
     @Operation(summary = "이메일 로그인", description = "onboarding_completed가 false면 앱이 신체정보(설문) 화면으로 이동합니다.")
     @SecurityRequirements
@@ -48,5 +54,25 @@ public class AuthController {
     @PostMapping("/email-verifications/confirm")
     public EmailVerificationTokenResponse confirmEmailCode(@Valid @RequestBody EmailCodeConfirmRequest request) {
         return emailVerificationService.confirm(request.email(), request.code());
+    }
+
+    @Operation(summary = "토큰 갱신", description = "유효한 JWT로 새 JWT를 발급합니다. 만료 7일 전부터 호출을 권장합니다.")
+    @PostMapping("/refresh")
+    public TokenResponse refresh(@AuthenticationPrincipal Jwt jwt) {
+        return authService.refresh(Long.valueOf(jwt.getSubject()));
+    }
+
+    @Operation(summary = "Google 간편 로그인", description = "Google ID Token을 검증하고 앱 JWT를 발급합니다. 최초 로그인 시 자동 회원가입됩니다.")
+    @SecurityRequirements
+    @PostMapping("/oauth/google")
+    public TokenResponse googleLogin(@RequestBody Map<String, String> body) {
+        return oAuthService.loginWithGoogle(body.get("id_token"));
+    }
+
+    @Operation(summary = "Kakao 간편 로그인", description = "Kakao Access Token을 검증하고 앱 JWT를 발급합니다. 최초 로그인 시 자동 회원가입됩니다.")
+    @SecurityRequirements
+    @PostMapping("/oauth/kakao")
+    public TokenResponse kakaoLogin(@RequestBody Map<String, String> body) {
+        return oAuthService.loginWithKakao(body.get("access_token"));
     }
 }

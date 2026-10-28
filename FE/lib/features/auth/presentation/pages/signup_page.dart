@@ -331,7 +331,12 @@ class _SignupPageState extends State<SignupPage> {
                       ),
                     ReferenceButton('다음', onPressed: _submit, busy: model.busy),
                     const SizedBox(height: 23),
-                    AuthSocialButtons(signup: true, enabled: !model.busy),
+                    AuthSocialButtons(
+                      signup: true,
+                      enabled: !model.busy,
+                      onGoogle: (idToken) => model.loginWithGoogleIdToken(idToken),
+                      onKakao: (accessToken) => model.loginWithKakaoAccessToken(accessToken),
+                    ),
                   ],
                 ),
               ),

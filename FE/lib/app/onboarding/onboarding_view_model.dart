@@ -569,6 +569,38 @@ class OnboardingViewModel extends ChangeNotifier
     return success;
   }
 
+  Future<bool> loginWithGoogleIdToken(String idToken) async {
+    final success = await _run(() async {
+      progress = await repository.loginWithGoogleIdToken(idToken);
+    });
+    if (success) {
+      loginFailures = 0;
+      await initialize();
+      if (progress.onboardingCompleted) {
+        progress = progress.copyWith(completed: true);
+      }
+      showLogin = false;
+      _notify();
+    }
+    return success;
+  }
+
+  Future<bool> loginWithKakaoAccessToken(String accessToken) async {
+    final success = await _run(() async {
+      progress = await repository.loginWithKakaoAccessToken(accessToken);
+    });
+    if (success) {
+      loginFailures = 0;
+      await initialize();
+      if (progress.onboardingCompleted) {
+        progress = progress.copyWith(completed: true);
+      }
+      showLogin = false;
+      _notify();
+    }
+    return success;
+  }
+
   Future<bool> acceptRequiredConsents() async {
     if (!termsAgreed ||
         !privacyAgreed ||

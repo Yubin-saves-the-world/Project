@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 
 import '../core/config/app_config.dart';
 import '../features/auth/data/server_onboarding_repository.dart';
@@ -7,6 +8,7 @@ import 'vitality_app.dart';
 
 void bootstrap() {
   WidgetsFlutterBinding.ensureInitialized();
+  KakaoSdk.init(nativeAppKey: AppConfig.kakaoNativeAppKey);
   final navigatorKey = GlobalKey<NavigatorState>();
   late final ServerOnboardingRepository repository;
   if (!AppConfig.useLocalPreview) {
