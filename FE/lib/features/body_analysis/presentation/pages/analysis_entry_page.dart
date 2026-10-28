@@ -114,7 +114,7 @@ class _AnalysisEntryPageState extends State<AnalysisEntryPage> {
       listenable: model,
       builder: (context, _) => OnboardingAnalysisPage(
         model: model,
-        supportsText: false,
+        supportsText: true,
         showBack: widget.onBack != null,
         onBack: widget.onBack,
         onCompleted: () {

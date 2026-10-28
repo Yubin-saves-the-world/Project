@@ -11,6 +11,16 @@ class FakeAnalysisRepository implements AnalysisRepository {
   AnalysisGoal? currentGoal;
   List<AnalysisSummary> records = [];
   @override
+  @override
+  Future<AnalysisTicket> startText({
+    required String text,
+    int? goalId,
+  }) async {
+    starts++;
+    if (startError != null) throw startError!;
+    return const AnalysisTicket(31);
+  }
+
   Future<AnalysisTicket> start({
     required int photoId,
     int? sidePhotoId,

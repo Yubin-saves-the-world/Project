@@ -235,6 +235,7 @@ class _SignupPageState extends State<SignupPage> {
                           InputValidators.email(value) ??
                           model.fieldErrors['email'],
                       keyboardType: TextInputType.emailAddress,
+                      autofillHints: const [AutofillHints.username, AutofillHints.email],
                       onChanged: (v) {
                         if (model.email.trim().toLowerCase() !=
                             v.trim().toLowerCase()) {

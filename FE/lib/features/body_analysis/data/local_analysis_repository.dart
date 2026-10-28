@@ -12,6 +12,11 @@ class LocalAnalysisRepository implements AnalysisRepository {
     int? goalId,
   }) async => _unavailable();
   @override
+  Future<AnalysisTicket> startText({
+    required String text,
+    int? goalId,
+  }) async => _unavailable();
+  @override
   Future<BodyAnalysis> detail(int id) async => _unavailable();
   @override
   Future<AnalysisPageData> history({int page = 1}) async =>

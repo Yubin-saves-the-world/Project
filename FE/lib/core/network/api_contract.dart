@@ -8,6 +8,7 @@ abstract final class ApiContract {
   static const passwordResetVerification =
       '$prefix/auth/password/reset-verification';
   static const logout = '$prefix/auth/logout';
+  static const refresh = '$prefix/auth/refresh';
   static const emailVerifications = '$prefix/auth/email-verifications';
   static const emailVerificationConfirm = '$emailVerifications/confirm';
   static const googleLogin = '$prefix/auth/oauth/google';
@@ -18,6 +19,7 @@ abstract final class ApiContract {
   static String photo(int id) => '$photos/$id';
   static const bodyAnalyses = '$prefix/body-analyses';
   static const photoAnalysis = '$bodyAnalyses/photo';
+  static const textAnalysis = '$bodyAnalyses/text';
   static const analysisUsage = '$bodyAnalyses/usage';
   static String bodyAnalysis(int id) => '$bodyAnalyses/$id';
   static const goalBodies = '$prefix/goal-bodies';
