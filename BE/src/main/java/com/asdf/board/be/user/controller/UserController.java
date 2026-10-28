@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -39,5 +40,12 @@ public class UserController {
     @GetMapping("/me")
     public UserMeResponse me(@AuthenticationPrincipal Jwt jwt) {
         return userService.getMe(Long.valueOf(jwt.getSubject()));
+    }
+
+    @Operation(summary = "회원 탈퇴", description = "계정을 withdrawn 상태로 변경하고 개인정보를 삭제합니다. 이후 해당 JWT는 사용할 수 없습니다.")
+    @DeleteMapping("/me")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void withdraw(@AuthenticationPrincipal Jwt jwt) {
+        userService.withdraw(Long.valueOf(jwt.getSubject()));
     }
 }
