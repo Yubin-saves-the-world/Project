@@ -195,8 +195,14 @@ class AnalysisInputViewModel extends ChangeNotifier
   Future<bool> finish({required bool prepareAnalysis}) async {
     if (busy) return false;
     if (pendingId != null) return true;
-    if (analysis.front == null) {
+    final isText = analysis.method == AnalysisMethod.text;
+    if (!isText && analysis.front == null) {
       error = '정면 사진을 추가해 주세요.';
+      _notify();
+      return false;
+    }
+    if (isText && analysis.text.trim().isEmpty) {
+      error = '체형을 설명하는 글을 입력해 주세요.';
       _notify();
       return false;
     }
@@ -226,16 +232,24 @@ class AnalysisInputViewModel extends ChangeNotifier
         }
         selectedGoal = currentGoal!.comparison;
       }
-      final front = await _upload(analysis.front!, BodyPhotoSide.front);
-      final side = analysis.side == null
-          ? null
-          : await _upload(analysis.side!, BodyPhotoSide.side);
-      if (_disposed) return false;
-      final ticket = await dependencies.repository.start(
-        photoId: front,
-        sidePhotoId: side,
-        goalId: selectedGoal?.id,
-      );
+      final AnalysisTicket ticket;
+      if (isText) {
+        ticket = await dependencies.repository.startText(
+          text: analysis.text.trim(),
+          goalId: selectedGoal?.id,
+        );
+      } else {
+        final front = await _upload(analysis.front!, BodyPhotoSide.front);
+        final side = analysis.side == null
+            ? null
+            : await _upload(analysis.side!, BodyPhotoSide.side);
+        if (_disposed) return false;
+        ticket = await dependencies.repository.start(
+          photoId: front,
+          sidePhotoId: side,
+          goalId: selectedGoal?.id,
+        );
+      }
       pendingId = ticket.id;
       try {
         await dependencies.pending.write(ticket.id);

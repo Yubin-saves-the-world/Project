@@ -23,6 +23,20 @@ class ServerAnalysisRepository implements AnalysisRepository {
     ))!,
   );
   @override
+  Future<AnalysisTicket> startText({
+    required String text,
+    int? goalId,
+  }) async => AnalysisTicket.fromJson(
+    (await api.send(
+      'POST',
+      ApiContract.textAnalysis,
+      body: {
+        'text': text,
+        'goal_body_id': ?goalId,
+      },
+    ))!,
+  );
+  @override
   Future<BodyAnalysis> detail(int id) async => BodyAnalysis.fromJson(
     (await api.send('GET', ApiContract.bodyAnalysis(id)))!,
   );

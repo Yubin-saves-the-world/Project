@@ -29,6 +29,10 @@ abstract interface class AnalysisRepository {
     int? sidePhotoId,
     int? goalId,
   });
+  Future<AnalysisTicket> startText({
+    required String text,
+    int? goalId,
+  });
   Future<BodyAnalysis> detail(int id);
   Future<AnalysisPageData> history({int page = 1});
   Future<AnalysisUsage?> usage();

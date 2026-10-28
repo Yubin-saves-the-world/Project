@@ -1,6 +1,7 @@
 import '../theme/app_colors.dart';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 abstract final class ReferenceStyle {
@@ -276,6 +277,7 @@ class ReferenceField extends StatelessWidget {
     this.signup = false,
     this.autofillHints,
     this.errorText,
+    this.inputFormatters,
   });
   final String label, hint;
   final String? errorText;
@@ -287,6 +289,7 @@ class ReferenceField extends StatelessWidget {
   final Widget? suffix, labelTrailing;
   final TextInputAction action;
   final Iterable<String>? autofillHints;
+  final List<TextInputFormatter>? inputFormatters;
   @override
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
@@ -323,6 +326,7 @@ class ReferenceField extends StatelessWidget {
         enabled: enabled,
         textInputAction: action,
         autofillHints: autofillHints,
+        inputFormatters: inputFormatters,
         autocorrect: !obscure && keyboardType != TextInputType.emailAddress,
         enableSuggestions: !obscure,
         style: ReferenceStyle.text(14, 21),
