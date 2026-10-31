@@ -1,0 +1,17 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "MOVID · macOS · 실제 서버",
+      "request": "launch",
+      "type": "dart",
+      "cwd": "${workspaceFolder}/FE",
+      "program": "${workspaceFolder}/FE/lib/main.dart",
+      "deviceId": "macos",
+      "toolArgs": [
+        "--dart-define=API_BASE_URL=http://127.0.0.1:8080",
+        "--dart-define=DESKTOP_DEMO=true"
+      ]
+    }
+  ]
+}
