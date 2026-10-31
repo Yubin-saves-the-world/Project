@@ -180,7 +180,7 @@ void main() {
     expect(repository.generatedId, 31);
     model.dispose();
   });
-  testWidgets('60초 후 조회 중단, 동일 번호로 재개하며 네트워크 오류는 분석 실패와 구별', (tester) async {
+  testWidgets('110초 후 조회 중단, 동일 번호로 재개하며 네트워크 오류는 분석 실패와 구별', (tester) async {
     final repository = FakeAnalysisRepository();
     final store = MemoryAnalysisPendingStore()..id = 31;
     final model = AnalysisRunViewModel(
@@ -190,7 +190,7 @@ void main() {
       now: tester.binding.clock.now,
     );
     await model.resume();
-    await tester.pump(const Duration(seconds: 60));
+    await tester.pump(const Duration(seconds: 110));
     expect(model.phase, AnalysisRunPhase.timedOut);
     final count = repository.details;
     await tester.pump(const Duration(seconds: 20));
