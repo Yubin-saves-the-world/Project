@@ -7,3 +7,32 @@ HELP.md
 
 # OS
 .DS_Store
+
+# Local integration runtime (never commit credentials, images, models or DB files)
+.venv/
+.cache/
+.runtime/
+**/.gradle-local/
+**/.dart_tool/
+**/__pycache__/
+/BE/data/
+AI/results/
+AI/tmp_uploads/
+validation/mysql-data/
+.env
+*.safetensors
+*.npz
+*.pth
+
+# Local configuration, model weights and generated caches
+.env.*
+!.env.example
+**/local.properties
+**/ephemeral/
+**/Pods/
+**/.symlinks/
+*.pyc
+*.log
+
+# Generated visual-test differences
+**/test/**/failures/
