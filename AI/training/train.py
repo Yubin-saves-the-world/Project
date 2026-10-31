@@ -6,7 +6,7 @@ from pathlib import Path
 
 import numpy as np
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score, confusion_matrix, f1_score
+from sklearn.metrics import accuracy_score, confusion_matrix, f1_score, classification_report
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import Normalizer
 
@@ -14,7 +14,7 @@ from analyzers.dinov3_features import MODEL_ID, MODEL_REVISION
 from .dataset import AnnotationStore, DIMENSION, LABELS, SCHEMA, SPLITS, write_json
 
 
-def read_training_data(directory):
+def read_training_data(directory, enforce_holdout=True):
     store = AnnotationStore(directory)
     grouped = {split: [] for split in SPLITS}
     subject_splits, image_subjects, image_splits, feature_splits = {}, {}, {}, {}
@@ -52,7 +52,7 @@ def read_training_data(directory):
     classes = sorted({label for rows in grouped.values() for _, label, _ in rows})
     if len(classes) < 2:
         raise ValueError('학습에는 사람이 검수한 라벨 2종류 이상이 필요합니다. 라벨링 화면에서 먼저 저장하세요.')
-    for split in SPLITS:
+    for split in SPLITS if enforce_holdout else ():
         counts = {label: len({subject for _, value, subject in grouped[split] if value == label}) for label in classes}
         minimum = 2 if split == 'train' else 1
         if any(count < minimum for count in counts.values()):
@@ -69,6 +69,7 @@ def evaluate(model, rows, labels, threshold=.6):
             'label_counts': dict(Counter(y)), 'accuracy': float(accuracy_score(y, predicted)),
             'macro_f1': float(f1_score(y, predicted, labels=labels, average='macro', zero_division=0)),
             'confusion_matrix': confusion_matrix(y, predicted, labels=labels).tolist(),
+            'per_class': {label: values for label, values in classification_report(y, predicted, labels=labels, output_dict=True, zero_division=0).items() if label in labels},
             'accepted_coverage': float(accepted.mean()),
             'accepted_accuracy': float(accuracy_score(np.asarray(y)[accepted], predicted[accepted])) if accepted.any() else None}
 
@@ -97,6 +98,8 @@ def train(directory, threshold=.6):
     report = {'status': 'trained_experimental', 'task': artifact['task'], 'classes': classes,
               'selected_C': selected_c, 'validation_candidates': candidates, 'evaluation': evaluations,
               'review_counts': counts, 'test_used_for_training_or_selection': False,
+              'training_majority_class': Counter(y).most_common(1)[0][0],
+              'test_majority_baseline_accuracy': sum(row[1] == Counter(y).most_common(1)[0][0] for row in grouped['test']) / len(grouped['test']),
               'note': '윤곽 가시성 라벨만 학습합니다. 테스트 정확도는 이 데이터셋 범위이며 실사용 정확도나 임상 타당성을 보장하지 않습니다.'}
     directory = Path(directory)
     write_json(directory / 'model.json', artifact)
