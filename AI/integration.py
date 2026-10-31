@@ -12,6 +12,7 @@ from PIL import Image
 from analyzers.analyze_body import analyze_image
 from analyzers.dinov3_features import DinoFeatureExtractor, upper_arm_box
 from analyzers.contour_classifier import ContourClassifier
+from measurement_report import measurement_report
 
 class AnalysisFailure(ValueError):
     def __init__(self, code, message):
@@ -87,6 +88,7 @@ class AnalysisEngine:
                     if part['status'] == 'extracted':
                         part['contour'] = self.contour.predict(part['cls'] + part['patch_mean'])
                         part['classification'] = 'contour_' + part['contour']['status']
+            report = measurement_report(measures, features)
             labels = {'shoulder_tilt_deg':'어깨 기울기','pelvis_tilt_deg':'골반 기울기',
                       'neck_forward_deg':'목 전방 각도','shoulder_hip_ratio':'어깨/골반 비율','torso_leg_ratio':'상체/하체 비율'}
             return {'status':'done','measurement_version':'pixel-dino-v1','measures':measures,
@@ -94,8 +96,9 @@ class AnalysisEngine:
                     'judgements':[{'item':k,'label':label,'value':measures[k],
                                    'unit':'deg' if k.endswith('_deg') else 'ratio',
                                    'level':'unavailable','reason':'PROFILE_NOT_VALIDATED'} for k,label in labels.items()],
-                    'goal_comparison':None,'text_summary':None,
-                    'summary':f"사진상 어깨선 약 {measures['shoulder_tilt_deg']}도, 골반 추정점 연결선 약 {measures['pelvis_tilt_deg']}도입니다.",
+                    'goal_comparison':None,'text_summary':report['summary'],
+                    'measurement_report':report,
+                    'summary':report['summary'],
                     'dinov3':{'model':'facebook/dinov3-vits16-pretrain-lvd1689m','revision':self.dino.revision,
                                'device':self.dino.device,'parts':features},
                     'warnings':['사진 기반 참고 수치이며 의료적 진단이 아닙니다.',
