@@ -53,3 +53,15 @@
 | 500 | `AI_FAILED` | 예상하지 못한 처리 실패 |
 
 두 분석 경로는 같은 동시 처리 제한을 사용합니다. 타임아웃·취소·재시도 정책은 호출자가 별도로 정해야 합니다. 현재 서버에는 영구 작업 큐와 추론 강제 종료 기능이 없습니다.
+
+## 검수 라벨로 학습한 선택적 윤곽 분류기
+
+기본 배포에는 학습한 실제 모델이 없습니다. `AI_CONTOUR_MODEL`로 학습 도구가 만든 JSON을 지정한 경우에만 건강 상태의 `contour_classifier_loaded`가 true이고 추출된 part에 contour가 추가됩니다. 지정하지 않으면 기존 not_trained 동작을 유지합니다.
+
+- `classification`: contour_predicted 또는 contour_abstained
+- `contour.status`: predicted / abstained
+- `contour.label`: weak / medium / clear, 보류 시 null
+- `contour.model_score`, `probabilities`: 보정되지 않은 모델 점수
+- `contour.experimental`: true
+
+이 값은 사진상 윤곽 가시성의 실험적 분류이며 근육량·근력·정상 여부를 뜻하지 않습니다. 라벨·학습·평가 과정은 contour-training.md를 따릅니다. 실제 검수 전에는 모델을 생성하지 않습니다.
