@@ -14,3 +14,7 @@ tmp_uploads/
 *.safetensors
 *.npz
 *.pth
+
+# Private labels and trained artifacts
+models/
+*.joblib
