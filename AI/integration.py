@@ -86,9 +86,10 @@ class AnalysisEngine:
             if self.contour is not None:
                 for part in features:
                     if part['status'] == 'extracted':
-                        part['contour'] = self.contour.predict(part['cls'] + part['patch_mean'])
-                        part['classification'] = 'contour_' + part['contour']['status']
+                        part['classification'] = 'review_required'
             report = measurement_report(measures, features)
+            if self.contour is not None:
+                report['capabilities']['contour_classifier'] = 'review_required'
             labels = {'shoulder_tilt_deg':'어깨 기울기','pelvis_tilt_deg':'골반 기울기',
                       'neck_forward_deg':'목 전방 각도','shoulder_hip_ratio':'어깨/골반 비율','torso_leg_ratio':'상체/하체 비율'}
             return {'status':'done','measurement_version':'pixel-dino-v1','measures':measures,

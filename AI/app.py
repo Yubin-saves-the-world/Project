@@ -41,6 +41,11 @@ def index():
     return FileResponse(Path(__file__).resolve().parent / 'static' / 'index.html')
 
 
+@app.get('/contour-test', include_in_schema=False)
+def contour_test():
+    return FileResponse(Path(__file__).resolve().parent / 'static' / 'contour-test.html', headers={'Cache-Control': 'no-store'})
+
+
 @app.get('/health')
 def health():
     return {'status': 'ok', 'dinov3_loaded': True, 'device': app.state.engine.dino.device,
@@ -103,6 +108,23 @@ def analyze_body(
         root = Path(directory)
         paths = [str(save_image(upload, root, i)) for i, upload in enumerate(front_images)]
         return analyze_body_images(paths, str(root), text_input=text)
+
+
+@app.post('/v1/contour/classify')
+def classify_reviewed_arm(image: Annotated[UploadFile, File()], skin_visible_confirmed: Annotated[bool, Form()] = False):
+    if not skin_visible_confirmed:
+        raise HTTPException(422, detail={'code': 'REVIEW_REQUIRED', 'message': '상완 피부가 보이는 적절한 크롭을 먼저 확인해 주세요.'})
+    engine = app.state.engine
+    if getattr(engine, 'contour', None) is None:
+        raise HTTPException(503, detail={'code': 'MODEL_NOT_CONFIGURED', 'message': '검수 라벨로 학습한 실험 모델을 설정하세요.'})
+    with analysis_slot(), tempfile.TemporaryDirectory(prefix='movid-contour-') as directory:
+        path = save_image(image, Path(directory))
+        with engine.lock, Image.open(path) as photo:
+            values, _ = engine.dino.extract(photo.convert('RGB'))
+            prediction = engine.contour.predict(values['cls'].tolist() + values['patch_mean'].tolist())
+        return {'status': 'done', 'scope': 'reviewed_upper_arm_crop', 'classification': prediction,
+                'warnings': ['검수된 상완 크롭의 실험적 윤곽 분류입니다. 근육량·근력·체형 점수가 아닙니다.',
+                             'candidate_label은 낮은 점수에서도 나오는 참고 후보이며 확정 판정이 아닙니다.']}
 
 
 # Optional local adapter: keep the team FE/BE source unchanged.

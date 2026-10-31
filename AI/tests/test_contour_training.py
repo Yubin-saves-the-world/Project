@@ -45,6 +45,13 @@ class TrainingTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.entries, self.annotations = fixture(self.root)
 
+    def test_withdrawn_model_cannot_be_loaded(self):
+        artifact, _, _ = train(self.root)
+        artifact['withdrawn'] = True
+        write_json(self.root / 'model.json', artifact)
+        with self.assertRaisesRegex(ValueError, '철회된'):
+            ContourClassifier(self.root / 'model.json')
+
     def test_exported_multiclass_json_matches_sklearn_probabilities(self):
         artifact, report, reference = train(self.root)
         classifier = ContourClassifier(self.root / 'model.json')
@@ -168,7 +175,8 @@ class TrainingTests(unittest.TestCase):
              patch('integration.analyze_image', return_value=(None, str(image), output)):
             with patch.dict(os.environ, {'AI_CONTOUR_MODEL': str(self.root / 'model.json')}):
                 result = AnalysisEngine('unused').analyze(image, self.root)
-                self.assertTrue(result['dinov3']['parts'][0]['contour']['experimental'])
+                self.assertEqual(result['dinov3']['parts'][0]['classification'], 'review_required')
+                self.assertNotIn('contour', result['dinov3']['parts'][0])
             with patch.dict(os.environ, {}, clear=True):
                 result = AnalysisEngine('unused').analyze(image, self.root)
                 self.assertEqual(result['dinov3']['parts'][0]['classification'], 'not_trained')

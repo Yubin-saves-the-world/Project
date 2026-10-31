@@ -38,6 +38,15 @@ class ApiContractTests(unittest.TestCase):
         self.client = TestClient(api.app, raise_server_exceptions=False)
         self.addCleanup(self.client.close)
 
+    def test_contour_endpoint_requires_visibility_confirmation(self):
+        response = self.client.post('/v1/contour/classify', files={'image': photo()})
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.json()['detail']['code'], 'REVIEW_REQUIRED')
+
+    def test_contour_endpoint_requires_configured_model(self):
+        response = self.client.post('/v1/contour/classify', files={'image': photo()}, data={'skin_visible_confirmed': 'true'})
+        self.assertEqual(response.status_code, 503)
+
     def test_zip_photo_test_page_is_served(self):
         response = self.client.get('/')
         self.assertEqual(response.status_code, 200)

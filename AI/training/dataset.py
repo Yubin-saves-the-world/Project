@@ -155,8 +155,8 @@ class AnnotationStore:
                 annotation = self.annotations.get(key)
                 hint = next((a for k, a in self.annotations.items() if k in self.entries and self.entries[k]['source_sha256'] == entry['source_sha256']), None)
                 rows.append({'id': key, 'image_name': entry['image_name'], 'part': entry['part'],
-                             'annotation': annotation, 'subject_hint': hint['subject_id'] if hint else '',
-                             'split_hint': hint['split'] if hint else 'train'})
+                             'annotation': annotation, 'subject_hint': hint['subject_id'] if hint else entry.get('subject_hint', ''),
+                             'split_hint': hint['split'] if hint else entry.get('split_hint', 'train')})
             return {'entries': rows, 'reviewed': len(self.annotations), 'total': len(rows),
                     'label_counts': dict(Counter(a['label'] for a in self.annotations.values())),
                     'failures': self.dataset.get('failures', [])}
