@@ -26,7 +26,11 @@ capacity = threading.BoundedSemaphore(1)
 async def lifespan(app):
     model = os.environ.get('DINO_MODEL_PATH', 'facebook/dinov3-vits16-pretrain-lvd1689m')
     app.state.engine = AnalysisEngine(model, os.environ.get('AI_DEVICE', 'cpu'))
-    yield
+    try:
+        yield
+    finally:
+        if hasattr(app.state, 'flutter_bridge'):
+            app.state.flutter_bridge.close()
 
 
 app = FastAPI(title='MOVID AI server', version='1.0.0', lifespan=lifespan)
@@ -99,3 +103,12 @@ def analyze_body(
         root = Path(directory)
         paths = [str(save_image(upload, root, i)) for i, upload in enumerate(front_images)]
         return analyze_body_images(paths, str(root), text_input=text)
+
+
+# Optional local adapter: keep the team FE/BE source unchanged.
+if os.environ.get('AI_BACKEND_URL'):
+    from bridge.api import install
+    bridge_dir = Path(os.environ.get('AI_BRIDGE_DIR', str(Path(__file__).resolve().parent / '.runtime/flutter_demo/bridge'))).resolve()
+    if not bridge_dir.is_relative_to(Path(__file__).resolve().parent / '.runtime'):
+        raise ValueError('연동 데이터는 AI/.runtime 안에 저장해야 합니다.')
+    install(app, bridge_dir, os.environ['AI_BACKEND_URL'], save_image)
