@@ -1,3 +1,4 @@
+import '../widgets/analysis_debug_image.dart';
 import '../../../routines/presentation/pages/routine_detail_page.dart';
 import '../../../routines/presentation/pages/routine_week_page.dart';
 import 'package:flutter/material.dart';
@@ -6,6 +7,7 @@ import '../../../../ui/core/widgets/management_page.dart';
 import '../../data/models/body_analysis.dart';
 import '../analysis_dependencies.dart';
 import '../analysis_run_view_model.dart';
+import '../widgets/analysis_result_overview.dart';
 
 class AnalysisRunPage extends StatefulWidget {
   const AnalysisRunPage({
@@ -140,6 +142,10 @@ class _AnalysisRunPageState extends State<AnalysisRunPage>
   );
   List<Widget> _result() {
     final result = model.result!;
+    final hasExplanation = result.observations.isNotEmpty;
+    if (hasExplanation && result.measurementVersion == 'pixel-dino-v1') {
+      return [AnalysisResultOverview(result: result)];
+    }
     return [
       AnalysisPanel(
         children: [
@@ -149,10 +155,25 @@ class _AnalysisRunPageState extends State<AnalysisRunPage>
           ),
           const SizedBox(height: 12),
           Text(
-            result.score == null ? '점수 산출 불가' : '${result.score}점',
+            hasExplanation
+                ? '사진 측정 완료'
+                : result.score == null
+                ? '점수 산출 불가'
+                : '${result.score}점',
             style: ReferenceStyle.text(30, 39, color: ReferenceStyle.blue),
           ),
-          Text(result.bodyType ?? '체형을 분류하지 못했어요.'),
+          Text(
+            hasExplanation
+                ? result.summary ?? '이번 사진의 측정값을 확인해 보세요.'
+                : result.bodyType ?? '체형을 분류하지 못했어요.',
+          ),
+          if (hasExplanation) ...[
+            const SizedBox(height: 12),
+            const Text(
+              '균형 점수와 근육 발달 등급은 아직 제공하지 않아요.',
+              style: TextStyle(color: ReferenceStyle.muted),
+            ),
+          ],
           if (result.measurementVersion == 'stub-v0')
             const Text(
               '현재 서버의 시험용 분석 결과예요.',
@@ -160,6 +181,40 @@ class _AnalysisRunPageState extends State<AnalysisRunPage>
             ),
         ],
       ),
+      if (hasExplanation) ...[
+        const SizedBox(height: 16),
+        AnalysisPanel(
+          children: [
+            Text(
+              '이번 사진에서 확인한 내용',
+              style: ReferenceStyle.text(16, 24, weight: FontWeight.w500),
+            ),
+            for (final item in result.observations)
+              Padding(
+                padding: const EdgeInsets.only(top: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${item.title} · ${item.label}',
+                      style: ReferenceStyle.text(
+                        15,
+                        22,
+                        weight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(item.description),
+                  ],
+                ),
+              ),
+            if (result.interpretationNote case final note?) ...[
+              const SizedBox(height: 16),
+              Text(note, style: const TextStyle(color: ReferenceStyle.muted)),
+            ],
+          ],
+        ),
+      ],
       const SizedBox(height: 16),
       AnalysisPanel(
         children: [
@@ -182,7 +237,10 @@ class _AnalysisRunPageState extends State<AnalysisRunPage>
                   Text(label),
                   Text(
                     result.measures[key] == null
-                        ? measurementReason(result.unavailable[unavailableKey])
+                        ? measurementReason(
+                            result.unavailable[unavailableKey] ??
+                                result.unavailable[key],
+                          )
                         : '${result.measures[key]!.toStringAsFixed(1)}${key.endsWith('_deg') ? '°' : ''}',
                     style: ReferenceStyle.text(
                       14,
@@ -195,7 +253,70 @@ class _AnalysisRunPageState extends State<AnalysisRunPage>
             ),
         ],
       ),
-      if (result.judgements.isNotEmpty) ...[
+      if (!hasExplanation && result.dinoParts.isNotEmpty) ...[
+        const SizedBox(height: 16),
+        AnalysisPanel(
+          children: [
+            Text(
+              '이미지 특징 분석',
+              style: ReferenceStyle.text(16, 24, weight: FontWeight.w500),
+            ),
+            for (final part in result.dinoParts)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Text(
+                  '${part.part == 'left_upper_arm' ? '왼쪽 상완' : '오른쪽 상완'} · '
+                  '${part.status == 'extracted' ? '특징 추출 완료' : '평가 불가'}',
+                ),
+              ),
+            const SizedBox(height: 12),
+            const Text('사진 특징을 추출한 결과이며, 근육 발달 등급은 아직 판정하지 않아요.'),
+          ],
+        ),
+      ],
+      if (hasExplanation && result.nextSteps.isNotEmpty) ...[
+        const SizedBox(height: 16),
+        AnalysisPanel(
+          children: [
+            Text(
+              '다음 확인 방법',
+              style: ReferenceStyle.text(16, 24, weight: FontWeight.w500),
+            ),
+            for (final step in result.nextSteps)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Text(step),
+              ),
+          ],
+        ),
+      ],
+      if (result.debugImageBase64 case final encoded?) ...[
+        const SizedBox(height: 16),
+        ExpansionTile(
+          title: const Text('관절 검출 이미지 보기'),
+          children: [
+            SizedBox(
+              height: 360,
+              child: AnalysisDebugImage(
+                encoded: encoded,
+                semanticLabel: '관절 및 실루엣 검출 참고 이미지',
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.all(12),
+              child: Text('관절 위치를 확인하기 위한 참고 이미지입니다.'),
+            ),
+          ],
+        ),
+      ],
+      const Padding(
+        padding: EdgeInsets.only(top: 16),
+        child: Text(
+          '사진 기반 참고 분석이며 의료적 진단이 아닙니다.',
+          style: TextStyle(color: ReferenceStyle.muted),
+        ),
+      ),
+      if (!hasExplanation && result.judgements.isNotEmpty) ...[
         const SizedBox(height: 16),
         AnalysisPanel(
           children: [
@@ -234,7 +355,7 @@ class _AnalysisRunPageState extends State<AnalysisRunPage>
         ),
       ],
       const SizedBox(height: 24),
-      if (model.routines == null)
+      if (result.canGenerateRoutines && model.routines == null)
         ReferenceButton(
           '맞춤 루틴 만들기',
           onPressed: _generate,
