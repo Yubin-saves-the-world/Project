@@ -57,13 +57,17 @@ class AnalysisUsage {
     required this.limit,
     required this.remaining,
     required this.resetAt,
+    this.unlimited = false,
   });
   final int used, limit, remaining;
+  final bool unlimited;
+  bool get exhausted => !unlimited && remaining <= 0;
   final DateTime resetAt;
   factory AnalysisUsage.fromJson(Map<String, dynamic> json) => AnalysisUsage(
     used: json['used'] as int,
     limit: json['limit'] as int,
     remaining: json['remaining'] as int,
+    unlimited: json['unlimited'] == true,
     resetAt: DateTime.parse(json['reset_at'] as String),
   );
 }
@@ -119,6 +123,24 @@ class AnalysisComparison {
       );
 }
 
+class AnalysisObservation {
+  const AnalysisObservation(this.title, this.label, this.description);
+  final String title, label, description;
+  factory AnalysisObservation.fromJson(Map<String, dynamic> json) =>
+      AnalysisObservation(
+        json['title'] as String,
+        json['label'] as String,
+        json['description'] as String,
+      );
+}
+
+class DinoPartResult {
+  const DinoPartResult(this.part, this.status);
+  final String part, status;
+  factory DinoPartResult.fromJson(Map<String, dynamic> json) =>
+      DinoPartResult(json['part'] as String, json['status'] as String);
+}
+
 class BodyAnalysis {
   BodyAnalysis({
     required this.id,
@@ -129,6 +151,14 @@ class BodyAnalysis {
     this.errorCode,
     this.errorMessage,
     this.measurementVersion,
+    this.debugImageBase64,
+    this.summary,
+    this.interpretationNote,
+    this.observations = const [],
+    this.nextSteps = const [],
+    this.canGenerateRoutines = true,
+    this.dinoParts = const [],
+    this.warnings = const [],
     Map<String, num?> measures = const {},
     Map<String, String> unavailable = const {},
     List<AnalysisJudgement> judgements = const [],
@@ -141,6 +171,13 @@ class BodyAnalysis {
   final DateTime createdAt;
   final num? score;
   final String? bodyType, errorCode, errorMessage, measurementVersion;
+  final String? summary, interpretationNote;
+  final List<AnalysisObservation> observations;
+  final List<String> nextSteps;
+  final bool canGenerateRoutines;
+  final String? debugImageBase64;
+  final List<DinoPartResult> dinoParts;
+  final List<String> warnings;
   final Map<String, num?> measures;
   final Map<String, String> unavailable;
   final List<AnalysisJudgement> judgements;
@@ -156,6 +193,24 @@ class BodyAnalysis {
       errorCode: json['error_code'] as String?,
       errorMessage: json['error_message'] as String?,
       measurementVersion: json['measurement_version'] as String?,
+      debugImageBase64: json['debug_image_base64'] as String?,
+      summary: json['summary'] as String?,
+      interpretationNote: json['interpretation_note'] as String?,
+      observations: List.unmodifiable(
+        (json['observations'] as List? ?? []).map(
+          (v) =>
+              AnalysisObservation.fromJson(Map<String, dynamic>.from(v as Map)),
+        ),
+      ),
+      nextSteps: List<String>.unmodifiable(json['next_steps'] as List? ?? []),
+      canGenerateRoutines:
+          (json['capabilities'] as Map?)?['routine_generation'] != false,
+      dinoParts: List.unmodifiable(
+        ((json['dinov3'] as Map?)?['parts'] as List? ?? []).map(
+          (v) => DinoPartResult.fromJson(Map<String, dynamic>.from(v as Map)),
+        ),
+      ),
+      warnings: List<String>.unmodifiable(json['warnings'] as List? ?? []),
       measures: {
         for (final key in [
           'shoulder_tilt_deg',
@@ -164,7 +219,9 @@ class BodyAnalysis {
           'shoulder_hip_ratio',
           'torso_leg_ratio',
         ])
-          key: measures?[key] as num?,
+          key: measures?[key] is num && (measures![key] as num).isFinite
+              ? measures[key] as num
+              : null,
       },
       unavailable: {
         for (final item in (measures?['unavailable'] as List? ?? []))
@@ -194,6 +251,7 @@ String analysisFailureMessage(String? code, String? fallback) => switch (code) {
   _ => fallback ?? '분석을 완료하지 못했어요. 다시 시도해 주세요.',
 };
 String measurementReason(String? reason) => switch (reason) {
+  'SIDE_ANALYSIS_NOT_IMPLEMENTED' => '측면 사진의 목 각도 분석은 아직 제공하지 않아요.',
   'SIDE_PHOTO_MISSING' => '측면 사진이 없어 측정하지 못했어요.',
   'OCCLUDED' => '신체가 가려져 측정하지 못했어요.',
   'LOW_CONFIDENCE' => '사진에서 정확한 위치를 확인하지 못했어요.',

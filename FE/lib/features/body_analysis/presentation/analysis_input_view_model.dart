@@ -205,7 +205,7 @@ class AnalysisInputViewModel extends ChangeNotifier
       _notify();
       return false;
     }
-    if (usage != null && usage!.remaining <= 0) {
+    if (usage?.exhausted == true) {
       error = '오늘의 분석 횟수를 모두 사용했어요.';
       _notify();
       return false;

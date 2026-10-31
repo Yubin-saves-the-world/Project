@@ -22,7 +22,7 @@ class AnalysisRunViewModel extends ChangeNotifier {
     this.pending,
     this.id, {
     this.interval = const Duration(seconds: 2),
-    this.maxWait = const Duration(seconds: 60),
+    this.maxWait = const Duration(seconds: 110),
     DateTime Function()? now,
   }) : _now = now ?? DateTime.now;
   final AnalysisRepository repository;
@@ -111,7 +111,9 @@ class AnalysisRunViewModel extends ChangeNotifier {
   }
 
   Future<void> generate() async {
-    if (generating ||
+    if (_disposed ||
+        generating ||
+        result?.canGenerateRoutines != true ||
         result?.status != AnalysisStatus.done ||
         routines != null) {
       return;

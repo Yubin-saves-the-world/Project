@@ -162,10 +162,12 @@ class _AnalysisEntryPageState extends State<AnalysisEntryPage> {
               ),
             if (model.usage case final usage?)
               Text(
-                '오늘 남은 분석 ${usage.remaining}/${usage.limit}회',
+                usage.unlimited
+                    ? '관리자 계정 · 분석 횟수 제한 없음'
+                    : '오늘 남은 분석 ${usage.remaining}/${usage.limit}회',
                 style: ReferenceStyle.text(12, 18, color: ReferenceStyle.muted),
               ),
-            if (model.usage?.remaining == 0)
+            if (model.usage?.exhausted == true)
               Text(
                 '다음 이용: ${model.usage!.resetAt.toLocal()}',
                 style: ReferenceStyle.text(12, 18, color: ReferenceStyle.muted),
