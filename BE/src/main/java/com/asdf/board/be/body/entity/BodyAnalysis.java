@@ -114,6 +114,9 @@ public class BodyAnalysis extends BaseCreatedEntity {
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
 
+    @Column(name = "result_payload", columnDefinition = "LONGTEXT")
+    private String resultPayload;
+
     @Builder
     private BodyAnalysis(User user, Source source, Status status, ErrorCode errorCode, String errorMessage, Photo photo, Photo sidePhoto, GoalBody goalBody, String textInput, BigDecimal shoulderTiltDeg, BigDecimal pelvisTiltDeg, BigDecimal neckForwardDeg, BigDecimal shoulderHipRatio, BigDecimal torsoLegRatio, String unavailableJson, Integer balanceScore, String measurementVersion, String bodyType, String judgementsJson, String priorityPartsJson, String comparisonSummary, String comparisonDetail, String textSummary, LocalDateTime completedAt) {
         this.user = user;

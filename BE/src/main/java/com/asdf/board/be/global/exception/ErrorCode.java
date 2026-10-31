@@ -18,6 +18,14 @@ public enum ErrorCode {
     EMAIL_DUPLICATED(HttpStatus.CONFLICT, "이미 가입된 이메일이에요."),
     NICKNAME_DUPLICATED(HttpStatus.CONFLICT, "이미 사용 중인 닉네임이에요."),
     PROFILE_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 신체정보가 등록되어 있어요."),
+    ONBOARDING_REQUIRED(HttpStatus.FORBIDDEN, "먼저 신체정보를 입력해 주세요."),
+    CONSENT_REQUIRED(HttpStatus.FORBIDDEN, "사진·AI 분석 동의가 필요해요."),
+    PHOTO_LIMIT_EXCEEDED(HttpStatus.CONFLICT, "사진은 최대 20장까지 저장할 수 있어요."),
+    PHOTO_TYPE_MISMATCH(HttpStatus.BAD_REQUEST, "사진 종류가 맞지 않아요."),
+    ANALYSIS_IN_PROGRESS(HttpStatus.CONFLICT, "분석이 진행 중이에요."),
+    ANALYSIS_QUOTA_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "오늘 분석 횟수를 모두 사용했어요."),
+    GOAL_NOT_FOUND(HttpStatus.NOT_FOUND, "등록된 목표가 없어요."),
+    GOAL_NOT_READY(HttpStatus.CONFLICT, "목표 체형 비교는 아직 연결되지 않았어요."),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "잠시 후 다시 시도해 주세요.");
 
     private final HttpStatus status;

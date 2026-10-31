@@ -87,6 +87,8 @@ public class SecurityConfig {
                 PathPatternRequestMatcher.pathPattern(HttpMethod.POST, "/api/users"),
                 PathPatternRequestMatcher.pathPattern(HttpMethod.POST, "/api/auth/login"),
                 PathPatternRequestMatcher.pathPattern("/actuator/health"),
+                PathPatternRequestMatcher.pathPattern(HttpMethod.GET, "/api/photo-files/**"),
+                PathPatternRequestMatcher.pathPattern("/integration.html"),
                 PathPatternRequestMatcher.pathPattern("/swagger-ui.html"),
                 PathPatternRequestMatcher.pathPattern("/swagger-ui/**"),
                 PathPatternRequestMatcher.pathPattern("/v3/api-docs/**")
