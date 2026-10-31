@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Annotated
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 from PIL import Image, ImageOps, UnidentifiedImageError
 
 from analyzers.body_pipeline import analyze_body_images
@@ -29,6 +30,11 @@ async def lifespan(app):
 
 
 app = FastAPI(title='MOVID AI server', version='1.0.0', lifespan=lifespan)
+
+
+@app.get('/', include_in_schema=False)
+def index():
+    return FileResponse(Path(__file__).resolve().parent / 'static' / 'index.html')
 
 
 @app.get('/health')
