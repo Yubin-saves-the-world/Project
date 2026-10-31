@@ -38,6 +38,12 @@ class ApiContractTests(unittest.TestCase):
         self.client = TestClient(api.app, raise_server_exceptions=False)
         self.addCleanup(self.client.close)
 
+    def test_zip_photo_test_page_is_served(self):
+        response = self.client.get('/')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('MOVID', response.text)
+        self.assertIn('/v1/analyze', response.text)
+
     def test_v1_response_and_temporary_file_cleanup(self):
         response = self.client.post('/v1/analyze', files={'front_images': photo()})
         self.assertEqual(response.status_code, 200)
