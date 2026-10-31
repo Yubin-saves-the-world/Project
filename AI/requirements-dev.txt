@@ -1,0 +1,5 @@
+-r requirements.txt
+# Starlette 1.9 TestClient uses httpx2.
+httpx2==2.16.0
+httpcore2==2.16.0
+truststore==0.10.5
