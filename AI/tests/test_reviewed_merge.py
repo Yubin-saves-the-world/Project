@@ -9,6 +9,20 @@ from training.dataset import AnnotationStore, write_json
 
 
 class ReviewedMergeTests(unittest.TestCase):
+    def test_changed_reviewed_image_cannot_enter_merged_dataset(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder).resolve()
+            source = root/'.runtime/kaggle_batch'
+            source.mkdir(parents=True)
+            entries, _ = fixture(source)
+            Image.new('RGB', (8, 8), 'white').save(source/'fake.jpg')
+            entries[0]['review_hashes'] = {'image': 'wrong', 'crop': 'wrong'}
+            write_json(source/'dataset.json', {'entries': entries})
+            with patch.object(merging, 'ROOT', root):
+                with self.assertRaisesRegex(ValueError, '해시'):
+                    merging.merge(root/'.runtime/combined', {'kaggle':'kaggle_batch'})
+            self.assertFalse((root/'.runtime/combined').exists())
+
     def test_explicit_new_dataset_preserves_labels_and_namespaces_people(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder).resolve()

@@ -10,6 +10,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from training.dataset import AnnotationStore, write_json
+from training.reviewed_crops import validate_release
 
 SOURCES = {'local': 'contour_dataset', 'safev2': 'reviewed_arm_batch_v2'}
 
@@ -31,6 +32,7 @@ def merge(destination, source_names=None):
         if not path.is_relative_to(ROOT / '.runtime') or any(p.startswith('quarantine_web_') for p in path.parts):
             raise ValueError('격리되지 않은 AI/.runtime 검수 자료만 통합합니다.')
         store = AnnotationStore(path)
+        validate_release(store)
         if not store.path.is_file() or not store.entries:
             raise ValueError('입력 항목의 실제 검수 저장이 필요합니다: ' + prefix)
         sources.append((prefix, store))

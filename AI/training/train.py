@@ -16,6 +16,8 @@ from .dataset import AnnotationStore, DIMENSION, LABELS, SCHEMA, SPLITS, write_j
 
 def read_training_data(directory, enforce_holdout=True):
     store = AnnotationStore(directory)
+    from .reviewed_crops import validate_release
+    validate_release(store)
     grouped = {split: [] for split in SPLITS}
     subject_splits, image_subjects, image_splits, feature_splits = {}, {}, {}, {}
     pending, excluded = 0, 0
