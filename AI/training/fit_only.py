@@ -20,6 +20,7 @@ def fit_only(directory, output):
         raise ValueError('기존 모델·출력은 덮어쓰지 않습니다. 새 출력 폴더를 지정하세요.')
     annotation = directory / 'annotations.json'
     before = hashlib.sha256(annotation.read_bytes()).hexdigest()
+    dataset_before = hashlib.sha256((directory/'dataset.json').read_bytes()).hexdigest()
     grouped, classes, counts = read_training_data(directory, enforce_holdout=False)
     if counts['pending']:
         raise ValueError('모든 후보의 검수 저장을 먼저 완료하세요.')
@@ -29,7 +30,8 @@ def fit_only(directory, output):
     model = make_pipeline(Normalizer(), LogisticRegression(
         C=1, class_weight='balanced', max_iter=2000, random_state=42))
     model.fit(x, y)
-    if hashlib.sha256(annotation.read_bytes()).hexdigest() != before:
+    if (hashlib.sha256(annotation.read_bytes()).hexdigest() != before
+            or hashlib.sha256((directory/'dataset.json').read_bytes()).hexdigest() != dataset_before):
         raise ValueError('학습 중 라벨이 변경됐습니다. 다시 실행하세요.')
     classifier = model.steps[-1][1]
     artifact = {
@@ -39,6 +41,7 @@ def fit_only(directory, output):
         'intercepts': classifier.intercept_.tolist(), 'abstain_threshold': .6,
         'experimental': True, 'validation_status': 'not_evaluated',
         'training_samples': len(rows), 'annotation_sha256': before,
+        'training_dataset_sha256': dataset_before,
     }
     report = {
         'status': 'trained_unvalidated', 'protocol': 'fit-only; all usable reviewed rows',
