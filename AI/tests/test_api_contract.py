@@ -105,6 +105,9 @@ class ApiContractTests(unittest.TestCase):
         response = self.client.get('/')
         self.assertEqual(response.status_code, 200)
         self.assertIn('MOVID', response.text)
+        self.assertIn('/analysis', response.text)
+        response = self.client.get('/analysis')
+        self.assertEqual(response.status_code, 200)
         self.assertIn('/v1/analyze', response.text)
 
     def test_v1_response_and_temporary_file_cleanup(self):
