@@ -62,6 +62,7 @@ def pose_asset():
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--model', action='store_true')
+    parser.add_argument('--contour-model', type=Path)
     args = parser.parse_args()
     if sys.version_info[:2] != (3, 12):
         raise ValueError('Python 3.12가 필요합니다.')
@@ -72,6 +73,11 @@ def main():
     if not hasattr(mp, 'solutions'):
         raise ValueError('이 코드는 MediaPipe 0.10.21의 solutions API가 필요합니다. 고정된 requirements로 재설치하세요.')
     print('라이브러리 확인 완료.', flush=True)
+    if args.contour_model:
+        sys.path.insert(0, str(ROOT))
+        from analyzers.contour_classifier import ContourClassifier
+        classifier = ContourClassifier(args.contour_model)
+        print('윤곽 분류기 확인: ' + classifier.validation_status, flush=True)
     if args.model:
         pose_asset()
         print('공식 다중 포즈 검사 모델 확인 완료.', flush=True)

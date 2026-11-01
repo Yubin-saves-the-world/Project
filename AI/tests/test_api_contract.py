@@ -30,6 +30,18 @@ class FakeEngine:
 
 
 class ApiContractTests(unittest.TestCase):
+    def test_health_reports_model_identity_without_local_paths(self):
+        classifier = SimpleNamespace(model_sha256='a'*64, labels=['weak','medium','clear'],
+                                     validation_status='not_evaluated')
+        with patch.object(self.engine, 'contour', classifier, create=True):
+            response = self.client.get('/health')
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body['contour_model']['sha256'], 'a'*64)
+        self.assertEqual(body['contour_model']['validation_status'], 'not_evaluated')
+        self.assertFalse(body['capabilities']['balance_score'])
+        self.assertNotIn('path', str(body))
+
     def setUp(self):
         self.engine = FakeEngine()
         engine_patch = patch.object(api.app.state, 'engine', self.engine, create=True)
