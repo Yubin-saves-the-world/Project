@@ -1,0 +1,172 @@
+"""HTTP boundary checks without downloading a model or accessing other teams' code."""
+import io
+from pathlib import Path
+from types import SimpleNamespace
+import unittest
+from unittest.mock import patch
+
+from fastapi.testclient import TestClient
+from PIL import Image
+
+import app as api
+from integration import AnalysisFailure
+from schemas.analysis_result import BodyAnalysisResponse
+
+
+def photo():
+    stream = io.BytesIO()
+    Image.new('RGB', (32, 48), 'white').save(stream, format='PNG')
+    return ('front.png', stream.getvalue(), 'image/png')
+
+
+class FakeEngine:
+    dino = SimpleNamespace(device='cpu')
+
+    def analyze(self, path, root):
+        self.path = path
+        assert Path(path).is_file()
+        return {'status': 'done', 'measurement_version': 'pixel-dino-v1',
+                'measures': {'shoulder_tilt_deg': .5}, 'balance_score': None}
+
+
+class ApiContractTests(unittest.TestCase):
+    def test_health_reports_model_identity_without_local_paths(self):
+        classifier = SimpleNamespace(model_sha256='a'*64, labels=['weak','medium','clear'],
+                                     validation_status='not_evaluated')
+        with patch.object(self.engine, 'contour', classifier, create=True):
+            response = self.client.get('/health')
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body['contour_model']['sha256'], 'a'*64)
+        self.assertEqual(body['contour_model']['validation_status'], 'not_evaluated')
+        self.assertFalse(body['capabilities']['balance_score'])
+        self.assertNotIn('path', str(body))
+
+    def setUp(self):
+        self.engine = FakeEngine()
+        engine_patch = patch.object(api.app.state, 'engine', self.engine, create=True)
+        engine_patch.start()
+        self.addCleanup(engine_patch.stop)
+        self.client = TestClient(api.app, raise_server_exceptions=False)
+        self.addCleanup(self.client.close)
+
+    def test_side_photo_is_normalized_and_forwarded_then_deleted(self):
+        def with_side(path, root, *, side_path):
+            self.assertTrue(side_path.is_file())
+            self.assertNotEqual(path, side_path)
+            self.side_path = side_path
+            return {'status': 'done'}
+        with patch.object(self.engine, 'analyze', side_effect=with_side):
+            response = self.client.post('/v1/analyze', files=[('front_images', photo()), ('side_images', photo())])
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(self.side_path.exists())
+        response = self.client.post('/v1/analyze', files=[('front_images', photo())]+[('side_images', photo())]*2)
+        self.assertEqual(response.status_code, 422)
+
+    def test_review_tokens_require_confirmation_and_expire(self):
+        api.review_sessions.clear()
+        self.addCleanup(api.review_sessions.clear)
+        self.engine.contour = SimpleNamespace(predict=lambda values: {'status': 'abstained', 'label': None})
+        token = api.review_sessions.create('left_upper_arm', [1.] * 768)['token']
+        body = {'token': token, 'skin_visible_confirmed': False}
+        self.assertEqual(self.client.post('/v1/contour/review', json=body).status_code, 422)
+        body['skin_visible_confirmed'] = True
+        result = self.client.post('/v1/contour/review', json=body)
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.json()['part'], 'left_upper_arm')
+        self.assertIsNone(result.json()['classification']['label'])
+        api.review_sessions.clear()
+        self.assertEqual(self.client.post('/v1/contour/review', json=body).status_code, 410)
+
+    def test_review_previews_get_server_generated_ticket_only_when_requested(self):
+        self.engine.contour = object()
+        def preview(path, root, *, include_review_previews):
+            self.assertTrue(include_review_previews)
+            return {'dinov3': {'parts': [{'part': 'left_upper_arm', 'status': 'extracted',
+                       'cls': [1.] * 384, 'patch_mean': [1.] * 384}]}}
+        with patch.object(self.engine, 'analyze', side_effect=preview):
+            response = self.client.post('/v1/analyze', files={'front_images': photo()}, data={'include_review_previews': 'true'})
+        self.assertEqual(response.status_code, 200)
+        ticket = response.json()['dinov3']['parts'][0]['review_session']
+        self.assertEqual(ticket['expires_in_seconds'], 300)
+        self.assertEqual(api.review_sessions.get(ticket['token'])['part'], 'left_upper_arm')
+        api.review_sessions.clear()
+
+    def test_contour_endpoint_requires_visibility_confirmation(self):
+        response = self.client.post('/v1/contour/classify', files={'image': photo()})
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.json()['detail']['code'], 'REVIEW_REQUIRED')
+
+    def test_contour_endpoint_requires_configured_model(self):
+        response = self.client.post('/v1/contour/classify', files={'image': photo()}, data={'skin_visible_confirmed': 'true'})
+        self.assertEqual(response.status_code, 503)
+
+    def test_zip_photo_test_page_is_served(self):
+        response = self.client.get('/')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('MOVID', response.text)
+        self.assertIn('/analysis', response.text)
+        response = self.client.get('/analysis')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('/v1/analyze', response.text)
+
+    def test_v1_response_and_temporary_file_cleanup(self):
+        response = self.client.post('/v1/analyze', files={'front_images': photo()})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['measurement_version'], 'pixel-dino-v1')
+        self.assertIsNone(response.json()['balance_score'])
+        self.assertFalse(self.engine.path.exists())
+
+    def test_legacy_keeps_camel_case_schema_and_text(self):
+        legacy = BodyAnalysisResponse(posture={}, bodyShape={'bodyType': 'unknown'},
+            judgements=[], priorityParts=[], comparisonSummary='', comparisonDetail='')
+        with patch('app.analyze_body_images', return_value=legacy) as pipeline:
+            response = self.client.post('/analyze/body', files=[('front_images', photo()),
+                ('front_images', photo())], data={'text': '기존 요청'})
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('bodyShape', response.json())
+        self.assertIn('measurementVersion', response.json())
+        self.assertNotIn('measurement_version', response.json())
+        self.assertEqual(pipeline.call_args.kwargs['text_input'], '기존 요청')
+        self.assertEqual(len(pipeline.call_args.args[0]), 2)
+        self.assertFalse(Path(pipeline.call_args.args[1]).exists())
+
+    def test_missing_and_multiple_v1_photos_rejected(self):
+        self.assertEqual(self.client.post('/v1/analyze').status_code, 422)
+        response = self.client.post('/v1/analyze', files=[('front_images', photo())] * 2)
+        self.assertEqual(response.status_code, 422)
+
+    def test_invalid_image_rejected_and_slot_released(self):
+        response = self.client.post('/v1/analyze', files={'front_images': ('bad.jpg', b'bad', 'image/jpeg')})
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.json()['detail']['code'], 'INVALID_IMAGE')
+        self.assertEqual(self.client.post('/v1/analyze', files={'front_images': photo()}).status_code, 200)
+
+    def test_oversized_upload_rejected(self):
+        response = self.client.post('/v1/analyze', files={'front_images': ('large.jpg', b'x' * (api.MAX_BYTES + 1), 'image/jpeg')})
+        self.assertEqual(response.status_code, 413)
+
+    def test_both_routes_share_busy_limit(self):
+        self.assertTrue(api.capacity.acquire(blocking=False))
+        try:
+            for route in ('/v1/analyze', '/analyze/body'):
+                response = self.client.post(route, files={'front_images': photo()})
+                self.assertEqual(response.status_code, 503)
+                self.assertEqual(response.json()['detail']['code'], 'AI_BUSY')
+        finally:
+            api.capacity.release()
+
+    def test_domain_failure_retains_code_and_cleans_up(self):
+        paths = []
+        def fail(path, root):
+            paths.append(path)
+            raise AnalysisFailure('NO_PERSON', '전신 사진을 사용해 주세요.')
+        with patch.object(self.engine, 'analyze', side_effect=fail):
+            response = self.client.post('/v1/analyze', files={'front_images': photo()})
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.json()['detail']['code'], 'NO_PERSON')
+        self.assertFalse(paths[0].exists())
+
+
+if __name__ == '__main__':
+    unittest.main()

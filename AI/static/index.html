@@ -1,0 +1,677 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>MOVID · 사진 분석</title>
+    <style>
+      :root {
+        --blue: #4661ef;
+        --ink: #172138;
+        --muted: #65718a;
+        --line: #e5e9f3;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        color: var(--ink);
+        background: #f5f7fc;
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif;
+        line-height: 1.65;
+      }
+      main {
+        max-width: 1100px;
+        margin: auto;
+        padding: 36px 24px;
+      }
+      header {
+        padding: 34px;
+        border-radius: 26px;
+        background: linear-gradient(120deg, #e7ecff, #fff);
+        border: 1px solid var(--line);
+      }
+      .brand {
+        font-weight: 800;
+        color: var(--blue);
+        letter-spacing: 2px;
+        font-size: 13px;
+      }
+      h1 {
+        font-size: 34px;
+        margin: 8px 0;
+      }
+      h2 {
+        font-size: 22px;
+        margin: 0 0 12px;
+      }
+      h3 {
+        font-size: 17px;
+        margin: 8px 0;
+      }
+      p {
+        margin: 8px 0;
+      }
+      small,
+      .muted {
+        color: var(--muted);
+      }
+      .card {
+        background: white;
+        border: 1px solid var(--line);
+        border-radius: 22px;
+        padding: 26px;
+        margin-top: 20px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+      }
+      .upload {
+        display: block;
+        padding: 22px;
+        background: #f8f9ff;
+        border: 1px dashed #bec9ec;
+        border-radius: 16px;
+      }
+      .upload input {
+        display: block;
+        margin-top: 12px;
+        max-width: 100%;
+        font: inherit;
+      }
+      .row {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      button,
+      .link {
+        font: inherit;
+        border: 0;
+        padding: 12px 20px;
+        border-radius: 12px;
+        background: var(--blue);
+        color: #fff;
+        cursor: pointer;
+        text-decoration: none;
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: wait;
+      }
+      .secondary {
+        background: #edf1ff;
+        color: var(--blue);
+      }
+      .status {
+        padding: 14px 0;
+        white-space: pre-wrap;
+      }
+      .error {
+        color: #b52b36;
+      }
+      .metric {
+        border-radius: 16px;
+        background: #f7f9fe;
+        padding: 20px;
+      }
+      .value {
+        font-size: 32px;
+        line-height: 1.4;
+        color: var(--blue);
+        font-weight: 750;
+      }
+      .badge {
+        display: inline-block;
+        background: #edf1ff;
+        color: #3852cf;
+        border-radius: 30px;
+        padding: 5px 12px;
+        font-size: 13px;
+      }
+      .preview {
+        display: none;
+        max-width: 100%;
+        height: 220px;
+        object-fit: contain;
+        margin-top: 16px;
+        border-radius: 12px;
+      }
+      .crop {
+        width: 100%;
+        height: 240px;
+        object-fit: contain;
+        background: #f6f7fa;
+        border-radius: 12px;
+      }
+      .notice {
+        padding: 14px 18px;
+        background: #fff8e8;
+        border-radius: 12px;
+        color: #71541b;
+      }
+      .quality {
+        padding: 14px;
+        background: #eff7f6;
+        border-radius: 12px;
+      }
+      details {
+        margin-top: 18px;
+      }
+      summary {
+        cursor: pointer;
+        font-weight: 600;
+      }
+      #debug {
+        max-width: 100%;
+        max-height: 650px;
+        display: block;
+        margin: 20px auto;
+      }
+      .review-card {
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 20px;
+      }
+      .check {
+        display: block;
+        margin: 14px 0;
+      }
+      .check input {
+        width: 18px;
+        height: 18px;
+        vertical-align: middle;
+      }
+      footer {
+        padding: 24px 0;
+        font-size: 13px;
+        color: var(--muted);
+      }
+      [hidden] {
+        display: none !important;
+      }
+      @media (max-width: 650px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+        main {
+          padding: 20px 16px;
+        }
+        header,
+        .card {
+          padding: 22px;
+        }
+        h1 {
+          font-size: 27px;
+        }
+      }
+      @media print {
+        form,
+        button,
+        .upload,
+        footer,
+        .review-card,
+        details {
+          display: none;
+        }
+        body {
+          background: white;
+        }
+        .card {
+          break-inside: avoid;
+        }
+        main {
+          padding: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div class="brand"><a href="/">MOVID · 분석 홈</a> / 상세 분석</div>
+        <h1>사진 속 변화를, 구체적으로</h1>
+        <p>
+          관절의 기울기와 비율을 확인하고 상완 크롭을 검수해 실험 분류를
+          실행하세요.
+        </p>
+        <small
+          >AI 단독 실행 화면 · 사진에서 관찰한 수치이며 건강·근육 발달 점수가
+          아닙니다.</small
+        >
+      </header>
+      <section class="card">
+        <h2>01 · 사진 준비</h2>
+        <p class="muted">
+          한 명의 머리부터 발목까지 보이게, 카메라를 수평으로 고정하세요. 각
+          JPG·PNG 최대 10MB.
+        </p>
+        <form id="form">
+          <div class="grid">
+            <label class="upload"
+              ><strong>정면 전신 사진 · 필수</strong
+              ><input
+                id="photo"
+                type="file"
+                accept="image/jpeg,image/png"
+                required /><img
+                id="preview"
+                class="preview"
+                alt="정면 미리보기" /></label
+            ><label class="upload"
+              ><strong>측면 사진 · 선택</strong>
+              <p><small>귀와 어깨가 보이는 옆모습을 선택하세요.</small></p>
+              <input id="side" type="file" accept="image/jpeg,image/png" /><img
+                id="side-preview"
+                class="preview"
+                alt="측면 미리보기"
+            /></label>
+          </div>
+          <div class="row" style="margin-top: 20px">
+            <button id="submit">사진 분석하기</button
+            ><span class="muted">사진은 현재 AI 서버에서 처리됩니다.</span>
+          </div>
+        </form>
+        <div id="status" class="status" role="status" aria-live="polite">
+          사진을 선택해 주세요.
+        </div>
+      </section>
+      <div id="result" hidden>
+        <section class="card">
+          <div class="row">
+            <span class="badge">02 · 사진 측정 완료</span
+            ><button id="download" class="secondary">결과 파일 저장</button
+            ><button id="print" class="secondary">인쇄 / PDF</button><button id="save-history" class="secondary">이 브라우저에 수치 기록</button><a href="/">기록·비교 보기</a>
+          </div>
+          <h2 style="margin-top: 18px">이번 사진에서 확인한 내용</h2>
+          <p id="summary"></p>
+          <div id="quality" class="quality"></div>
+          <div id="metrics" class="grid" style="margin-top: 18px"></div>
+          <details>
+            <summary>팔꿈치·무릎의 사진상 각도</summary>
+            <div id="joints" class="grid"></div>
+            <small
+              >굽힘과 원근에 따른 2차원 각도입니다. 관절 가동 범위 검사 결과가
+              아닙니다.</small
+            >
+          </details>
+          <details>
+            <summary>관절 연결 이미지 보기</summary>
+            <img id="debug" alt="몸통과 팔다리 관절 추정 결과" />
+          </details>
+        </section>
+        <section class="card">
+          <span class="badge">03 · 사람이 먼저 검수</span>
+          <h2 style="margin-top: 12px">상완 이미지 특징</h2>
+          <p>
+            크롭이 상완에 해당하고 피부 윤곽이 충분히 보이는지 확인하세요.
+            옷·가림·다른 부위가 보이면 분류하지 마세요.
+          </p>
+          <div id="classifier-note" class="notice"></div>
+          <div id="parts" class="grid" style="margin-top: 16px"></div>
+        </section>
+        <section class="card">
+          <h2>04 · 이전 사진과 비교</h2>
+          <p>
+            이 결과를 기준으로 보관한 뒤 다른 사진을 분석하면 수치 변화를 확인할
+            수 있습니다. 같은 촬영 조건에서 비교하세요.
+          </p>
+          <button id="baseline" class="secondary">
+            현재 결과를 비교 기준으로
+          </button>
+          <p id="baseline-status" class="muted">
+            기준 결과는 이 탭 메모리에만 보관됩니다.
+          </p>
+          <div id="comparison" class="grid"></div>
+          <small
+            >증감은 사진 수치의 차이입니다. 개선·악화 또는 실제 신체 변화를
+            뜻하지 않습니다.</small
+          >
+        </section>
+      </div>
+      <footer>
+        실험용 사진 분석 · 검증된 균형 점수·체형·근육량 판정은 제공하지
+        않습니다. 새로고침하면 화면의 결과와 비교 기준이 사라집니다. 서버 검수용
+        특징은 최대 32개를 메모리에 보관합니다. 검수 토큰은 5분간 유효하며 용량
+        초과 시 먼저 만료될 수 있습니다. ·
+        <a href="/contour-test">상완 크롭 단독 테스트</a> ·
+        <a href="/docs">API 문서</a>
+      </footer>
+    </main>
+    <script type="module">
+      import {save as saveHistory} from "/assets/history.mjs";
+      "use strict";
+      const $ = (s) => document.querySelector(s),
+        labels = {
+          clear: "윤곽 뚜렷함",
+          medium: "윤곽 중간",
+          weak: "윤곽 약함",
+        };
+      let current = null,
+        baseline = null;
+      const urls = new Map();
+      function element(tag, text, cls) {
+        const node = document.createElement(tag);
+        if (text !== undefined) node.textContent = text;
+        if (cls) node.className = cls;
+        return node;
+      }
+      function message(text, error = false) {
+        $("#status").textContent = text;
+        $("#status").className = "status" + (error ? " error" : "");
+      }
+      function reset() {
+        current = null;
+        $("#result").hidden = true;
+        $("#parts").replaceChildren();
+        $("#debug").removeAttribute("src");
+        message("사진을 선택했어요. 분석하기를 눌러 주세요.");
+      }
+      for (const [id, preview] of [
+        ["photo", "preview"],
+        ["side", "side-preview"],
+      ]) {
+        $("#" + id).addEventListener("change", () => {
+          reset();
+          if (urls.has(id)) URL.revokeObjectURL(urls.get(id));
+          const file = $("#" + id).files[0],
+            img = $("#" + preview);
+          img.style.display = file ? "block" : "none";
+          if (file) {
+            const url = URL.createObjectURL(file);
+            urls.set(id, url);
+            img.src = url;
+          } else img.removeAttribute("src");
+        });
+      }
+      async function post(url, options) {
+        const response = await fetch(url, options);
+        let body;
+        try {
+          body = await response.json();
+        } catch {
+          throw new Error(
+            "서버 응답을 읽지 못했습니다. 서버가 실행 중인지 확인하세요.",
+          );
+        }
+        if (!response.ok)
+          throw new Error(
+            body.detail?.message ||
+              (Array.isArray(body.detail)
+                ? "입력 형식을 확인하세요."
+                : "요청에 실패했습니다."),
+          );
+        return body;
+      }
+      function metricCard(item) {
+        const card = element("div", undefined, "metric");
+        card.append(
+          element("h3", item.title),
+          element("div", item.display_value, "value"),
+          element("p", item.meaning),
+          element("small", item.limitation),
+        );
+        return card;
+      }
+      function compare() {
+        const root = $("#comparison");
+        root.replaceChildren();
+        if (!baseline || !current) return;
+        for (const item of current.measurement_report?.items || []) {
+          const old = baseline.measurement_report?.items.find(
+            (x) => x.key === item.key,
+          );
+          if (
+            !old ||
+            !Number.isFinite(old.value) ||
+            !Number.isFinite(item.value)
+          )
+            continue;
+          const delta = item.value - old.value,
+            card = element("div", undefined, "metric");
+          card.append(
+            element("h3", item.title),
+            element(
+              "div",
+              (delta > 0 ? "+" : "") + delta.toFixed(2) + item.unit,
+              "value",
+            ),
+            element("small", `${old.display_value} → ${item.display_value}`),
+          );
+          root.append(card);
+        }
+      }
+      function render(payload) {
+        current = payload;
+        $("#save-history").disabled = false;
+        $("#metrics").replaceChildren(
+          ...(payload.measurement_report?.items || []).map(metricCard),
+        );
+        $("#summary").textContent =
+          payload.measurement_report?.interpretation || payload.summary;
+        const q = payload.photo_quality || {};
+        $("#quality").replaceChildren(
+          element(
+            "strong",
+            `필수 관절 ${q.required_landmarks_visible ?? "—"}/${q.required_landmarks_total ?? "—"} · 인물 수 검사 ${q.person_check?.status === "checked" ? "완료" : "미확인"}`,
+          ),
+          element(
+            "p",
+            q.person_check?.status === "checked"
+              ? `검출된 포즈 ${q.person_check.detected_poses}개. 누락 검출 가능성이 있습니다.`
+              : "한 명만 있는지 직접 확인하세요.",
+          ),
+        );
+        for (const note of q.warnings || [])
+          $("#quality").append(element("p", note));
+        const side = payload.measures?.side_neck;
+        if (side?.status !== "measured")
+          $("#quality").append(
+            element(
+              "p",
+              side?.description ||
+                "측면 각도는 이번 사진에서 측정하지 못했습니다.",
+            ),
+          );
+        $("#joints").replaceChildren();
+        const names = {
+          left_elbow_deg: "왼팔 팔꿈치",
+          right_elbow_deg: "오른팔 팔꿈치",
+          left_knee_deg: "왼다리 무릎",
+          right_knee_deg: "오른다리 무릎",
+        };
+        for (const [key, value] of Object.entries(
+          payload.measures?.joint_angles || {},
+        )) {
+          const card = element("div", undefined, "metric");
+          card.append(
+            element("h3", names[key] || key),
+            element(
+              "div",
+              Number.isFinite(value) ? value.toFixed(1) + "°" : "측정 안 됨",
+              "value",
+            ),
+          );
+          $("#joints").append(card);
+        }
+        if (payload.debug_image_base64)
+          $("#debug").src =
+            "data:image/jpeg;base64," + payload.debug_image_base64;
+        const parts = payload.dinov3?.parts || [];
+        $("#classifier-note").textContent = parts.some((p) => p.review_session)
+          ? "소규모 검수 자료로 학습한 실험 모델입니다. 후보와 모델 점수는 참고용이며 정답 확률이 아닙니다. 기준 미달 시 분류를 보류합니다."
+          : "특징 추출을 완료해도 실험 모델이 설정되지 않으면 분류하지 않습니다. 근육 발달 등급은 제공하지 않습니다.";
+        $("#parts").replaceChildren();
+        for (const part of parts) {
+          const card = element("div", undefined, "review-card");
+          card.append(
+            element(
+              "h3",
+              part.part === "left_upper_arm" ? "왼쪽 상완" : "오른쪽 상완",
+            ),
+          );
+          if (part.preview_image_base64) {
+            const img = element("img", undefined, "crop");
+            img.alt = "검수할 상완 크롭";
+            img.src = "data:image/jpeg;base64," + part.preview_image_base64;
+            card.append(img);
+          }
+          card.append(
+            element(
+              "p",
+              part.status === "extracted"
+                ? "DINOv3 특징 추출 완료"
+                : "관절 추정점이 불충분해 추출하지 못했습니다.",
+            ),
+          );
+          if (part.review_session) {
+            const label = element("label", undefined, "check"),
+              check = element("input");
+            check.type = "checkbox";
+            label.append(
+              check,
+              document.createTextNode(
+                " 상완 피부 윤곽이 보이고 크롭 위치가 맞습니다.",
+              ),
+            );
+            const button = element("button", "검수 후 실험 분류"),
+              out = element("div", undefined, "status");
+            button.disabled = true;
+            check.addEventListener("change", () => {
+              button.disabled = !check.checked;
+            });
+            button.addEventListener("click", async () => {
+              button.disabled = true;
+              out.textContent = "분류 중…";
+              try {
+                const body = await post("/v1/contour/review", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    token: part.review_session.token,
+                    skin_visible_confirmed: check.checked,
+                  }),
+                });
+                const pred = body.classification;
+                part.contour = pred;
+            part.classification = pred.status;
+            const feature = current.measurement_report?.features.find(
+              (item) => item.part === part.part,
+            );
+            if (feature) {
+              feature.contour = pred;
+              feature.classification_status = pred.status;
+            }
+                out.replaceChildren(
+                  element(
+                    "strong",
+                    pred.status === "predicted"
+                      ? "실험 분류: " + (labels[pred.label] || pred.label)
+                      : "분류 보류 · 확정 결과 없음",
+                  ),
+                );
+                out.append(
+                  element(
+                    "p",
+                    "참고 후보: " +
+                      (labels[pred.candidate_label] || pred.candidate_label),
+                  ),
+                );
+                for (const [name, score] of Object.entries(
+                  pred.probabilities || {},
+                ))
+                  out.append(
+                    element(
+                      "p",
+                      `${labels[name] || name}: ${(score * 100).toFixed(1)}% 모델 점수`,
+                    ),
+                  );
+                out.append(
+                  element(
+                    "small",
+                    "근육량·근력 평가가 아닙니다. 모델 점수는 보정된 정답 확률이 아닙니다.",
+                  ),
+                );
+              } catch (error) {
+                out.textContent = error.message;
+              } finally {
+                button.disabled = !check.checked;
+              }
+            });
+            card.append(label, button, out);
+          }
+          $("#parts").append(card);
+        }
+        $("#result").hidden = false;
+        compare();
+      }
+      $("#form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const front = $("#photo").files[0],
+          side = $("#side").files[0];
+        if (!front) return;
+        reset();
+        if (
+          [front, side].filter(Boolean).some((f) => f.size > 10 * 1024 * 1024)
+        ) {
+          message("각 사진은 10MB 이하여야 합니다.", true);
+          return;
+        }
+        const inputs = [...$("#form").querySelectorAll("input,button")];
+        inputs.forEach((i) => (i.disabled = true));
+        message(
+          "관절 위치·촬영 조건을 확인하고 DINOv3 특징을 추출하고 있습니다.",
+        );
+        try {
+          const form = new FormData();
+          form.append("front_images", front);
+          if (side) form.append("side_images", side);
+          form.append("include_review_previews", "true");
+          render(await post("/v1/analyze", { method: "POST", body: form }));
+          message("분석 완료. 수치를 확인한 뒤 상완 크롭을 검수해 주세요.");
+        } catch (error) {
+          message(error.message, true);
+        } finally {
+          inputs.forEach((i) => (i.disabled = false));
+        }
+      });
+      $("#baseline").addEventListener("click", () => {
+        baseline = structuredClone(current);
+        $("#baseline-status").textContent =
+          "현재 결과를 기준으로 저장했습니다. 위에서 다음 사진을 선택하고 분석하세요.";
+        compare();
+      });
+      $("#download").addEventListener("click", () => {
+        if (!current) return;
+        const data = structuredClone(current);
+        delete data.debug_image_base64;
+        for (const part of data.dinov3?.parts || []) {
+          delete part.preview_image_base64;
+          delete part.review_session;
+          delete part.cls;
+          delete part.patch_mean;
+        }
+        const url = URL.createObjectURL(
+          new Blob([JSON.stringify(data, null, 2)], {
+            type: "application/json",
+          }),
+        );
+        const a = element("a");
+        a.href = url;
+        a.download = "movid-photo-report.json";
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      });
+      $("#save-history").addEventListener("click",()=>{
+        try {saveHistory(current);$("#save-history").disabled=true;message("수치만 이 브라우저에 저장했습니다. 사진·크롭·특징·검수 토큰은 저장하지 않습니다. 공유 컴퓨터에서는 홈에서 기록을 삭제하세요.");}
+        catch(error){message("기록을 저장하지 못했습니다. "+error.message,true);}
+      });
+      $("#print").addEventListener("click", () => window.print());
+    </script>
+  </body>
+</html>

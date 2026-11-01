@@ -1,0 +1,20 @@
+# AI-local runtime only; never exclude other teams' source directories.
+.venv/
+.cache/
+.runtime/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.log
+.env
+.env.*
+!.env.example
+results/
+tmp_uploads/
+*.safetensors
+*.npz
+*.pth
+
+# Private labels and trained artifacts
+models/
+*.joblib

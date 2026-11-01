@@ -1,7 +1,8 @@
+-c requirements-tested.lock.txt
 fastapi>=0.115,<1
 uvicorn[standard]>=0.30,<1
 python-multipart>=0.0.9,<1
-opencv-python
+opencv-contrib-python
 mediapipe==0.10.21
 numpy
 pydantic>=2,<3

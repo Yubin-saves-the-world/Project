@@ -182,23 +182,70 @@ Future<bool> communityConfirm(
       builder: (context) => AlertDialog(
         backgroundColor: Colors.white,
         scrollable: true,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        constraints: const BoxConstraints(maxWidth: 360),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        icon: AppIcon(
-          action == '차단'
-              ? Icons.person_off_outlined
-              : Icons.help_outline_rounded,
-          color: ReferenceStyle.blue,
-        ),
-        title: communityText(title, size: 19, medium: true),
-        content: communityText(body),
+        surfaceTintColor: Colors.transparent,
+        titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+        contentPadding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+        actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+        title: communityText(title, size: 18, medium: true),
+        content: communityText(body, color: ReferenceStyle.muted),
         actions: [
-          OutlinedButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('취소'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(action),
+          Row(
+            children: [
+              Expanded(
+                child: TextButton(
+                  key: const Key('community-confirm-cancel'),
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(0, 48),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 12,
+                    ),
+                    backgroundColor: communityCard,
+                    foregroundColor: ReferenceStyle.ink,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    textStyle: ReferenceStyle.text(
+                      14,
+                      21,
+                      weight: FontWeight.w500,
+                    ),
+                  ),
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('취소'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FilledButton(
+                  key: const Key('community-confirm-action'),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(0, 48),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 12,
+                    ),
+                    backgroundColor: ['차단', '버리기'].contains(action)
+                        ? AppColors.error
+                        : ReferenceStyle.blue,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    textStyle: ReferenceStyle.text(
+                      14,
+                      21,
+                      weight: FontWeight.w500,
+                    ),
+                  ),
+                  onPressed: () => Navigator.pop(context, true),
+                  child: Text(action),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -296,43 +343,59 @@ Future<String?> showCommunityMenu(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
             children: [
-              communityText(title, size: 18, medium: true),
+              communityText(title, size: 16, medium: true),
               const SizedBox(height: 16),
               for (final option in options)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
-                  child: Material(
-                    color: communityCard,
-                    borderRadius: BorderRadius.circular(12),
-                    clipBehavior: Clip.antiAlias,
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(
+                  child: TextButton(
+                    key: ValueKey('community-menu-${option.value}'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: option.destructive
+                          ? ReferenceStyle.blue
+                          : ReferenceStyle.ink,
+                      minimumSize: const Size(0, 52),
+                      padding: const EdgeInsets.symmetric(
                         horizontal: 16,
+                        vertical: 14,
                       ),
-                      leading: option.icon == null
-                          ? const EditIcon(
-                              size: 22,
-                              color: ReferenceStyle.muted,
-                            )
-                          : AppIcon(
-                              option.icon,
-                              size: 22,
-                              color: option.destructive
-                                  ? const Color(0xFFCC493D)
-                                  : ReferenceStyle.muted,
-                            ),
-                      title: communityText(
-                        option.label,
-                        color: option.destructive
-                            ? const Color(0xFFCC493D)
-                            : ReferenceStyle.ink,
+                      alignment: Alignment.centerLeft,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: const BorderSide(color: communityBorder),
                       ),
-                      trailing: const AppIcon(
-                        Icons.chevron_right_rounded,
-                        size: 18,
-                        color: ReferenceStyle.muted,
-                      ),
-                      onTap: () => Navigator.pop(context, option.value),
+                    ),
+                    onPressed: () => Navigator.pop(context, option.value),
+                    child: Row(
+                      children: [
+                        SizedBox.square(
+                          dimension: 20,
+                          child: Center(
+                            child: option.icon == null
+                                ? const EditIcon(
+                                    size: 16,
+                                    color: ReferenceStyle.muted,
+                                  )
+                                : AppIcon(
+                                    option.icon,
+                                    size: 20,
+                                    color: option.destructive
+                                        ? ReferenceStyle.blue
+                                        : ReferenceStyle.muted,
+                                  ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: communityText(
+                            option.label,
+                            size: 14,
+                            color: option.destructive
+                                ? ReferenceStyle.blue
+                                : ReferenceStyle.ink,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
