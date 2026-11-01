@@ -13,6 +13,14 @@ from training.label_server import create_app
 
 
 class ReviewedCropTests(unittest.TestCase):
+    def test_reserved_purpose_sets_test_hints_without_creating_labels(self):
+        write_json(self.manifest,{'entries':[self.row]})
+        module.prepare(self.manifest,self.output,purpose='independent_test')
+        store=AnnotationStore(self.output)
+        self.assertEqual(store.dataset['purpose'],'independent_test')
+        self.assertTrue(all(e['split_hint']=='test' for e in store.entries.values()))
+        self.assertFalse(store.path.exists())
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)

@@ -17,7 +17,9 @@ def digest(path):
         return hashlib.file_digest(stream, 'sha256').hexdigest()
 
 
-def prepare(manifest_path, output):
+def prepare(manifest_path, output, *, purpose='training'):
+    if purpose not in {'training','independent_test'}:
+        raise ValueError('지원하지 않는 자료 용도입니다.')
     manifest_path, output = Path(manifest_path).resolve(), Path(output).resolve()
     runtime = (ROOT/'.runtime').resolve()
     for path in (manifest_path, output):
@@ -81,13 +83,13 @@ def prepare(manifest_path, output):
                             'image': image_rel, 'crop': crop_rel, 'features': feature_rel,
                             'source_sha256': row['source_sha256'], 'feature_schema': SCHEMA,
                             'model_revision': MODEL_REVISION, 'subject_hint': row.get('subject_hint', ''),
-                            'split_hint': 'train', 'identity_confirmation_required': True,
+                            'split_hint': 'test' if purpose=='independent_test' else 'train', 'identity_confirmation_required': True,
                             'crop_box': row['normalized_box'], 'crop_method': 'visually_reviewed_exact_roi',
                             'resolution_policy': 'short>=64,long>=128; human review required',
                             'review_hashes': {'image': digest(staging/image_rel), 'crop': digest(staging/crop_rel)}})
         write_json(staging/'dataset.json', {'schema_version': 1, 'entries': entries, 'failures': [],
                     'input_images': len({r['source_sha256'] for r, _, _ in approved}), 'duplicates': 0,
-                    'review_release': REVIEW_RELEASE})
+                    'review_release': REVIEW_RELEASE, 'purpose': purpose})
         write_json(staging/'source-licenses.json', rows)
         write_json(staging/'pre_screening.json', {e['id']: {'status': 'needs_review',
             'reason': '원본과 상완 크롭·피부 노출을 확인했습니다. 작은 영역·자세·조명에 따라 윤곽이 불명확하면 제외하세요. 인물 ID는 사진별 임시값이며 같은 사람이면 같은 ID로 수정하세요.',

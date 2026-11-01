@@ -130,6 +130,8 @@ class AnnotationStore:
 
     def save(self, key, subject_id, label, split, reason=''):
         import re
+        if self.dataset.get('purpose')=='independent_test' and split!='test':
+            raise ValueError('독립 시험 예약 묶음은 test로만 저장할 수 있습니다.')
         if key not in self.entries or not re.fullmatch(r'[A-Za-z0-9_-]{1,64}', subject_id):
             raise ValueError('사진 ID와 인물 ID를 확인하세요. 인물 ID는 영문·숫자·밑줄·하이픈으로 입력하세요.')
         if label not in (*LABELS, 'exclude') or split not in SPLITS or (label == 'exclude' and not reason.strip()):
@@ -161,6 +163,7 @@ class AnnotationStore:
                              'split_hint': hint['split'] if hint else entry.get('split_hint', 'train')})
             valid = [a for key, a in self.annotations.items() if key in self.entries]
             return {'batch_id': self.batch_id, 'dataset_name': self.directory.name,
+                    'purpose': self.dataset.get('purpose','training'),
                     'entries': rows, 'reviewed': len(valid), 'total': len(rows),
                     'label_counts': dict(Counter(a['label'] for a in valid)),
                     'failures': self.dataset.get('failures', [])}
