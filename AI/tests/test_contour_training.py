@@ -134,11 +134,14 @@ class TrainingTests(unittest.TestCase):
         with TestClient(create_app(self.root, 8002), base_url='http://127.0.0.1:8002') as client:
             self.assertEqual(client.get('/').status_code, 200)
             self.assertEqual(client.get('/api/entries').json()['reviewed'], 0)
-            body = {'subject_id': 'person01', 'label': 'weak', 'split': 'train'}
+            body = {'batch_id': client.get('/api/entries').json()['batch_id'], 'subject_id': 'person01', 'label': 'weak', 'split': 'train'}
             r = client.post('/api/annotations/weak-0', json=body, headers={'Origin': 'https://outside.example'})
             self.assertEqual(r.status_code, 403)
             r = client.post('/api/annotations/weak-0', json=body)
             self.assertEqual(r.status_code, 200)
+            self.assertEqual(r.json()['reviewed'], 1)
+            stale = {**body, 'batch_id': '0' * 24}
+            self.assertEqual(client.post('/api/annotations/weak-0', json=stale).status_code, 409)
             self.assertEqual(client.get('/api/entries').json()['reviewed'], 1)
             self.assertTrue(AnnotationStore(self.root).annotations['weak-0']['reviewed'])
             self.assertEqual(client.get('/asset/features/weak-0').status_code, 404)
@@ -174,11 +177,11 @@ class TrainingTests(unittest.TestCase):
         with patch('integration.DinoFeatureExtractor', return_value=dino), \
              patch('integration.analyze_image', return_value=(None, str(image), output)):
             with patch.dict(os.environ, {'AI_CONTOUR_MODEL': str(self.root / 'model.json')}):
-                result = AnalysisEngine('unused').analyze(image, self.root)
+                result = AnalysisEngine('unused', pose_guard=False).analyze(image, self.root)
                 self.assertEqual(result['dinov3']['parts'][0]['classification'], 'review_required')
                 self.assertNotIn('contour', result['dinov3']['parts'][0])
             with patch.dict(os.environ, {}, clear=True):
-                result = AnalysisEngine('unused').analyze(image, self.root)
+                result = AnalysisEngine('unused', pose_guard=False).analyze(image, self.root)
                 self.assertEqual(result['dinov3']['parts'][0]['classification'], 'not_trained')
                 self.assertNotIn('contour', result['dinov3']['parts'][0])
 

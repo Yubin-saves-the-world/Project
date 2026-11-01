@@ -1,5 +1,8 @@
 """Check imports and gated model access before launching the server."""
 import argparse
+import hashlib
+import tempfile
+import urllib.request
 import importlib
 import json
 import os
@@ -33,6 +36,29 @@ def model_directory():
     return Path(downloaded[0]).parent
 
 
+def pose_asset():
+    sys.path.insert(0, str(ROOT))
+    from analyzers.pose_guard import DEFAULT_MODEL, MODEL_URL, MODEL_SHA256, validate_asset
+    target = Path(os.environ.get('AI_POSE_MODEL_PATH', str(DEFAULT_MODEL))).expanduser().resolve()
+    if target.exists():
+        return validate_asset(target)
+    if os.environ.get('AI_POSE_MODEL_PATH'):
+        raise ValueError('AI_POSE_MODEL_PATH의 모델 파일이 없습니다.')
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with urllib.request.urlopen(MODEL_URL, timeout=60) as response:
+        data = response.read(20_000_001)
+    if len(data) > 20_000_000 or hashlib.sha256(data).hexdigest() != MODEL_SHA256:
+        raise ValueError('공식 포즈 검사 모델 검증에 실패했습니다.')
+    with tempfile.NamedTemporaryFile(dir=target.parent, delete=False) as stream:
+        temporary = Path(stream.name)
+        stream.write(data)
+    try:
+        temporary.replace(target)
+    finally:
+        temporary.unlink(missing_ok=True)
+    return validate_asset(target)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--model', action='store_true')
@@ -47,6 +73,8 @@ def main():
         raise ValueError('이 코드는 MediaPipe 0.10.21의 solutions API가 필요합니다. 고정된 requirements로 재설치하세요.')
     print('라이브러리 확인 완료.', flush=True)
     if args.model:
+        pose_asset()
+        print('공식 다중 포즈 검사 모델 확인 완료.', flush=True)
         directory = model_directory()
         runtime = ROOT / '.runtime'
         runtime.mkdir(exist_ok=True)

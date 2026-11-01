@@ -8,12 +8,18 @@ def measurement_report(measures, parts):
         ('pelvis_tilt_deg', '골반 연결선', '°', '좌우 골반 추정점을 연결한 선과 사진 수평선의 차이', '골반뼈 자체의 변형이나 실제 높이 차이를 판정한 값은 아닙니다.'),
         ('shoulder_hip_ratio', '어깨·골반 너비 비율', '배', '어깨 관절 사이 거리를 골반 관절 사이 거리로 나눈 값', '신체 외곽 너비나 근육량을 측정한 값은 아닙니다.'),
         ('torso_leg_ratio', '상체·다리 길이 비율', '배', '어깨 중심부터 골반 중심까지 거리를 골반 중심부터 발목 중심까지 거리로 나눈 값', '사진의 원근과 카메라 높이에 영향을 받으며 실제 신체 치수가 아닙니다.'),
-        ('neck_forward_deg', '목 전방 각도', '°', '현재 분석 경로에서 지원하지 않는 측면 측정', '측면 분석 기능이 추가되어야 측정할 수 있습니다.'),
+        ('neck_forward_deg', '측면 귀·어깨 각도', '°', '귀·어깨 연결선과 사진 수직선의 차이', '거북목 또는 골격 상태를 판정하지 않습니다. 측면 사진과 카메라 기울기에 영향을 받습니다.'),
     ]
+    extras = [
+        ('body_axis_tilt_deg', '몸통 중심선 기울기', '°', '어깨 중심과 골반 중심의 연결선과 사진 수직선의 차이', '몸을 돌리거나 카메라가 기울면 달라집니다.'),
+        ('arm_projected_length_difference_pct', '사진상 양팔 길이 차이', '%', '양팔 관절 연결 길이 차이를 평균 길이로 나눈 값', '원근·팔의 굽힘에 영향을 받습니다. 실제 팔 길이 차이가 아닙니다.'),
+        ('leg_projected_length_difference_pct', '사진상 양다리 길이 차이', '%', '양다리 관절 연결 길이 차이를 평균 길이로 나눈 값', '원근·다리의 굽힘에 영향을 받습니다. 실제 다리 길이 차이가 아닙니다.'),
+    ]
+    definitions[-1:-1] = [row for row in extras if row[0] in measures]
     items = []
     for key, title, unit, meaning, limitation in definitions:
         value = measures.get(key)
-        available = key != 'neck_forward_deg' and isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+        available = isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
         display = f'{value:.2f}{unit}' if available else '측정 안 됨'
         description = f'{meaning}: {display}.' if available else f'{title} 값은 이번 결과에 없습니다.'
         items.append({'key': key, 'title': title, 'status': 'measured' if available else 'unavailable',

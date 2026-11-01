@@ -6,6 +6,10 @@ import unittest
 from scripts.prepare_reviewed_arm_photos import ROOT, prepare
 
 class ReviewedArmPreparationTests(unittest.TestCase):
+    def setUp(self):
+        # Fresh GitHub ZIPs intentionally do not contain runtime directories.
+        (ROOT / '.runtime').mkdir(exist_ok=True)
+
     def test_quarantined_inputs_are_rejected(self):
         with self.assertRaisesRegex(ValueError,'격리'):
             prepare(ROOT/'.runtime/quarantine_web_test/manifest.json',ROOT/'.runtime/unused_test_output')

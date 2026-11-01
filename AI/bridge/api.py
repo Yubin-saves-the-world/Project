@@ -178,7 +178,7 @@ class FlutterBridge:
                 self.capacity.release()
             raise
         try:
-            self.executor.submit(self.process, analysis['id'], photo['file'])
+            self.executor.submit(self.process, analysis['id'], photo['file'], side['file'] if side_id is not None else None)
         except Exception:
             self.capacity.release()
             self.fail(analysis['id'], 'AI_FAILED', '분석을 시작하지 못했어요.')
@@ -193,10 +193,11 @@ class FlutterBridge:
             db.execute("UPDATE analyses SET status='failed', error_code=?, error_message=?, completed_at=? WHERE id=? AND status='pending'",
                        (code, message, now(), analysis_id))
 
-    def process(self, analysis_id, filename):
+    def process(self, analysis_id, filename, side_filename=None):
         try:
             with tempfile.TemporaryDirectory(prefix='analysis-', dir=self.root) as directory:
-                result = self.engine().analyze(self.photos / filename, Path(directory))
+                kwargs = {'side_path': self.photos / side_filename} if side_filename else {}
+                result = self.engine().analyze(self.photos / filename, Path(directory), **kwargs)
                 # Preserve actual measurements; never invent a balance score or muscle grade.
                 if result.get('status') != 'done' or not isinstance(result.get('measures'), dict):
                     raise ValueError('Invalid AI result')

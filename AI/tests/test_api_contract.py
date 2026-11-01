@@ -38,6 +38,48 @@ class ApiContractTests(unittest.TestCase):
         self.client = TestClient(api.app, raise_server_exceptions=False)
         self.addCleanup(self.client.close)
 
+    def test_side_photo_is_normalized_and_forwarded_then_deleted(self):
+        def with_side(path, root, *, side_path):
+            self.assertTrue(side_path.is_file())
+            self.assertNotEqual(path, side_path)
+            self.side_path = side_path
+            return {'status': 'done'}
+        with patch.object(self.engine, 'analyze', side_effect=with_side):
+            response = self.client.post('/v1/analyze', files=[('front_images', photo()), ('side_images', photo())])
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(self.side_path.exists())
+        response = self.client.post('/v1/analyze', files=[('front_images', photo())]+[('side_images', photo())]*2)
+        self.assertEqual(response.status_code, 422)
+
+    def test_review_tokens_require_confirmation_and_expire(self):
+        api.review_sessions.clear()
+        self.addCleanup(api.review_sessions.clear)
+        self.engine.contour = SimpleNamespace(predict=lambda values: {'status': 'abstained', 'label': None})
+        token = api.review_sessions.create('left_upper_arm', [1.] * 768)['token']
+        body = {'token': token, 'skin_visible_confirmed': False}
+        self.assertEqual(self.client.post('/v1/contour/review', json=body).status_code, 422)
+        body['skin_visible_confirmed'] = True
+        result = self.client.post('/v1/contour/review', json=body)
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.json()['part'], 'left_upper_arm')
+        self.assertIsNone(result.json()['classification']['label'])
+        api.review_sessions.clear()
+        self.assertEqual(self.client.post('/v1/contour/review', json=body).status_code, 410)
+
+    def test_review_previews_get_server_generated_ticket_only_when_requested(self):
+        self.engine.contour = object()
+        def preview(path, root, *, include_review_previews):
+            self.assertTrue(include_review_previews)
+            return {'dinov3': {'parts': [{'part': 'left_upper_arm', 'status': 'extracted',
+                       'cls': [1.] * 384, 'patch_mean': [1.] * 384}]}}
+        with patch.object(self.engine, 'analyze', side_effect=preview):
+            response = self.client.post('/v1/analyze', files={'front_images': photo()}, data={'include_review_previews': 'true'})
+        self.assertEqual(response.status_code, 200)
+        ticket = response.json()['dinov3']['parts'][0]['review_session']
+        self.assertEqual(ticket['expires_in_seconds'], 300)
+        self.assertEqual(api.review_sessions.get(ticket['token'])['part'], 'left_upper_arm')
+        api.review_sessions.clear()
+
     def test_contour_endpoint_requires_visibility_confirmation(self):
         response = self.client.post('/v1/contour/classify', files={'image': photo()})
         self.assertEqual(response.status_code, 422)

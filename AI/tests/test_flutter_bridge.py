@@ -21,7 +21,8 @@ class FakeEngine:
     failure = False
     calls = 0
 
-    def analyze(self, path, directory):
+    def analyze(self, path, directory, **kwargs):
+        self.last_kwargs = kwargs
         self.calls += 1
         if self.failure:
             raise AnalysisFailure('IMAGE_BLURRY', '사진이 흐려요.')
@@ -78,6 +79,18 @@ class FlutterBridgeTests(unittest.TestCase):
                 return response.json()
             time.sleep(.01)
         self.fail('fake analysis did not finish')
+
+    def test_owned_side_photo_reaches_engine(self):
+        front = self.upload()
+        side = self.client.post('/api/photos', files={'image': image()},
+            data={'type': 'current', 'side': 'side'}, headers=self.auth).json()
+        response = self.client.post('/api/body-analyses/photo', json={
+            'photo_id': front['photo_id'], 'side_photo_id': side['photo_id']}, headers=self.auth)
+        self.assertEqual(response.status_code, 202)
+        result = self.finish(response.json()['analysis_id'])
+        self.assertEqual(result['status'], 'done')
+        self.assertEqual(result['side_photo_id'], side['photo_id'])
+        self.assertTrue(self.engine.last_kwargs['side_path'].is_file())
 
     def test_authentication_is_checked_in_spring_and_not_from_client_user_id(self):
         response = self.client.get('/api/body-analyses/usage')

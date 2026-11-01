@@ -33,6 +33,6 @@ http://127.0.0.1:8003/contour-test 에서 상완 크롭 JPG/PNG를 선택하고 
 
 반환값은 classification.status, label, candidate_label, model_score, probabilities, experimental입니다. 임계값 미만이면 status=abstained, label=null이며 candidate_label은 참고 후보로만 표시합니다. 후보 점수는 정확도나 건강 점수가 아닙니다. 실제 새 크롭 요청에서 medium 후보 0.58229, 보류 상태로 반환하는 것을 확인했습니다. 시험 점수를 높이려고 임계값을 낮추지 않았습니다.
 
-일반 전신 /v1/analyze와 Flutter 연결 경로에서는 의복 가림을 자동 판정할 수 없어 새 모델로 윤곽 등급을 자동 확정하지 않습니다. 새 윤곽 분류는 별도 상완 크롭 테스트에 한정합니다. Flutter의 기울기·비율 측정 연결은 유지하며 FE/BE는 수정하지 않습니다.
+일반 전신 /v1/analyze와 Flutter 연결 경로에서는 의복 가림을 자동 판정할 수 없어 새 모델로 윤곽 등급을 자동 확정하지 않습니다. 새 윤곽 분류는 별도 상완 크롭 테스트 또는 새 AI 웹에서 피부·위치를 사람이 확인한 크롭에 한정합니다. [v2 계약](PHOTO_ANALYSIS_V2.md)을 확인하세요. Flutter의 기울기·비율 측정 연결은 유지하며 FE/BE는 수정하지 않습니다.
 
 현재 구현된 것은 실제 동작하는 초기 실험·평가·API·테스트 화면입니다. 근육량·근력·균형 점수·건강 판단·검증된 실사용 분류 성능의 완성을 뜻하지 않습니다.
