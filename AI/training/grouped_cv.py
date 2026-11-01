@@ -14,6 +14,8 @@ from .train import read_training_data
 
 def train_grouped_cv(directory, validate_only=False):
     directory=Path(directory)
+    provenance = {name: hashlib.sha256((directory/name).read_bytes()).hexdigest()
+                  for name in ('annotations.json','dataset.json')}
     grouped,classes,review=read_training_data(directory,enforce_holdout=False)
     rows=[row for split in ('train','val','test') for row in grouped[split]]
     x=np.stack([row[0] for row in rows]);y=np.array([row[1] for row in rows]);groups=np.array([row[2] for row in rows])
@@ -39,7 +41,12 @@ def train_grouped_cv(directory, validate_only=False):
         model.fit(x[tr],y[tr]);predicted[te]=model.predict(x[te]);confident[te]=model.predict_proba(x[te]).max(axis=1)>=.6
         baseline[te]=Counter(y[tr]).most_common(1)[0][0]
     final=make_pipeline(Normalizer(),LogisticRegression(C=1,class_weight='balanced',max_iter=2000,random_state=42));final.fit(x,y);clf=final.steps[-1][1]
+    if any(hashlib.sha256((directory/name).read_bytes()).hexdigest()!=digest for name,digest in provenance.items()):
+        raise ValueError('교차검증 중 학습 자료가 변경됐습니다. 모델을 저장하지 않습니다.')
     artifact={'schema_version':1,'task':'upper_arm_contour_visibility','feature_schema':SCHEMA,'model_id':MODEL_ID,'model_revision':MODEL_REVISION,'classes':clf.classes_.tolist(),'coefficients':clf.coef_.tolist(),'intercepts':clf.intercept_.tolist(),'abstain_threshold':.6,'experimental':True}
+    artifact.update(validation_status='grouped_cv_only', training_samples=len(y),
+                    annotation_sha256=provenance['annotations.json'],
+                    training_dataset_sha256=provenance['dataset.json'])
     report={'status':'trained_experimental','protocol':'3-fold grouped cross-validation; fixed hyperparameters','independent_test':False,'classes':classes,'samples':len(y),'subjects':len(set(groups)),'label_counts':dict(Counter(y)),
         'out_of_fold_accuracy':float(accuracy_score(y,predicted)),'out_of_fold_macro_f1':float(f1_score(y,predicted,labels=classes,average='macro',zero_division=0)),
         'majority_baseline_accuracy':float(accuracy_score(y,baseline)),'confusion_matrix':confusion_matrix(y,predicted,labels=classes).tolist(),

@@ -1,4 +1,5 @@
 import json
+import hashlib
 from pathlib import Path
 import tempfile
 import unittest
@@ -17,7 +18,11 @@ class GroupedCVTests(unittest.TestCase):
                 self.assertFalse(set(fold['train_subjects']) & set(fold['held_out_subjects']))
             self.assertFalse(report['independent_test'])
             self.assertEqual((p/'annotations.json').read_bytes(),before)
-            ContourClassifier(p/'model.json')
+            classifier=ContourClassifier(p/'model.json')
+            self.assertEqual(classifier.validation_status,'grouped_cv_only')
+            artifact=json.loads((p/'model.json').read_text())
+            self.assertEqual(artifact['annotation_sha256'],hashlib.sha256(before).hexdigest())
+            self.assertEqual(artifact['training_dataset_sha256'],hashlib.sha256((p/'dataset.json').read_bytes()).hexdigest())
 
     def test_validation_does_not_create_model(self):
         with tempfile.TemporaryDirectory() as directory:
