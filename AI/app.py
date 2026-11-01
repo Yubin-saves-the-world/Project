@@ -16,6 +16,10 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 from analyzers.body_pipeline import analyze_body_images
 from integration import AnalysisEngine, AnalysisFailure
 from schemas.analysis_result import BodyAnalysisResponse
+from pydantic import BaseModel, Field
+from review_sessions import ReviewSessions
+
+review_sessions = ReviewSessions()
 
 logger = logging.getLogger(__name__)
 MAX_BYTES = 10 * 1024 * 1024
@@ -29,8 +33,10 @@ async def lifespan(app):
     try:
         yield
     finally:
+        review_sessions.clear()
         if hasattr(app.state, 'flutter_bridge'):
             app.state.flutter_bridge.close()
+        app.state.engine.close()
 
 
 app = FastAPI(title='MOVID AI server', version='1.0.0', lifespan=lifespan)
@@ -49,6 +55,7 @@ def contour_test():
 @app.get('/health')
 def health():
     return {'status': 'ok', 'dinov3_loaded': True, 'device': app.state.engine.dino.device,
+            'pose_guard_loaded': bool(getattr(app.state.engine, 'pose_guard', None)),
             'contour_classifier_loaded': getattr(app.state.engine, 'contour', None) is not None}
 
 
@@ -88,12 +95,26 @@ def analysis_slot():
 
 
 @app.post('/v1/analyze')
-def analyze(front_images: Annotated[list[UploadFile], File()]):
+def analyze(front_images: Annotated[list[UploadFile], File()],
+            side_images: Annotated[list[UploadFile] | None, File()] = None,
+            include_review_previews: Annotated[bool, Form()] = False):
     if len(front_images) != 1:
         raise HTTPException(422, detail={'code': 'VALIDATION_FAILED', 'message': 'DINOv3 API는 정면 사진 1장을 받습니다.'})
+    if side_images is not None and len(side_images) != 1:
+        raise HTTPException(422, detail={'code': 'VALIDATION_FAILED', 'message': '측면 사진은 최대 1장입니다.'})
     with analysis_slot(), tempfile.TemporaryDirectory(prefix='movid-ai-') as directory:
         root = Path(directory)
-        return app.state.engine.analyze(save_image(front_images[0], root), root)
+        kwargs = {}
+        if side_images:
+            kwargs['side_path'] = save_image(side_images[0], root, 1)
+        if include_review_previews:
+            kwargs['include_review_previews'] = True
+        result = app.state.engine.analyze(save_image(front_images[0], root), root, **kwargs)
+        if include_review_previews and getattr(app.state.engine, 'contour', None) is not None:
+            for part in result.get('dinov3', {}).get('parts', []):
+                if part.get('status') == 'extracted':
+                    part['review_session'] = review_sessions.create(part['part'], part['cls'] + part['patch_mean'])
+        return result
 
 
 @app.post('/analyze/body', response_model=BodyAnalysisResponse)
@@ -134,3 +155,24 @@ if os.environ.get('AI_BACKEND_URL'):
     if not bridge_dir.is_relative_to(Path(__file__).resolve().parent / '.runtime'):
         raise ValueError('연동 데이터는 AI/.runtime 안에 저장해야 합니다.')
     install(app, bridge_dir, os.environ['AI_BACKEND_URL'], save_image)
+
+
+class ReviewRequest(BaseModel):
+    token: str = Field(min_length=40, max_length=64)
+    skin_visible_confirmed: bool = False
+
+
+@app.post('/v1/contour/review')
+def review_extracted_arm(body: ReviewRequest):
+    if not body.skin_visible_confirmed:
+        raise HTTPException(422, detail={'code': 'REVIEW_REQUIRED', 'message': '상완 피부와 크롭 위치를 먼저 확인하세요.'})
+    engine = app.state.engine
+    if getattr(engine, 'contour', None) is None:
+        raise HTTPException(503, detail={'code': 'MODEL_NOT_CONFIGURED', 'message': '실험 분류 모델이 설정되지 않았습니다.'})
+    try:
+        session = review_sessions.get(body.token)
+    except KeyError:
+        raise HTTPException(410, detail={'code': 'REVIEW_EXPIRED', 'message': '검수 시간이 지났습니다. 사진을 다시 분석하세요.'})
+    with analysis_slot():
+        return {'status': 'done', 'part': session['part'], 'scope': 'reviewed_upper_arm_crop',
+                'classification': engine.contour.predict(session['features'])}
