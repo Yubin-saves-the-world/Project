@@ -136,7 +136,10 @@ def main():
         env['JAVA_HOME'] = str(brew_java)
     subprocess.run(['bash', str(ROOT / 'run.sh'), '--install-only'], env=env, check=True)
     python = ROOT / '.venv/bin/python'
-    subprocess.run([str(python), str(ROOT / 'scripts/check_environment.py'), '--model'], cwd=ROOT, env=env, check=True)
+    check = [str(python), str(ROOT / 'scripts/check_environment.py'), '--model']
+    if classifier:
+        check += ['--contour-model', str(classifier)]
+    subprocess.run(check, cwd=ROOT, env=env, check=True)
     model = json.loads((ROOT / '.runtime/model.json').read_text())['path']
     env['DINO_MODEL_PATH'] = model
     subprocess.run(['bash', str(RUNTIME / 'BE/gradlew'), '--project-dir', str(RUNTIME / 'BE'),
