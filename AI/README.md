@@ -12,6 +12,8 @@
 
 ## 검수한 상완 크롭의 실험용 윤곽 분류
 
+라벨 통합·평가 조건 검사·미검증 실험 학습과 Flutter 실제 HTTP 연결 검사는 [재학습 및 연결 확인 안내](docs/RETRAIN_AND_VERIFY.md)를 참고하세요. `fit-only`는 전체 입력으로 학습하며 평가 점수를 만들지 않습니다. 모델 상태와 해시는 `/health`에서 확인할 수 있습니다.
+
 `POST /v1/contour/classify`와 `/contour-test` 화면을 추가했습니다. 피부가 보이는 상완 크롭을 사람이 확인한 경우에만 실험 모델의 참고 후보·모델 점수·보류 상태를 반환합니다. 근육량이나 체형 점수가 아닙니다. 학습 모델을 명시적으로 설정해야 하며 사진·학습 결과는 Git에 포함하지 않습니다. [초기 실험과 실행 방법](docs/CURRENT_EXPERIMENT.md)을 확인하세요.
 
 ## GitHub ZIP에서 Flutter 앱 실행하기 (macOS)
