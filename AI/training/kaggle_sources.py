@@ -97,7 +97,7 @@ def download_archive(url, target):
             if archive.testzip() is not None:
                 raise ValueError('Archive CRC validation failed')
         temporary.replace(target)
-        return {'bytes': size, 'sha256': digest.hexdigest()}, inventory
+        return {'bytes': size, 'sha256': digest.hexdigest(), 'crc_validated': True}, inventory
     except Exception:
         temporary.unlink(missing_ok=True)
         raise
