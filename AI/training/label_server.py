@@ -15,6 +15,7 @@ class Annotation(BaseModel):
     subject_id: str = Field(min_length=1, max_length=64)
     label: str
     split: str
+    batch_id: str | None = Field(default=None, min_length=24, max_length=24)
     reason: str = Field(default='', max_length=200)
 
 
@@ -51,7 +52,7 @@ def create_app(directory, port=8002):
         for entry in result['entries']:
             entry['pre_screening'] = screening.get(entry['id'])
         result['screening_is_ground_truth'] = False
-        return result
+        return JSONResponse(result, headers={'Cache-Control': 'no-store'})
 
     @app.get('/asset/{kind}/{key}')
     def asset(kind: str, key: str):
@@ -65,10 +66,14 @@ def create_app(directory, port=8002):
 
     @app.post('/api/annotations/{key}')
     def save(key: str, value: Annotation):
+        if value.batch_id != store.batch_id:
+            raise HTTPException(409, detail='데이터 묶음이 바뀌었습니다. 새로고침 후 현재 묶음에 저장하세요.')
         try:
             annotation = store.save(key, value.subject_id, value.label, value.split, value.reason)
         except ValueError as exc:
             raise HTTPException(422, detail=str(exc)) from exc
-        return {'saved': True, 'annotation': annotation}
+        return {'saved': True, 'batch_id': store.batch_id, 'dataset_name': store.directory.name,
+                'entry_id': key, 'reviewed': store.view()['reviewed'], 'total': len(store.entries),
+                'annotation': annotation}
 
     return app

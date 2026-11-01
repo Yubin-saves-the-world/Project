@@ -43,7 +43,8 @@ def read_training_data(directory, enforce_holdout=True):
             raise ValueError('모델 리비전이나 특징 버전이 다른 데이터가 있습니다.')
         with np.load(store.asset(key, 'features'), allow_pickle=False) as archive:
             vector = np.asarray(archive['vector'], dtype=np.float64)
-        if vector.shape != (DIMENSION,) or not np.isfinite(vector).all() or np.linalg.norm(vector) < 1e-12:
+        if (vector.shape != (DIMENSION,) or not np.isfinite(vector).all()
+                or not np.isfinite(np.linalg.norm(vector)) or np.linalg.norm(vector) < 1e-12):
             raise ValueError('유효하지 않은 특징 벡터입니다.')
         feature_hash = hashlib.sha256(vector.tobytes()).hexdigest()
         if feature_splits.setdefault(feature_hash, split) != split:
