@@ -1,5 +1,6 @@
 """Loopback-only labeling UI; serves only prepared private dataset assets."""
 from pathlib import Path
+import hashlib
 import json
 
 from fastapi import FastAPI, HTTPException, Request
@@ -51,6 +52,16 @@ def create_app(directory, port=8002):
     @app.get('/api/entries')
     def entries():
         result = store.view()
+        identity_path=Path(directory)/'identity-review.json'
+        result['independent_evaluation_blocked']=False
+        if identity_path.exists():
+            try:
+                audit=json.loads(identity_path.read_text())
+                current=hashlib.sha256((Path(directory)/'dataset.json').read_bytes()).hexdigest()
+                result['independent_evaluation_blocked']=(not isinstance(audit,dict)
+                    or audit.get('status')!='confirmed_independent' or audit.get('dataset_sha256')!=current)
+            except (OSError,ValueError):
+                result['independent_evaluation_blocked']=True
         for entry in result['entries']:
             entry['pre_screening'] = screening.get(entry['id'])
         result['screening_is_ground_truth'] = False

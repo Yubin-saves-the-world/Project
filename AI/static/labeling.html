@@ -247,6 +247,8 @@
         q("#purpose-note").textContent = reserved
           ? "독립 시험 예약 묶음입니다. test로만 저장하며 학습에 합치지 않습니다. 실제 인물 독립성은 별도 확인해야 합니다."
           : "학습용 검수 묶음입니다. 시험 자료와 혼동하지 마세요.";
+        if (data.independent_evaluation_blocked)
+          q("#purpose-note").textContent += " 인물 중복 또는 미확인 검수 기록으로 독립 평가가 차단된 상태입니다. 라벨은 보존합니다.";
         const e = data.entries[index];
         q("#form").hidden = !e;
         q("#screen-panel").hidden = !e;
