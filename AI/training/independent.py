@@ -35,6 +35,12 @@ def freeze_reference(directory, model_path, training_directory):
 
 
 def evaluate_independent(model_path, training_directory, test_directory, output, *, identities_confirmed=False):
+    identity_record=Path(test_directory)/'identity-review.json'
+    if identity_record.exists():
+        audit=json.loads(identity_record.read_text())
+        if (not isinstance(audit,dict) or audit.get('status')!='confirmed_independent'
+                or audit.get('dataset_sha256')!=hashlib.sha256((Path(test_directory)/'dataset.json').read_bytes()).hexdigest()):
+            raise ValueError('인물 중복·미확인 또는 자료와 불일치하는 검수 기록이 있어 독립 평가를 차단했습니다.')
     if not identities_confirmed:
         raise ValueError('실제 인물 동일성·학습 자료와의 독립성을 사람이 먼저 확인해야 합니다.')
     output = Path(output)

@@ -10,6 +10,18 @@ from training.independent import evaluate_independent, freeze_reference
 
 
 class IndependentTests(unittest.TestCase):
+    def test_reported_identity_overlap_blocks_even_with_confirmation_flag(self):
+        write_json(self.test/'identity-review.json',{'status':'overlap_reported'})
+        with self.assertRaisesRegex(ValueError,'인물 중복'):
+            self.evaluate(True)
+        self.assertFalse(self.output.exists())
+
+    def test_identity_record_is_bound_to_the_exact_dataset(self):
+        write_json(self.test/'identity-review.json',{'status':'confirmed_independent','dataset_sha256':'wrong'})
+        with self.assertRaisesRegex(ValueError,'검수 기록'):
+            self.evaluate(True)
+        self.assertFalse(self.output.exists())
+
     def test_reserved_evaluation_uses_model_fixed_before_labels(self):
         write_json(self.test/'dataset.json',{'entries':self.entries,'purpose':'independent_test'})
         write_json(self.test/'annotations.json',{})

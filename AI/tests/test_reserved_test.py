@@ -1,15 +1,24 @@
 from pathlib import Path
 import tempfile
+from fastapi.testclient import TestClient
 import unittest
 from unittest.mock import patch
 from test_contour_training import fixture
 from training.dataset import AnnotationStore, write_json
 from training.train import read_training_data
 from training.fit_only import fit_only
+from training.label_server import create_app
 from scripts import merge_reviewed_datasets as merging
 
 
 class ReservedTestTests(unittest.TestCase):
+    def test_label_view_reports_identity_block_without_exposing_person_details(self):
+        write_json(self.source/'identity-review.json',{'status':'overlap_reported','reason':'private details'})
+        with TestClient(create_app(self.source,8010),base_url='http://127.0.0.1:8010') as client:
+            result=client.get('/api/entries')
+            self.assertTrue(result.json()['independent_evaluation_blocked'])
+            self.assertNotIn('private details',result.text)
+
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
         self.root=Path(self.temp.name).resolve();self.source=self.root/'.runtime/reserved'
