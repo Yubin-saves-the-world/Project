@@ -14,8 +14,11 @@ from analyzers.dinov3_features import MODEL_ID, MODEL_REVISION
 from .dataset import AnnotationStore, DIMENSION, LABELS, SCHEMA, SPLITS, write_json
 
 
-def read_training_data(directory, enforce_holdout=True):
+def read_training_data(directory, enforce_holdout=True, *, allow_reserved_test=False):
     store = AnnotationStore(directory)
+    reserved = store.dataset.get('purpose')=='independent_test'
+    if reserved and not allow_reserved_test:
+        raise ValueError('독립 시험 예약 자료는 학습에 사용할 수 없습니다.')
     from .reviewed_crops import validate_release
     validate_release(store)
     grouped = {split: [] for split in SPLITS}
@@ -27,6 +30,8 @@ def read_training_data(directory, enforce_holdout=True):
             pending += 1
             continue
         subject, split, label = annotation.get('subject_id'), annotation.get('split'), annotation.get('label')
+        if reserved and split!='test':
+            raise ValueError('독립 시험 예약 자료의 모든 라벨은 test여야 합니다.')
         if not subject or split not in SPLITS or label not in (*LABELS, 'exclude'):
             raise ValueError('검수 라벨의 필수 값이 잘못됐습니다.')
         if subject_splits.setdefault(subject, split) != split:

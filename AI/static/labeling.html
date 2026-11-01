@@ -112,11 +112,12 @@
       <small>MOVID · LOCAL DATA REVIEW</small>
       <h1>상완 윤곽 라벨링</h1>
       <p>
-        이 화면은 학습용 정답을 사람이 입력하는 도구입니다. 자동으로 근육 등급을
+        이 화면은 사진상 윤곽의 정답을 사람이 입력하는 도구입니다. 자동으로 근육 등급을
         매기지 않습니다.
       </p>
       <section class="card">
         <p id="progress">사진 불러오는 중</p>
+        <p id="purpose-note" role="status"></p>
         <p>
           <b
             >같은 사람은 모든 사진에서 같은 인물 ID와 데이터 구분을
@@ -242,6 +243,10 @@
         render();
       }
       function render() {
+        const reserved = data.purpose === "independent_test";
+        q("#purpose-note").textContent = reserved
+          ? "독립 시험 예약 묶음입니다. test로만 저장하며 학습에 합치지 않습니다. 실제 인물 독립성은 별도 확인해야 합니다."
+          : "학습용 검수 묶음입니다. 시험 자료와 혼동하지 마세요.";
         const e = data.entries[index];
         q("#form").hidden = !e;
         q("#screen-panel").hidden = !e;
@@ -292,6 +297,8 @@
         const a = e.annotation;
         q("#subject").value = a?.subject_id || e.subject_hint || "";
         q("#split").value = a?.split || e.split_hint || "train";
+        if (reserved) q("#split").value = "test";
+        q("#split").disabled = reserved;
         q("#reason").value = a?.reason || "";
         for (const radio of document.querySelectorAll("[name=label]"))
           radio.checked = radio.value === a?.label;
