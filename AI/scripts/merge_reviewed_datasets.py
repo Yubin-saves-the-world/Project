@@ -2,6 +2,7 @@
 import argparse
 import hashlib
 import json
+import re
 from pathlib import Path
 import shutil
 import sys
@@ -12,14 +13,27 @@ from training.dataset import AnnotationStore, write_json
 
 SOURCES = {'local': 'contour_dataset', 'safev2': 'reviewed_arm_batch_v2'}
 
-def merge(destination):
+def merge(destination, source_names=None):
     destination = Path(destination).resolve()
-    if not destination.is_relative_to(ROOT / '.runtime'):
+    if not destination.is_relative_to(ROOT / '.runtime') or any(p.startswith('quarantine_web_') for p in destination.parts):
         raise ValueError('통합 자료는 AI/.runtime 안에만 저장합니다.')
     if destination.exists():
         raise ValueError('기존 통합 데이터셋은 덮어쓰지 않습니다.')
     # Read and validate inputs before creating outputs. Inputs are never written.
-    sources = [(prefix, AnnotationStore(ROOT / '.runtime' / name)) for prefix, name in SOURCES.items()]
+    names = SOURCES if source_names is None else source_names
+    if not names:
+        raise ValueError('통합할 검수 자료가 필요합니다.')
+    sources = []
+    for prefix, name in names.items():
+        if not re.fullmatch(r'[A-Za-z0-9_]{1,20}', prefix):
+            raise ValueError('자료 묶음 이름은 영문·숫자·밑줄 1~20자입니다.')
+        path = (ROOT / '.runtime' / name).resolve()
+        if not path.is_relative_to(ROOT / '.runtime') or any(p.startswith('quarantine_web_') for p in path.parts):
+            raise ValueError('격리되지 않은 AI/.runtime 검수 자료만 통합합니다.')
+        store = AnnotationStore(path)
+        if not store.path.is_file() or not store.entries:
+            raise ValueError('입력 항목의 실제 검수 저장이 필요합니다: ' + prefix)
+        sources.append((prefix, store))
     image_owners = {}
     entries, annotations, mapping, fingerprints = [], {}, {}, {}
     for prefix, store in sources:
@@ -61,8 +75,25 @@ def merge(destination):
             raise RuntimeError('입력 라벨이 작업 중 변경됐습니다. 통합 자료를 다시 검수하세요.')
     return len(entries)
 
-if __name__ == '__main__':
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--output', type=Path, default=ROOT / '.runtime/merged_reviewed_dataset')
+    parser.add_argument('--include', action='append', default=[], metavar='NAME=DIRECTORY',
+                        help='기본 검수 자료에 추가할 실제 라벨 저장 데이터셋. 경로는 AI/.runtime 기준')
     args = parser.parse_args()
-    print('통합 검수 항목:', merge(args.output))
+    names = dict(SOURCES)
+    for value in args.include:
+        if '=' not in value:
+            parser.error('--include는 NAME=DIRECTORY 형식입니다.')
+        prefix, path = value.split('=', 1)
+        if prefix in names:
+            parser.error('중복 자료 묶음 이름입니다.')
+        names[prefix] = path
+    print('통합 검수 항목:', merge(args.output, names))
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except (OSError, ValueError) as exc:
+        raise SystemExit(str(exc))

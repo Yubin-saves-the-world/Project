@@ -181,6 +181,18 @@ def usage_summary(root):
                 parts = PurePosixPath(item['name']).parts
                 if len(parts) >= 3 and parts[-3].isdigit() and 1 <= int(parts[-3]) <= 50:
                     identities.add(parts[-3])
+        image_suffixes = {'.jpg', '.jpeg', '.png'}
+        if key == 'person_segmentation':
+            role_counts = Counter(PurePosixPath(item['name']).parent.name for item in members
+                                  if PurePosixPath(item['name']).suffix.lower() in image_suffixes)
+            originals, masks, collages = (role_counts[name] for name in ('images', 'masks', 'collage'))
+        elif key == 'body_measurements':
+            originals = sum(len(PurePosixPath(item['name']).parts) > 1
+                            and PurePosixPath(item['name']).parts[0].isdigit()
+                            and PurePosixPath(item['name']).suffix.lower() in image_suffixes for item in members)
+            masks = collages = 0
+        else:
+            originals, masks, collages = images, 0, 0
         part = directory/'download.part'
         status = 'downloading' if part.exists() else record.get('status', 'queued')
         usage = {'key': key, 'ref': ref, 'purpose': purpose, 'status': status,
@@ -188,6 +200,7 @@ def usage_summary(root):
                  'archive_bytes': record.get('archive', {}).get('bytes'),
                  'in_progress_bytes': part.stat().st_size if part.exists() else 0,
                  'files': len(members), 'image_files_including_masks': images,
+                 'original_image_files': originals, 'mask_files': masks, 'collage_files': collages,
                  'extensions': dict(extensions),
                  'known_source_identities': len(identities) if identities else None,
                  'identity_kind': 'synthetic_avatar' if key == 'somaset' else 'human' if key == 'body_measurements' else 'not_established',

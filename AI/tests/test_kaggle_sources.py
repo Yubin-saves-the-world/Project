@@ -110,3 +110,21 @@ class KaggleTableTests(unittest.TestCase):
             self.assertEqual(result[0]['columns'], ['Age', 'Weight'])
             self.assertEqual(result[0]['rows'], 2)
             self.assertNotIn('values', result[0])
+
+
+class SegmentationInventoryTests(unittest.TestCase):
+    def test_originals_masks_and_collages_are_counted_separately(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            key = 'person_segmentation'
+            write_json(root/key/'source.json', {'status': 'downloaded_unreviewed', 'archive': {'sha256': 'hash'}})
+            write_json(root/key/'inventory.json', {'members': [{'name': p} for p in (
+                'dataset/images/a.png', 'dataset/masks/a.png', 'dataset/collage/a.jpg')]})
+            row = next(r for r in usage_summary(root)['sources'] if r['key'] == key)
+            self.assertEqual(row['image_files_including_masks'], 3)
+            self.assertEqual(row['original_image_files'], 1)
+            self.assertEqual(row['mask_files'], 1)
+            self.assertEqual(row['collage_files'], 1)
+            queue = make_review_queue(root)
+            self.assertEqual(len(queue), 1)
+            self.assertEqual(queue[0]['subject_hint'], '')
