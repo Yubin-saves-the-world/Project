@@ -6,14 +6,14 @@ from types import SimpleNamespace
 import tempfile
 import time
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from PIL import Image
 
 from app import save_image
-from bridge.api import install
+from bridge.api import install, FlutterBridge
 from integration import AnalysisFailure
 
 
@@ -42,6 +42,35 @@ def image():
 
 
 class FlutterBridgeTests(unittest.TestCase):
+    def test_malformed_user_id_and_nonboolean_consents_are_rejected(self):
+        user = {'user_id': 1, 'onboarding_completed': True,
+                'body_photo_agreed': True, 'ai_processing_agreed': True}
+        cases = [({'user_id': value}, 503) for value in (True, 0, -1, '1')]
+        cases += [({'body_photo_agreed': 'true'}, 403),
+                  ({'ai_processing_agreed': 1}, 403),
+                  ({'onboarding_completed': 'true'}, 403)]
+        for changed, status in cases:
+            response = SimpleNamespace(status_code=200, json=lambda: {**user, **changed})
+            with patch('bridge.api.requests.Session.request', return_value=response):
+                actual = self.client.get('/api/body-analyses/usage', headers=self.auth)
+            self.assertEqual(actual.status_code, status)
+
+    def test_auth_transport_disables_environment_proxy_and_redirects(self):
+        session = MagicMock()
+        session.__enter__.return_value = session
+        with patch('bridge.api.requests.Session', return_value=session):
+            self.service.backend_request('GET', '/api/users/me', 'Bearer test')
+        self.assertFalse(session.trust_env)
+        self.assertFalse(session.request.call_args.kwargs['allow_redirects'])
+        self.assertEqual(session.request.call_args.args[1], 'http://127.0.0.1:8082/api/users/me')
+
+    def test_backend_base_url_cannot_include_credentials_path_or_query(self):
+        for url in ('https://127.0.0.1', 'http://outside.example',
+                    'http://user:password@127.0.0.1', 'http://127.0.0.1/path',
+                    'http://127.0.0.1?url=outside', 'http://127.0.0.1#fragment'):
+            with self.assertRaises(ValueError):
+                FlutterBridge(self.temp.name, url, lambda:self.engine, save_image)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
@@ -53,7 +82,7 @@ class FlutterBridgeTests(unittest.TestCase):
         self.client = TestClient(app)
         self.addCleanup(self.client.close)
         self.auth = {'Authorization': 'Bearer alice'}
-        self.mock = patch('bridge.api.requests.request', side_effect=self.backend)
+        self.mock = patch('bridge.api.requests.Session.request', side_effect=self.backend)
         self.mock.start()
         self.addCleanup(self.mock.stop)
 
@@ -145,7 +174,7 @@ class FlutterBridgeTests(unittest.TestCase):
         self.assertEqual(self.client.post('/api/body-analyses/photo', json={}, headers=self.auth).status_code, 400)
 
     def test_broken_auth_response_is_service_error(self):
-        with patch('bridge.api.requests.request', return_value=SimpleNamespace(status_code=200, json=lambda: [])):
+        with patch('bridge.api.requests.Session.request', return_value=SimpleNamespace(status_code=200, json=lambda: [])):
             response = self.client.get('/api/body-analyses/usage', headers=self.auth)
         self.assertEqual(response.status_code, 503)
         self.assertEqual(response.json()['code'], 'AUTH_SERVER_UNAVAILABLE')
