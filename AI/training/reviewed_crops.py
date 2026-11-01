@@ -100,8 +100,10 @@ def prepare(manifest_path, output):
 
 
 def validate_release(store):
-    if store.dataset.get('review_release') != REVIEW_RELEASE:
+    if 'review_release' not in store.dataset:
         return
+    if store.dataset['review_release'] != REVIEW_RELEASE:
+        raise ValueError('지원하지 않는 원본·크롭 검수 형식입니다.')
     for key, entry in store.entries.items():
         proofs = entry.get('review_hashes', {})
         for kind in ('image', 'crop'):

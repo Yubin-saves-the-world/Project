@@ -81,3 +81,11 @@ class ReviewedCropTests(unittest.TestCase):
         store.asset(entry['id'],'crop').write_bytes(b'tampered')
         with self.assertRaisesRegex(ValueError,'검수'):
             create_app(self.output)
+
+    def test_unknown_review_format_does_not_silently_skip_review_checks(self):
+        self.prepare()
+        path=self.output/'dataset.json'
+        value=json.loads(path.read_text());value['review_release']='unknown_future_format'
+        write_json(path,value)
+        with self.assertRaisesRegex(ValueError,'검수 형식'):
+            create_app(self.output)
