@@ -1,5 +1,6 @@
 """Small frozen-DINOv3 classifier loaded as validated JSON, never as pickle."""
 import json
+import hashlib
 from pathlib import Path
 import numpy as np
 
@@ -14,7 +15,10 @@ class ContourClassifier:
         path = Path(path)
         if path.stat().st_size > 2 * 1024 * 1024:
             raise ValueError('분류기 JSON 파일이 너무 큽니다.')
-        data = json.loads(path.read_text())
+        raw = path.read_bytes()
+        data = json.loads(raw)
+        self.model_sha256 = hashlib.sha256(raw).hexdigest()
+        self.validation_status = data.get('validation_status', 'unspecified_experimental')
         if data.get('withdrawn') is True:
             raise ValueError('철회된 분류기는 사용할 수 없습니다.')
         if (data.get('schema_version') != 1 or data.get('task') != 'upper_arm_contour_visibility'
@@ -53,5 +57,6 @@ class ContourClassifier:
                 'label': self.labels[index] if score >= self.threshold else None,
                 'candidate_label': self.labels[index],
                 'model_score': round(score, 5), 'experimental': True,
+                'validation_status': self.validation_status,
                 'probabilities': {label: round(float(value), 5) for label, value in zip(self.labels, probabilities)},
                 'note': '사진상 윤곽 가시성의 실험적 분류이며 근육량·근력·의학적 등급이 아닙니다. 모델 점수는 정확도를 보장하지 않습니다.'}
