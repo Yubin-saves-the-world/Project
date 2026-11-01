@@ -7,6 +7,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 from .dataset import AnnotationStore
+from .reviewed_crops import validate_release
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -21,6 +22,7 @@ class Annotation(BaseModel):
 
 def create_app(directory, port=8002):
     store = AnnotationStore(directory)
+    validate_release(store)
     app = FastAPI(title='MOVID local contour labeling')
     screening_path = Path(directory) / 'pre_screening.json'
     screening = json.loads(screening_path.read_text()) if screening_path.exists() else {}
