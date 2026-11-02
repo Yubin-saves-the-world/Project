@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'material_icon_paths.dart';
+import 'trash_icon.dart';
 
 /// 홈 SVG의 20px 대비 약 2px 선에 맞춘 아이콘.
 /// 기존 Material 윤곽(24px에서 약 2px)에 0.4px을 더해 10% 비율로 맞춘다.
@@ -17,8 +18,19 @@ class AppIcon extends Icon {
 
   @override
   Widget build(BuildContext context) {
+    final isTrash =
+        icon?.fontFamily == 'MaterialIcons' &&
+        {
+          Icons.delete.codePoint,
+          Icons.delete_outline.codePoint,
+          Icons.delete_rounded.codePoint,
+          Icons.delete_outline_rounded.codePoint,
+          Icons.delete_forever.codePoint,
+          Icons.delete_forever_outlined.codePoint,
+          Icons.delete_forever_rounded.codePoint,
+        }.contains(icon?.codePoint);
     final path = materialIconPaths[icon?.codePoint];
-    if (path == null || icon?.fontFamily != 'MaterialIcons') {
+    if (!isTrash && (path == null || icon?.fontFamily != 'MaterialIcons')) {
       return super.build(context);
     }
     final theme = IconTheme.of(context);
@@ -36,16 +48,21 @@ class AppIcon extends Icon {
           width: dimension,
           height: dimension,
           child: Center(
-            child: SvgPicture.string(
-              '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">'
-              '<path d="$path" fill="black" stroke="black" stroke-width="0.4" '
-              'stroke-linecap="round" stroke-linejoin="round"/></svg>',
-              width: dimension,
-              height: dimension,
-              matchTextDirection: icon!.matchTextDirection,
-              colorFilter: ColorFilter.mode(effectiveColor, BlendMode.srcIn),
-              excludeFromSemantics: true,
-            ),
+            child: isTrash
+                ? TrashIcon(size: dimension, color: effectiveColor)
+                : SvgPicture.string(
+                    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">'
+                    '<path d="$path" fill="black" stroke="black" stroke-width="0.4" '
+                    'stroke-linecap="round" stroke-linejoin="round"/></svg>',
+                    width: dimension,
+                    height: dimension,
+                    matchTextDirection: icon!.matchTextDirection,
+                    colorFilter: ColorFilter.mode(
+                      effectiveColor,
+                      BlendMode.srcIn,
+                    ),
+                    excludeFromSemantics: true,
+                  ),
           ),
         ),
       ),

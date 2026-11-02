@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../theme/app_typography.dart';
+import 'design_reference_page.dart';
 
 class PrimaryButton extends StatelessWidget {
   const PrimaryButton({
@@ -17,22 +17,30 @@ class PrimaryButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => SizedBox(
     width: double.infinity,
-    height: 52,
+    height: 54,
     child: FilledButton(
       onPressed: loading ? null : onPressed,
-      style: color == null
-          ? null
-          : FilledButton.styleFrom(
-              backgroundColor: color,
-              foregroundColor: Colors.white,
-            ),
+      style: FilledButton.styleFrom(
+        backgroundColor: color ?? ReferenceStyle.blue,
+        foregroundColor: Colors.white,
+        minimumSize: const Size(0, 54),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
       child: loading
           ? const SizedBox(
               width: 22,
               height: 22,
               child: CircularProgressIndicator(strokeWidth: 2),
             )
-          : Text(label, style: AppTypography.button),
+          : Text(
+              label,
+              style: ReferenceStyle.text(
+                15,
+                23,
+                weight: FontWeight.w500,
+                color: Colors.white,
+              ),
+            ),
     ),
   );
 }

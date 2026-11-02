@@ -1,3 +1,4 @@
+import 'dart:async';
 import '../../../ui/core/widgets/app_icon.dart';
 import 'package:flutter/material.dart';
 import '../../../core/network/api_client.dart';
@@ -8,15 +9,18 @@ import 'community_controller.dart';
 import 'community_widgets.dart';
 import 'community_editor_page.dart';
 import 'community_safety_pages.dart';
+import 'community_image_gallery.dart';
 
 class CommunityDetailPage extends StatefulWidget {
   const CommunityDetailPage({
     super.key,
     required this.dependencies,
     required this.postId,
+    this.onOpenMyPage,
   });
   final CommunityDependencies dependencies;
   final int postId;
+  final FutureOr<void> Function()? onOpenMyPage;
   @override
   State<CommunityDetailPage> createState() => _CommunityDetailPageState();
 }
@@ -270,7 +274,7 @@ class _CommunityDetailPageState extends State<CommunityDetailPage> {
         !await communityConfirm(
           context,
           '${author.name} 님을 차단할까요?',
-          '이 사용자의 게시글과 댓글이 목록에서 제외돼요. 목록 아래의 차단한 사용자 관리에서 해제할 수 있어요.',
+          '이 사용자의 게시글과 댓글이 목록에서 제외돼요. 마이페이지의 차단한 사용자 관리에서 해제할 수 있어요.',
           action: '차단',
         )) {
       return;
@@ -447,13 +451,17 @@ class _CommunityDetailPageState extends State<CommunityDetailPage> {
           height: 32,
           child: Row(
             children: [
-              CommunityAvatar(
-                c.deleted ? '' : c.author.name,
-                owner: !c.deleted && c.mine
-                    ? widget.dependencies.profileOwner
-                    : null,
-                key: ValueKey('comment-avatar-${c.id}'),
-                size: 26,
+              InkWell(
+                onTap: c.mine && !c.deleted ? widget.onOpenMyPage : null,
+                borderRadius: BorderRadius.circular(24),
+                child: CommunityAvatar(
+                  c.deleted ? '' : c.author.name,
+                  owner: !c.deleted && c.mine
+                      ? widget.dependencies.profileOwner
+                      : null,
+                  key: ValueKey('comment-avatar-${c.id}'),
+                  size: 26,
+                ),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -678,11 +686,15 @@ class _CommunityDetailPageState extends State<CommunityDetailPage> {
                             Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                CommunityAvatar(
-                                  post.author.name,
-                                  owner: post.mine
-                                      ? widget.dependencies.profileOwner
-                                      : null,
+                                InkWell(
+                                  onTap: post.mine ? widget.onOpenMyPage : null,
+                                  borderRadius: BorderRadius.circular(24),
+                                  child: CommunityAvatar(
+                                    post.author.name,
+                                    owner: post.mine
+                                        ? widget.dependencies.profileOwner
+                                        : null,
+                                  ),
                                 ),
                                 const SizedBox(width: 10),
                                 Expanded(
@@ -712,10 +724,12 @@ class _CommunityDetailPageState extends State<CommunityDetailPage> {
                               post.content,
                               style: ReferenceStyle.text(14, 23),
                             ),
-                            for (final image in post.images)
+                            if (post.images.isNotEmpty)
                               Padding(
                                 padding: const EdgeInsets.only(top: 12),
-                                child: CommunityPhoto(image, height: null),
+                                child: CommunityImageGallery(
+                                  images: post.images,
+                                ),
                               ),
                             const SizedBox(height: 8),
                             CommunityReaction(

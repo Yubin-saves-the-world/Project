@@ -3,10 +3,16 @@ import '../../../../ui/core/theme/app_colors.dart';
 import '../../data/profile_repository.dart';
 import '../profile_edit_view_model.dart';
 import 'profile_form_page.dart';
+export 'profile_form_page.dart' show ProfileFormSection;
 
 class ProfileEditPage extends StatefulWidget {
-  const ProfileEditPage({super.key, required this.repository});
+  const ProfileEditPage({
+    super.key,
+    required this.repository,
+    this.initialSection = ProfileFormSection.body,
+  });
   final ProfileRepository repository;
+  final ProfileFormSection initialSection;
   @override
   State<ProfileEditPage> createState() => _ProfileEditPageState();
 }
@@ -54,6 +60,9 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
         child: ProfileFormPage(
           model: model,
           editing: true,
+          initialSection: model.original == null
+              ? ProfileFormSection.body
+              : widget.initialSection,
           onCancel: () => Navigator.pop(context),
           onSaved: () => Navigator.pop(context, model.saved),
         ),

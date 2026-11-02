@@ -55,6 +55,10 @@ void main() {
       'side_photo_id': 12,
       'goal_body_id': 7,
     });
+    await repository.startText('  어깨가 자주 뻐근해요.  ');
+    expect(requests.last.method, 'POST');
+    expect(requests.last.url.path, '/api/body-analyses/text');
+    expect(jsonDecode(requests.last.body), {'text_input': '어깨가 자주 뻐근해요.'});
     await repository.history(page: 2);
     expect(requests.last.url.queryParameters, {'page': '2', 'page_size': '20'});
     expect(await repository.goal(), isNull);

@@ -164,6 +164,11 @@ void main() {
     expect(find.byType(WeeklyRoutineEditor), findsOneWidget);
     await tester.enterText(find.byKey(const Key('routine-title')), '내 루틴');
     await tester.ensureVisible(
+      find.byKey(const ValueKey('routine-category-toggle-가슴')),
+    );
+    await tester.tap(find.byKey(const ValueKey('routine-category-toggle-가슴')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(
       find.byKey(const ValueKey('routine-exercise-13')),
     );
     await tester.tap(find.byKey(const ValueKey('routine-exercise-13')));

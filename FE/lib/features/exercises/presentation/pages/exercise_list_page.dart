@@ -109,14 +109,6 @@ class _ExerciseListPageState extends State<ExerciseListPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    if (widget.localPreview)
-                      const Padding(
-                        padding: EdgeInsets.only(bottom: 16),
-                        child: Text(
-                          '로컬 미리보기 · 팀의 예시 종목 데이터',
-                          style: TextStyle(color: ReferenceStyle.muted),
-                        ),
-                      ),
                     TextField(
                       key: const Key('exercise-search'),
                       controller: _search,

@@ -1,3 +1,4 @@
+import '../../../../ui/core/widgets/action_controls.dart';
 import '../../../../ui/core/widgets/app_icon.dart';
 import 'package:flutter/material.dart';
 import '../../../../ui/core/widgets/design_reference_page.dart';
@@ -92,30 +93,14 @@ class _GoalBodyPageState extends State<GoalBodyPage>
     if (source != null && mounted) await model.pick(source);
   }
 
-  Future<bool> _confirm({required bool delete}) async =>
-      await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          scrollable: true,
-          title: Text(delete ? '목표 체형을 삭제할까요?' : '목표 체형을 변경할까요?'),
-          content: Text(
-            delete
-                ? '처리 중인 목표가 있다면 함께 취소돼요. 지난 분석의 비교 결과는 유지돼요.'
-                : '등록된 목표를 새 내용으로 변경해요. 지난 분석 결과는 유지되며, 새 목표와 비교하려면 분석을 다시 시작해야 해요.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('취소'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: Text(delete ? '삭제' : '변경'),
-            ),
-          ],
-        ),
-      ) ??
-      false;
+  Future<bool> _confirm({required bool delete}) => showAppConfirmation(
+    context,
+    delete ? '목표 체형을 삭제할까요?' : '목표 체형을 변경할까요?',
+    delete
+        ? '처리 중인 목표가 있다면 함께 취소돼요. 지난 분석의 비교 결과는 유지돼요.'
+        : '등록된 목표를 새 내용으로 변경해요. 지난 분석 결과는 유지되며, 새 목표와 비교하려면 분석을 다시 시작해야 해요.',
+    action: delete ? '삭제' : '변경',
+  );
   Future<void> _save() async {
     FocusScope.of(context).unfocus();
     if (model.goal != null && !await _confirm(delete: false)) return;
@@ -145,7 +130,6 @@ class _GoalBodyPageState extends State<GoalBodyPage>
             borderRadius: BorderRadius.circular(12),
             child: Image.memory(
               goal.previewBytes!,
-              height: 220,
               width: double.infinity,
               fit: BoxFit.contain,
               cacheWidth: 1040,
@@ -153,7 +137,6 @@ class _GoalBodyPageState extends State<GoalBodyPage>
             ),
           ),
           const SizedBox(height: 8),
-          const Text('로컬에 등록한 참고 사진이에요. AI 분석 결과가 아니에요.'),
         ],
         if (goal.status == AnalysisStatus.pending) ...[
           const Text('사진에서 특징을 추출하고 있어요. 화면을 나가도 나중에 다시 확인할 수 있어요.'),
@@ -227,32 +210,20 @@ class _GoalBodyPageState extends State<GoalBodyPage>
                       const Text('사진 또는 설명으로 목표를 정할 수 있어요.'),
                       const SizedBox(height: 20),
                     ],
-                    if (widget.dependencies.localPreview) ...[
-                      const Text(
-                        '사진과 설명은 현재 앱 세션에만 저장돼요. 실제 AI 분석은 서버 연결 후 이용할 수 있어요.',
-                        style: TextStyle(color: ReferenceStyle.muted),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
                     if (!model.processing || model.photo != null) ...[
-                      PhotoInputField(
-                        label: model.goal == null ? '목표 사진' : '새 목표 사진',
-                        photo: model.photo,
-                        enabled: model.canEdit,
-                        onSelect: _pick,
-                        onRemove: model.removePhoto,
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        widget.dependencies.localPreview
-                            ? '로컬 사진은 앱을 종료하면 초기화돼요.'
-                            : '목표 사진은 특징 추출 후 원본이 삭제돼요. 저장 후에는 사진 대신 요약과 설명을 보여드려요.',
-                        style: ReferenceStyle.text(
-                          12,
-                          18,
-                          color: ReferenceStyle.muted,
+                      LayoutBuilder(
+                        builder: (context, constraints) => PhotoInputField(
+                          height: constraints.maxWidth,
+                          adaptToPhoto: true,
+                          fit: BoxFit.contain,
+                          label: model.goal == null ? '목표 사진' : '새 목표 사진',
+                          photo: model.photo,
+                          enabled: model.canEdit,
+                          onSelect: _pick,
+                          onRemove: model.removePhoto,
                         ),
                       ),
+                      const SizedBox(height: 12),
                       const SizedBox(height: 20),
                     ],
                     Text(

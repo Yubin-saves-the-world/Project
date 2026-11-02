@@ -60,9 +60,7 @@ class _CommunityReportPageState extends State<CommunityReportPage> {
         _detail.text,
       );
       if (mounted) {
-        _done(
-          widget.dependencies.preview ? '현재 앱에서 신고한 항목으로 표시했어요.' : '신고가 접수됐어요.',
-        );
+        _done('신고 내용을 확인했어요.');
       }
     } catch (e) {
       if (!mounted) return;

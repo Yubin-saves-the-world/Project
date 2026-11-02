@@ -1,3 +1,4 @@
+import '../../../../ui/core/widgets/action_controls.dart';
 import '../../../goal_body/presentation/pages/goal_body_page.dart';
 import 'package:flutter/material.dart';
 import '../../../../ui/core/widgets/design_reference_page.dart';
@@ -89,14 +90,17 @@ class _AnalysisEntryPageState extends State<AnalysisEntryPage> {
               : goal.summary ?? '등록한 목표 체형과 비교할까요?',
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('목표 없이 분석'),
-          ),
           if (goal?.status == AnalysisStatus.done)
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('이 목표 선택'),
+            AppDialogActions(
+              cancelLabel: '목표 없이 분석',
+              actionLabel: '이 목표 선택',
+              onCancel: () => Navigator.pop(context, false),
+              onAction: () => Navigator.pop(context, true),
+            )
+          else
+            AppActionButton(
+              '목표 없이 분석',
+              onPressed: () => Navigator.pop(context, false),
             ),
         ],
       ),
@@ -114,7 +118,7 @@ class _AnalysisEntryPageState extends State<AnalysisEntryPage> {
       listenable: model,
       builder: (context, _) => OnboardingAnalysisPage(
         model: model,
-        supportsText: false,
+        supportsText: true,
         showBack: widget.onBack != null,
         onBack: widget.onBack,
         onCompleted: () {
@@ -155,11 +159,6 @@ class _AnalysisEntryPageState extends State<AnalysisEntryPage> {
         notice: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (widget.dependencies!.localPreview)
-              Text(
-                '로컬 미리보기에서는 실제 체형 분석을 제공하지 않아요. 서버 연결 후 이용해 주세요.',
-                style: ReferenceStyle.text(12, 18, color: ReferenceStyle.muted),
-              ),
             if (model.usage case final usage?)
               Text(
                 '오늘 남은 분석 ${usage.remaining}/${usage.limit}회',

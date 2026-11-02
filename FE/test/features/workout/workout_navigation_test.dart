@@ -66,9 +66,9 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.text('이 종목 시작 · 이어하기'), 200);
+    await tester.scrollUntilVisible(find.text('운동 시작'), 200);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('이 종목 시작 · 이어하기'));
+    await tester.tap(find.text('운동 시작'));
     await tester.pumpAndSettle();
     expect(workout.lastRoutine, 44);
     expect(find.text('목표 3세트 · 12회 · 휴식 90초'), findsOneWidget);
@@ -105,7 +105,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.textContaining('이어하기 ·'));
+    await tester.tap(find.byKey(const ValueKey('home-resume-87')));
     await tester.pumpAndSettle();
     expect(find.byType(WorkoutPage), findsOneWidget);
     expect(workout.starts, 0);

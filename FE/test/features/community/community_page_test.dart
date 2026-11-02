@@ -17,6 +17,7 @@ import 'package:fe/features/community/presentation/community_detail_page.dart';
 import 'package:fe/features/community/presentation/community_widgets.dart';
 import 'package:fe/ui/core/theme/app_theme.dart';
 import '../profile/my_page_test.dart' show capture;
+import 'package:fe/features/community/presentation/community_safety_pages.dart';
 import 'community_repository_test.dart'
     show NoPicker, draft, sample, jsonResponse;
 
@@ -111,7 +112,7 @@ void main() {
       expect(find.byTooltip('커뮤니티 관리'), findsNothing);
       expect(find.text('차단한 사용자 관리'), findsNothing);
       final search = find.byKey(const Key('community-search'));
-      final menu = find.byKey(const Key('community-menu'));
+      final menu = find.byKey(const Key('community-profile'));
       expect(
         tester.getCenter(menu).dy,
         closeTo(tester.getCenter(search).dy, .1),
@@ -216,7 +217,21 @@ void main() {
       picker: NoPicker(),
       preview: true,
     );
-    await app(tester, CommunityPage(dependencies: deps, isActive: true));
+    await app(
+      tester,
+      Builder(
+        builder: (context) => CommunityPage(
+          dependencies: deps,
+          isActive: true,
+          onOpenMyPage: () => Navigator.push(
+            context,
+            MaterialPageRoute<void>(
+              builder: (_) => CommunityBlocksPage(dependencies: deps),
+            ),
+          ),
+        ),
+      ),
+    );
     await tapText(tester, '스쿼트 60kg 넘겼습니다');
     await tester.tap(find.byTooltip('게시글 메뉴'));
     await tester.pumpAndSettle();
@@ -226,10 +241,9 @@ void main() {
     await capture(tester, 'community-block-confirm');
     await tapText(tester, '차단');
     expect(find.text('스쿼트 60kg 넘겼습니다'), findsNothing);
-    await tester.tap(find.byTooltip('커뮤니티 메뉴'));
+    await tester.tap(find.byTooltip('마이페이지'));
     await tester.pumpAndSettle();
-    await capture(tester, 'community-management-menu');
-    await tapText(tester, '차단한 사용자 관리');
+    await capture(tester, 'community-block-management');
     expect(find.text('예준'), findsOneWidget);
     await tapText(tester, '차단 해제');
     await tapText(tester, '차단 해제');
@@ -258,7 +272,7 @@ void main() {
     await tapText(tester, '스팸·광고');
     await capture(tester, 'community-report');
     await tapText(tester, '신고하기');
-    expect(find.text('현재 앱에서 신고한 항목으로 표시했어요.'), findsOneWidget);
+    expect(find.text('신고 내용을 확인했어요.'), findsOneWidget);
   });
   testWidgets('작은 화면·확대 글꼴에서도 확인 버튼 크기와 정렬이 일치한다', (tester) async {
     tester.view.physicalSize = const Size(320, 640);
@@ -313,7 +327,21 @@ void main() {
       picker: NoPicker(),
       preview: true,
     );
-    await app(tester, CommunityPage(dependencies: deps, isActive: true));
+    await app(
+      tester,
+      Builder(
+        builder: (context) => CommunityPage(
+          dependencies: deps,
+          isActive: true,
+          onOpenMyPage: () => Navigator.push(
+            context,
+            MaterialPageRoute<void>(
+              builder: (_) => CommunityBlocksPage(dependencies: deps),
+            ),
+          ),
+        ),
+      ),
+    );
     await tapText(tester, own.title);
     await tester.tap(find.byTooltip('게시글 메뉴'));
     await tester.pumpAndSettle();
@@ -513,7 +541,9 @@ void main() {
     );
     await tester.pumpAndSettle();
     final fullSize = tester.getSize(find.byType(Image).first);
-    expect(fullSize.height / fullSize.width, closeTo(64 / 48, .01));
+    expect(fullSize.height, lessThanOrEqualTo(420));
+    expect(fullSize.width, lessThanOrEqualTo(320));
+    expect(detailImage.fit, BoxFit.contain);
     await tester.ensureVisible(find.byType(Image).first);
     await tester.pumpAndSettle();
     await capture(tester, 'community-image-full');

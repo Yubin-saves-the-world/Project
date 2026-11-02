@@ -1,3 +1,5 @@
+import '../../../../ui/core/theme/app_spacing.dart';
+import '../../../../ui/core/widgets/action_controls.dart';
 import '../../../workout/presentation/pages/workout_page.dart';
 import '../../../workout/presentation/workout_dependencies.dart';
 import 'package:flutter/material.dart';
@@ -43,27 +45,13 @@ class _RoutineDetailPageState extends State<RoutineDetailPage> {
 
   Future<void> _toggle() async {
     final skip = model.canSkip;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        scrollable: true,
-        title: Text(skip ? '추천 루틴을 건너뛸까요?' : '추천 루틴을 되돌릴까요?'),
-        content: Text(
-          skip
-              ? '이 날짜의 추천 루틴을 건너뛰어요. 직접 만든 일정은 유지돼요.'
-              : '이 날짜의 추천 루틴을 다시 예정 상태로 바꿔요. 직접 만든 일정은 유지돼요.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('취소'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(skip ? '건너뛰기' : '되돌리기'),
-          ),
-        ],
-      ),
+    final confirmed = await showAppConfirmation(
+      context,
+      skip ? '추천 루틴을 건너뛸까요?' : '추천 루틴을 되돌릴까요?',
+      skip
+          ? '이 날짜의 추천 루틴을 건너뛰어요. 직접 만든 일정은 유지돼요.'
+          : '이 날짜의 추천 루틴을 다시 예정 상태로 바꿔요. 직접 만든 일정은 유지돼요.',
+      action: skip ? '건너뛰기' : '되돌리기',
     );
     if (confirmed == true && mounted) await model.toggle();
   }
@@ -83,12 +71,16 @@ class _RoutineDetailPageState extends State<RoutineDetailPage> {
                 onRefresh: model.load,
                 child: ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(24),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.page,
+                    vertical: AppSpacing.medium,
+                  ),
                   children: [
                     if (model.loading)
                       const Center(child: CircularProgressIndicator())
                     else if (model.routine case final routine?) ...[
                       AnalysisPanel(
+                        padding: const EdgeInsets.all(16),
                         children: [
                           Text(
                             routineDayLabel(routine.date),
@@ -102,8 +94,8 @@ class _RoutineDetailPageState extends State<RoutineDetailPage> {
                           Text(
                             routine.title,
                             style: ReferenceStyle.text(
-                              24,
-                              32,
+                              20,
+                              28,
                               weight: FontWeight.w500,
                             ),
                           ),
@@ -122,12 +114,17 @@ class _RoutineDetailPageState extends State<RoutineDetailPage> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: AppSpacing.medium),
                       if (routine.items.isEmpty) const Text('등록된 운동 종목이 없어요.'),
                       for (final item in routine.items)
                         Padding(
-                          padding: const EdgeInsets.only(bottom: 16),
+                          padding: EdgeInsets.only(
+                            bottom: item == routine.items.last
+                                ? 0
+                                : AppSpacing.medium,
+                          ),
                           child: AnalysisPanel(
+                            padding: const EdgeInsets.all(16),
                             children: [
                               Text(
                                 '${item.order}. ${item.exercise.name}',
@@ -163,48 +160,76 @@ class _RoutineDetailPageState extends State<RoutineDetailPage> {
                                 ),
                               ],
                               if (widget.workouts != null &&
-                                  !item.done &&
-                                  routine.status == RoutineStatus.planned &&
-                                  routineDate(routine.date) == routineToday())
-                                TextButton(
-                                  onPressed: () async {
-                                    await Navigator.push(
-                                      context,
-                                      MaterialPageRoute<void>(
-                                        builder: (_) => WorkoutPage(
-                                          dependencies: widget.workouts!,
-                                          exerciseId: item.exercise.id,
-                                          routineId: routine.id,
-                                          targetSets: item.sets,
-                                          targetReps: item.reps,
-                                          targetWeight: item.weightKg,
-                                          restSeconds: item.restSeconds,
+                                      !item.done &&
+                                      routine.status == RoutineStatus.planned &&
+                                      routineDate(routine.date) ==
+                                          routineToday() ||
+                                  widget.exercises != null) ...[
+                                const SizedBox(height: 12),
+                                Row(
+                                  children: [
+                                    if (widget.workouts != null &&
+                                        !item.done &&
+                                        routine.status ==
+                                            RoutineStatus.planned &&
+                                        routineDate(routine.date) ==
+                                            routineToday())
+                                      Expanded(
+                                        child: AppActionButton(
+                                          '운동 시작',
+                                          onPressed: () async {
+                                            await Navigator.push(
+                                              context,
+                                              MaterialPageRoute<void>(
+                                                builder: (_) => WorkoutPage(
+                                                  dependencies:
+                                                      widget.workouts!,
+                                                  exerciseId: item.exercise.id,
+                                                  routineId: routine.id,
+                                                  targetSets: item.sets,
+                                                  targetReps: item.reps,
+                                                  targetWeight: item.weightKg,
+                                                  restSeconds: item.restSeconds,
+                                                ),
+                                              ),
+                                            );
+                                            if (mounted) await model.load();
+                                          },
                                         ),
                                       ),
-                                    );
-                                    if (mounted) await model.load();
-                                  },
-                                  child: const Text('이 종목 시작 · 이어하기'),
-                                ),
-                              if (widget.exercises != null)
-                                Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: TextButton(
-                                    onPressed: () => Navigator.push(
-                                      context,
-                                      MaterialPageRoute<void>(
-                                        builder: (_) => ExerciseDetailPage(
-                                          repository: widget.exercises!,
-                                          id: item.exercise.id,
-                                          localPreview: widget.localPreview,
-                                          onAccessRequired:
-                                              widget.onAccessRequired,
+                                    if (widget.workouts != null &&
+                                        !item.done &&
+                                        routine.status ==
+                                            RoutineStatus.planned &&
+                                        routineDate(routine.date) ==
+                                            routineToday() &&
+                                        widget.exercises != null)
+                                      const SizedBox(width: 8),
+                                    if (widget.exercises != null)
+                                      Expanded(
+                                        child: AppActionButton(
+                                          '운동 정보',
+                                          secondary: true,
+                                          onPressed: () => Navigator.push(
+                                            context,
+                                            MaterialPageRoute<void>(
+                                              builder: (_) =>
+                                                  ExerciseDetailPage(
+                                                    repository:
+                                                        widget.exercises!,
+                                                    id: item.exercise.id,
+                                                    localPreview:
+                                                        widget.localPreview,
+                                                    onAccessRequired:
+                                                        widget.onAccessRequired,
+                                                  ),
+                                            ),
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                    child: const Text('운동 정보 보기'),
-                                  ),
+                                  ],
                                 ),
+                              ],
                             ],
                           ),
                         ),
@@ -226,7 +251,10 @@ class _RoutineDetailPageState extends State<RoutineDetailPage> {
                 model.canRestore ||
                 model.busy)
               Padding(
-                padding: const EdgeInsets.fromLTRB(24, 12, 24, 20),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.page,
+                  vertical: AppSpacing.medium,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -247,11 +275,12 @@ class _RoutineDetailPageState extends State<RoutineDetailPage> {
                         child: const Text('신체정보 확인'),
                       ),
                     if (model.canSkip || model.canRestore || model.busy)
-                      ReferenceButton(
+                      AppActionButton(
                         model.routine?.status == RoutineStatus.planned
                             ? '이 루틴 건너뛰기'
                             : '이 루틴 되돌리기',
                         onPressed: _toggle,
+                        secondary: true,
                         busy: model.busy,
                       ),
                   ],

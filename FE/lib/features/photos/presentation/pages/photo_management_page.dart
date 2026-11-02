@@ -1,3 +1,4 @@
+import '../../../../ui/core/widgets/action_controls.dart';
 import '../../../../ui/core/widgets/app_icon.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -86,14 +87,10 @@ class _PhotoManagementPageState extends State<PhotoManagementPage>
           title: Text(title),
           content: Text(body),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('취소'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              style: TextButton.styleFrom(foregroundColor: AppColors.error),
-              child: const Text('삭제'),
+            AppDialogActions(
+              actionLabel: '삭제',
+              onCancel: () => Navigator.pop(context, false),
+              onAction: () => Navigator.pop(context, true),
             ),
           ],
         ),
@@ -263,7 +260,7 @@ class _PhotoManagementPageState extends State<PhotoManagementPage>
                               }
                             },
                       style: TextButton.styleFrom(
-                        foregroundColor: AppColors.error,
+                        foregroundColor: AppColors.primary,
                       ),
                       child: const Text('전체 삭제'),
                     ),

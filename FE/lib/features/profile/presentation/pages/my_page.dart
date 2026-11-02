@@ -1,3 +1,5 @@
+import '../../../../ui/core/theme/app_spacing.dart';
+import '../../../../ui/core/widgets/action_controls.dart';
 import '../../../../ui/core/widgets/app_icon.dart';
 import '../widgets/account_avatar.dart';
 import '../../../../ui/core/widgets/edit_icon.dart';
@@ -33,6 +35,7 @@ class MyPage extends StatefulWidget {
     this.onOpenGoal,
     this.onOpenExercises,
     this.onOpenRoutines,
+    this.onOpenBlocks,
     this.onLogout,
     this.routineRefreshRepository,
     this.accountSettings,
@@ -57,6 +60,7 @@ class MyPage extends StatefulWidget {
   final VoidCallback? onOpenGoal;
   final VoidCallback? onOpenExercises;
   final VoidCallback? onOpenRoutines;
+  final VoidCallback? onOpenBlocks;
   @override
   State<MyPage> createState() => _MyPageState();
 }
@@ -167,37 +171,29 @@ class _MyPageState extends State<MyPage> {
     super.dispose();
   }
 
-  Future<void> _edit() async {
+  Future<void> _edit([
+    ProfileFormSection section = ProfileFormSection.body,
+  ]) async {
     if (model.regenerating) return;
     final result = await Navigator.push<ProfileSaveResult>(
       context,
       MaterialPageRoute(
-        builder: (_) => ProfileEditPage(repository: widget.profileRepository),
+        builder: (_) => ProfileEditPage(
+          repository: widget.profileRepository,
+          initialSection: section,
+        ),
       ),
     );
     if (result == null || !mounted) return;
     model.apply(result);
     widget.onProfileSaved?.call(result.profile);
     if (result.routineRefreshRecommended) {
-      final regenerate = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          scrollable: true,
-          title: const Text('맞춤 루틴을 새로 만들까요?'),
-          content: const Text(
-            '바뀐 신체정보와 가장 최근에 완료한 분석으로 추천 루틴을 다시 만들어요. 직접 만든 일정은 유지돼요.',
-          ),
-          actions: [
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('새로 만들기'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('나중에'),
-            ),
-          ],
-        ),
+      final regenerate = await showAppConfirmation(
+        context,
+        '맞춤 루틴을 새로 만들까요?',
+        '바뀐 신체정보와 가장 최근에 완료한 분석으로 추천 루틴을 다시 만들어요. 직접 만든 일정은 유지돼요.',
+        action: '새로 만들기',
+        cancelLabel: '나중에',
       );
       if (regenerate == true && mounted) {
         final success = await model.regenerate();
@@ -222,10 +218,7 @@ class _MyPageState extends State<MyPage> {
               title: const Text('추천 루틴을 만들지 못했어요'),
               content: Text(model.error!),
               actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('확인'),
-                ),
+                AppActionButton('확인', onPressed: () => Navigator.pop(context)),
               ],
             ),
           );
@@ -239,24 +232,12 @@ class _MyPageState extends State<MyPage> {
   }
 
   Future<void> _logout() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
+    final confirmed = await showAppConfirmation(
+      context,
+      '로그아웃할까요?',
+      '다시 로그인하면 기록은 그대로 남아 있어요.',
+      action: '로그아웃',
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        scrollable: true,
-        title: const Text('로그아웃할까요?'),
-        content: const Text('다시 로그인하면 기록은 그대로 남아 있어요.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('취소'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('로그아웃'),
-          ),
-        ],
-      ),
     );
     if (confirmed == true && mounted) {
       final logout = widget.onLogout;
@@ -326,14 +307,17 @@ class _MyPageState extends State<MyPage> {
       return ManagementPage(
         title: '마이페이지',
         body: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.page,
+            vertical: AppSpacing.medium,
+          ),
           children: [
             _card([
               InkWell(
                 key: const Key('profile-identity'),
                 onTap: _identity,
                 child: Padding(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(AppSpacing.medium),
                   child: Row(
                     children: [
                       ProfilePortrait(size: 52, bytes: _avatar),
@@ -381,7 +365,7 @@ class _MyPageState extends State<MyPage> {
                 _avatarError!,
                 style: ReferenceStyle.text(12, 18, color: AppColors.error),
               ),
-            const SizedBox(height: 24),
+            const SizedBox(height: AppSpacing.medium),
             Text(
               '내 신체정보',
               style: ReferenceStyle.text(13, 20, color: AppColors.muted),
@@ -407,15 +391,23 @@ class _MyPageState extends State<MyPage> {
                     : '${_number(p.heightCm)}cm · ${_number(p.weightKg)}kg · ${p.age}세',
                 _edit,
               ),
-              _row('운동 목적', p?.goalType.label ?? '입력하기', _edit),
+              _row(
+                '운동 목적',
+                p?.goalType.label ?? '입력하기',
+                () => _edit(ProfileFormSection.goal),
+              ),
               _row(
                 '주 운동 횟수',
                 p == null ? '입력하기' : '주 ${p.weeklyFrequency}회',
-                _edit,
+                () => _edit(ProfileFormSection.frequency),
               ),
-              _row('운동 기간', p?.experienceLevel.label ?? '입력하기', _edit),
+              _row(
+                '운동 기간',
+                p?.experienceLevel.label ?? '입력하기',
+                () => _edit(ProfileFormSection.experience),
+              ),
             ]),
-            const SizedBox(height: 24),
+            const SizedBox(height: AppSpacing.medium),
             Text(
               '계정',
               style: ReferenceStyle.text(13, 20, color: AppColors.muted),
@@ -495,6 +487,13 @@ class _MyPageState extends State<MyPage> {
                   '',
                   widget.onOpenAnalysisHistory!,
                   icon: Icons.analytics_outlined,
+                ),
+              if (widget.onOpenBlocks != null)
+                _row(
+                  '차단한 사용자 관리',
+                  '',
+                  widget.onOpenBlocks!,
+                  icon: Icons.person_off_outlined,
                 ),
               _row(
                 '사진 데이터 관리',

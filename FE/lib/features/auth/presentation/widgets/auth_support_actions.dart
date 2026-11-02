@@ -1,3 +1,4 @@
+import '../../../../ui/core/widgets/action_controls.dart';
 import 'package:flutter/material.dart';
 import '../../../../ui/core/widgets/design_reference_page.dart';
 
@@ -7,13 +8,9 @@ void showAuthComingSoon(BuildContext context, String name) {
     context: context,
     builder: (context) => AlertDialog(
       scrollable: true,
-      title: Text('$name 준비 중'),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('확인'),
-        ),
-      ],
+      title: Text(name),
+      content: const Text('로그인을 완료하지 못했어요. 잠시 후 다시 시도해 주세요.'),
+      actions: [AppActionButton('확인', onPressed: () => Navigator.pop(context))],
     ),
   );
 }

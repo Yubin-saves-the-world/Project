@@ -1,3 +1,5 @@
+import '../../../../ui/core/theme/app_spacing.dart';
+import '../../../../ui/core/widgets/action_controls.dart';
 import '../../../workout/presentation/pages/workout_page.dart';
 import '../../../exercises/presentation/pages/exercise_list_page.dart';
 import 'package:flutter/material.dart';
@@ -13,22 +15,54 @@ class ServerRecommendationCard extends StatelessWidget {
     super.key,
     required this.model,
     required this.onEdit,
-    required this.onChoose,
     required this.onAnalysis,
   });
   final HomeServerViewModel model;
-  final VoidCallback onEdit, onChoose;
+  final VoidCallback onEdit;
   final VoidCallback? onAnalysis;
+  Widget _emptyActions(BuildContext context) {
+    final edit = AppActionButton(
+      '직접 일정 만들기',
+      secondary: true,
+      onPressed: model.local.canWrite && !model.busy ? onEdit : null,
+    );
+    if (onAnalysis == null) return edit;
+    final analysis = AppActionButton(
+      model.analysisCount == 0 ? '체형 분석하기' : '분석 결과 보기',
+      onPressed: onAnalysis,
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth >= 280 &&
+            MediaQuery.textScalerOf(context).scale(1) <= 1.1) {
+          return Row(
+            children: [
+              Expanded(child: analysis),
+              const SizedBox(width: 8),
+              Expanded(child: edit),
+            ],
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [analysis, const SizedBox(height: 8), edit],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final routine = model.recommendation;
     if (model.loading || model.dayLoading) {
       return const AnalysisPanel(
+        padding: EdgeInsets.all(16),
         children: [Center(child: CircularProgressIndicator())],
       );
     }
     if (model.error != null || model.dayError != null) {
       return AnalysisPanel(
+        padding: const EdgeInsets.all(16),
         children: [
           Text(model.error ?? model.dayError!),
           TextButton(onPressed: model.refresh, child: const Text('다시 확인')),
@@ -37,6 +71,7 @@ class ServerRecommendationCard extends StatelessWidget {
     }
     if (routine == null) {
       return AnalysisPanel(
+        padding: const EdgeInsets.all(16),
         children: [
           Text(
             '추천 루틴',
@@ -47,25 +82,17 @@ class ServerRecommendationCard extends StatelessWidget {
             model.analysisCount == 0
                 ? '체형을 분석하고 나에게 맞는 루틴을 받아 보세요.'
                 : '선택한 날에 추천 루틴이 없어요.',
+            style: ReferenceStyle.text(13, 20, color: ReferenceStyle.muted),
           ),
-          if (onAnalysis != null)
-            TextButton(
-              onPressed: onAnalysis,
-              child: Text(
-                model.analysisCount == 0 ? '체형 분석하고 루틴 받기' : '분석 결과에서 루틴 만들기',
-              ),
-            ),
-          TextButton(
-            onPressed: model.local.canWrite && !model.busy ? onEdit : null,
-            child: const Text('직접 일정 만들기'),
-          ),
+          const SizedBox(height: 16),
+          _emptyActions(context),
         ],
       );
     }
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(AppSpacing.medium),
       decoration: BoxDecoration(
-        border: Border.all(color: ReferenceStyle.blue),
+        border: Border.all(color: ReferenceStyle.border),
         borderRadius: BorderRadius.circular(18),
       ),
       child: Column(
@@ -84,8 +111,12 @@ class ServerRecommendationCard extends StatelessWidget {
                 ),
               ),
               TextButton(
-                onPressed: model.busy ? null : onEdit,
-                child: const Text('직접 일정 정하기'),
+                onPressed: model.local.canWrite && !model.busy ? onEdit : null,
+                style: TextButton.styleFrom(
+                  minimumSize: const Size(44, 32),
+                  textStyle: ReferenceStyle.text(12, 18),
+                ),
+                child: const Text('일정 수정'),
               ),
             ],
           ),
@@ -162,6 +193,7 @@ class ServerHomeRecordCard extends StatelessWidget {
   final VoidCallback onRecords;
   @override
   Widget build(BuildContext context) => AnalysisPanel(
+    padding: const EdgeInsets.all(16),
     children: [
       Row(
         children: [
@@ -171,11 +203,18 @@ class ServerHomeRecordCard extends StatelessWidget {
               style: ReferenceStyle.text(14, 21, weight: FontWeight.w500),
             ),
           ),
-          TextButton(onPressed: onRecords, child: const Text('보기')),
+          TextButton(
+            style: TextButton.styleFrom(
+              minimumSize: const Size(44, 36),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+            ),
+            onPressed: onRecords,
+            child: const Text('보기'),
+          ),
         ],
       ),
       Text(
-        '${model.selected.month}월 ${model.selected.day}일 · 서버 기록',
+        '${model.selected.month}월 ${model.selected.day}일',
         style: ReferenceStyle.text(12, 18, color: ReferenceStyle.muted),
       ),
       const SizedBox(height: 8),
@@ -193,71 +232,82 @@ class ServerHomeRecordCard extends StatelessWidget {
         ),
       if (model.dependencies.workouts != null &&
           model.dependencies.exercises != null)
-        TextButton(
-          onPressed: () async {
-            await Navigator.push(
-              context,
-              MaterialPageRoute<void>(
-                builder: (_) => ExerciseListPage(
-                  repository: model.dependencies.exercises!,
-                  workouts: model.dependencies.workouts,
-                  onAccessRequired: model.dependencies.onAccessRequired,
+        Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: AppActionButton(
+            '자유 운동 시작',
+            secondary: true,
+            onPressed: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => ExerciseListPage(
+                    repository: model.dependencies.exercises!,
+                    workouts: model.dependencies.workouts,
+                    onAccessRequired: model.dependencies.onAccessRequired,
+                  ),
                 ),
-              ),
-            );
-            if (context.mounted) await model.refresh();
-          },
-          child: const Text('자유 운동 시작'),
+              );
+              if (context.mounted) await model.refresh();
+            },
+          ),
         ),
       if (model.activeLoaded &&
           model.error == null &&
           model.active.isNotEmpty) ...[
         const SizedBox(height: 12),
         for (final active in model.active)
-          TextButton(
-            onPressed: model.dependencies.workouts != null
-                ? () async {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute<void>(
-                        builder: (_) => WorkoutPage(
-                          dependencies: model.dependencies.workouts!,
-                          logId: active.id,
+          Padding(
+            padding: EdgeInsets.only(
+              bottom: active == model.active.last ? 0 : AppSpacing.small,
+            ),
+            child: AppActionRow(
+              active.name,
+              key: ValueKey('home-resume-${active.id}'),
+              icon: Icons.play_circle_outline_rounded,
+              subtitle:
+                  '${model.dependencies.workouts == null ? '진행 중' : '이어하기'} · ${active.sets}세트 · ${active.volume.toStringAsFixed(0)}kg',
+              onPressed: model.dependencies.workouts != null
+                  ? () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (_) => WorkoutPage(
+                            dependencies: model.dependencies.workouts!,
+                            logId: active.id,
+                          ),
                         ),
-                      ),
-                    );
-                    if (context.mounted) await model.refresh();
-                  }
-                : () => showModalBottomSheet<void>(
-                    context: context,
-                    showDragHandle: true,
-                    builder: (context) => SafeArea(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Text(
-                              active.name,
-                              style: ReferenceStyle.text(
-                                20,
-                                28,
-                                weight: FontWeight.w500,
+                      );
+                      if (context.mounted) await model.refresh();
+                    }
+                  : () => showModalBottomSheet<void>(
+                      context: context,
+                      showDragHandle: true,
+                      builder: (context) => SafeArea(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Text(
+                                active.name,
+                                style: ReferenceStyle.text(
+                                  20,
+                                  28,
+                                  weight: FontWeight.w500,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              '${active.sets}세트 완료 · 총 볼륨 ${active.volume.toStringAsFixed(0)}kg',
-                            ),
-                            const Text('진행 중인 운동이에요.'),
-                          ],
+                              const SizedBox(height: 12),
+                              Text(
+                                '${active.sets}세트 완료 · 총 볼륨 ${active.volume.toStringAsFixed(0)}kg',
+                              ),
+                              const Text('진행 중인 운동이에요.'),
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
-            child: Text(
-              '${model.dependencies.workouts == null ? '진행 중' : '이어하기'} · ${active.name}',
             ),
           ),
       ],

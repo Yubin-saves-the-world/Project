@@ -1,3 +1,4 @@
+import '../../../ui/core/widgets/action_controls.dart';
 import '../../../ui/core/theme/app_colors.dart';
 import '../../../ui/core/widgets/app_icon.dart';
 import '../../../ui/core/widgets/edit_icon.dart';
@@ -192,60 +193,12 @@ Future<bool> communityConfirm(
         title: communityText(title, size: 18, medium: true),
         content: communityText(body, color: ReferenceStyle.muted),
         actions: [
-          Row(
-            children: [
-              Expanded(
-                child: TextButton(
-                  key: const Key('community-confirm-cancel'),
-                  style: TextButton.styleFrom(
-                    minimumSize: const Size(0, 48),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 12,
-                    ),
-                    backgroundColor: communityCard,
-                    foregroundColor: ReferenceStyle.ink,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    textStyle: ReferenceStyle.text(
-                      14,
-                      21,
-                      weight: FontWeight.w500,
-                    ),
-                  ),
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text('취소'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: FilledButton(
-                  key: const Key('community-confirm-action'),
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size(0, 48),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 12,
-                    ),
-                    backgroundColor: ['차단', '버리기'].contains(action)
-                        ? AppColors.error
-                        : ReferenceStyle.blue,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    textStyle: ReferenceStyle.text(
-                      14,
-                      21,
-                      weight: FontWeight.w500,
-                    ),
-                  ),
-                  onPressed: () => Navigator.pop(context, true),
-                  child: Text(action),
-                ),
-              ),
-            ],
+          AppDialogActions(
+            actionLabel: action,
+            cancelKey: const Key('community-confirm-cancel'),
+            actionKey: const Key('community-confirm-action'),
+            onCancel: () => Navigator.pop(context, false),
+            onAction: () => Navigator.pop(context, true),
           ),
         ],
       ),
@@ -373,7 +326,7 @@ Future<String?> showCommunityMenu(
                           child: Center(
                             child: option.icon == null
                                 ? const EditIcon(
-                                    size: 16,
+                                    size: 20,
                                     color: ReferenceStyle.muted,
                                   )
                                 : AppIcon(

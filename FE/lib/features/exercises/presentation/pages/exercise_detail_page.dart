@@ -1,3 +1,4 @@
+import '../../../../ui/core/widgets/action_controls.dart';
 import '../../../workout/presentation/pages/workout_page.dart';
 import '../../../workout/presentation/workout_dependencies.dart';
 import 'package:flutter/material.dart';
@@ -103,14 +104,6 @@ class _ExerciseDetailPageState extends State<ExerciseDetailPage> {
           Text(_error!),
           TextButton(onPressed: _load, child: const Text('다시 시도')),
         ] else if (_exercise case final exercise?) ...[
-          if (widget.localPreview)
-            const Padding(
-              padding: EdgeInsets.only(bottom: 16),
-              child: Text(
-                '로컬 미리보기 · 팀의 예시 종목 데이터',
-                style: TextStyle(color: ReferenceStyle.muted),
-              ),
-            ),
           AnalysisPanel(
             children: [
               Text(
@@ -151,7 +144,12 @@ class _ExerciseDetailPageState extends State<ExerciseDetailPage> {
           ),
           const SizedBox(height: 24),
           if (exercise.mediaUri != null)
-            ReferenceButton('시범 영상 보기', onPressed: _open, busy: _opening)
+            AppActionButton(
+              '시범 영상 보기',
+              secondary: widget.workouts != null,
+              onPressed: _open,
+              busy: _opening,
+            )
           else
             Text(
               exercise.mediaUrl == null
