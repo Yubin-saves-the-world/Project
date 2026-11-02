@@ -6,6 +6,7 @@ import com.asdf.board.be.body.entity.Photo;
 import com.asdf.board.be.body.repository.BodyAnalysisRepository;
 import com.asdf.board.be.body.repository.GoalBodyRepository;
 import com.asdf.board.be.body.repository.PhotoRepository;
+import com.asdf.board.be.body.service.AiAnalysisClient;
 import com.asdf.board.be.global.exception.ApiException;
 import com.asdf.board.be.global.exception.ErrorCode;
 import com.asdf.board.be.global.enums.TargetPart;
@@ -13,19 +14,24 @@ import com.asdf.board.be.user.entity.User;
 import com.asdf.board.be.user.repository.UserRepository;
 import com.asdf.board.be.workout.entity.*;
 import com.asdf.board.be.workout.repository.*;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 
+@Slf4j
 @Tag(name = "body", description = "체형 분석")
 @RestController
 @RequestMapping("/api/body-analyses")
@@ -40,6 +46,8 @@ public class BodyAnalysisController {
     private final RoutineRepository routineRepository;
     private final RoutineItemRepository routineItemRepository;
     private final ExerciseRepository exerciseRepository;
+    private final AiAnalysisClient aiClient;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     private Long userId(Jwt jwt) { return Long.valueOf(jwt.getSubject()); }
     private User user(Jwt jwt) {
@@ -113,23 +121,97 @@ public class BodyAnalysisController {
         User u = user(jwt);
         Long photoId = Long.valueOf(body.get("photo_id").toString());
         Photo photo = photoRepository.findById(photoId).orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
+        if (!photo.getUser().getId().equals(userId(jwt))) throw new ApiException(ErrorCode.FORBIDDEN);
+
+        Long sidePhotoId = body.get("side_photo_id") != null ? Long.valueOf(body.get("side_photo_id").toString()) : null;
+        Photo sidePhoto = sidePhotoId != null ? photoRepository.findById(sidePhotoId).orElse(null) : null;
 
         Long goalId = body.get("goal_body_id") != null ? Long.valueOf(body.get("goal_body_id").toString()) : null;
         GoalBody goal = goalId != null ? goalBodyRepository.findById(goalId).orElse(null) : null;
 
-        BodyAnalysis analysis = BodyAnalysis.builder()
-                .user(u)
-                .source(BodyAnalysis.Source.photo)
+        BodyAnalysis.BodyAnalysisBuilder builder = BodyAnalysis.builder()
+                .user(u).source(BodyAnalysis.Source.photo).photo(photo).sidePhoto(sidePhoto).goalBody(goal);
+
+        if (aiClient.isConfigured()) {
+            BodyAnalysis pending = analysisRepository.save(builder.status(BodyAnalysis.Status.pending).build());
+            try {
+                Map<String, Object> ai = aiClient.analyze(photo.getStorageKey(),
+                        sidePhoto != null ? sidePhoto.getStorageKey() : null);
+                applyAiResult(pending, ai);
+            } catch (AiAnalysisClient.AiAnalysisException e) {
+                log.warn("AI analysis failed: {} - {}", e.getCode(), e.getMessage());
+                pending.setStatus(BodyAnalysis.Status.failed);
+                pending.setErrorCode(toEntityErrorCode(e.getCode()));
+                pending.setErrorMessage(e.getMessage());
+            }
+            pending.setCompletedAt(LocalDateTime.now());
+            return Map.of("analysis_id", pending.getId());
+        }
+
+        BodyAnalysis analysis = analysisRepository.save(builder
                 .status(BodyAnalysis.Status.done)
-                .photo(photo)
-                .goalBody(goal)
-                .balanceScore(75)
-                .bodyType("균형형")
+                .balanceScore(75).bodyType("균형형")
                 .textSummary("전반적으로 균형 잡힌 체형입니다.")
-                .completedAt(LocalDateTime.now())
-                .build();
-        analysis = analysisRepository.save(analysis);
+                .completedAt(LocalDateTime.now()).build());
         return Map.of("analysis_id", analysis.getId());
+    }
+
+    @SuppressWarnings("unchecked")
+    private void applyAiResult(BodyAnalysis a, Map<String, Object> ai) {
+        Map<String, Object> measures = (Map<String, Object>) ai.get("measures");
+        if (measures != null) {
+            a.setShoulderTiltDeg(toBd(measures.get("shoulder_tilt_deg")));
+            a.setPelvisTiltDeg(toBd(measures.get("pelvis_tilt_deg")));
+            a.setNeckForwardDeg(toBd(measures.get("neck_forward_deg")));
+            a.setShoulderHipRatio(toBd(measures.get("shoulder_hip_ratio")));
+            a.setTorsoLegRatio(toBd(measures.get("torso_leg_ratio")));
+            try {
+                List<?> unavailable = (List<?>) measures.get("unavailable");
+                if (unavailable != null) a.setUnavailableJson(objectMapper.writeValueAsString(unavailable));
+            } catch (Exception ignored) {}
+        }
+        try {
+            List<?> judgements = (List<?>) ai.get("judgements");
+            if (judgements != null) a.setJudgementsJson(objectMapper.writeValueAsString(judgements));
+        } catch (Exception ignored) {}
+
+        a.setMeasurementVersion((String) ai.get("measurement_version"));
+        a.setTextSummary((String) ai.getOrDefault("text_summary", ai.get("summary")));
+        a.setStatus(BodyAnalysis.Status.done);
+
+        Double shoulderTilt = measures != null ? toDouble(measures.get("shoulder_tilt_deg")) : null;
+        Double pelvisTilt = measures != null ? toDouble(measures.get("pelvis_tilt_deg")) : null;
+        if (shoulderTilt != null && pelvisTilt != null) {
+            int score = (int) Math.max(0, Math.min(100, 100 - shoulderTilt * 5 - pelvisTilt * 5));
+            a.setBalanceScore(score);
+        }
+
+        Double shoulderHip = measures != null ? toDouble(measures.get("shoulder_hip_ratio")) : null;
+        if (shoulderHip != null) {
+            a.setBodyType(shoulderHip >= 1.35 ? "역삼각형" : shoulderHip >= 0.95 ? "균형형" : "직사각형");
+        }
+    }
+
+    private BigDecimal toBd(Object v) {
+        if (v == null) return null;
+        try { return new BigDecimal(v.toString()); } catch (Exception e) { return null; }
+    }
+
+    private Double toDouble(Object v) {
+        if (v == null) return null;
+        try { return Double.parseDouble(v.toString()); } catch (Exception e) { return null; }
+    }
+
+    private BodyAnalysis.ErrorCode toEntityErrorCode(String code) {
+        return switch (code) {
+            case "IMAGE_BLURRY" -> BodyAnalysis.ErrorCode.IMAGE_BLURRY;
+            case "NO_PERSON" -> BodyAnalysis.ErrorCode.NO_PERSON;
+            case "MULTIPLE_PEOPLE" -> BodyAnalysis.ErrorCode.MULTIPLE_PEOPLE;
+            case "NOT_FULL_BODY" -> BodyAnalysis.ErrorCode.NOT_FULL_BODY;
+            case "NOT_FRONTAL" -> BodyAnalysis.ErrorCode.NOT_FRONTAL;
+            case "AI_TIMEOUT" -> BodyAnalysis.ErrorCode.AI_TIMEOUT;
+            default -> BodyAnalysis.ErrorCode.AI_FAILED;
+        };
     }
 
     @PostMapping
@@ -214,11 +296,34 @@ public class BodyAnalysisController {
         return m;
     }
 
+    @SuppressWarnings("unchecked")
     private Map<String, Object> toDetail(BodyAnalysis a) {
         Map<String, Object> m = new LinkedHashMap<>(toSummary(a));
+        m.put("error_code", a.getErrorCode() != null ? a.getErrorCode().name() : null);
+        m.put("error_message", a.getErrorMessage());
+        m.put("measurement_version", a.getMeasurementVersion());
         m.put("text_summary", a.getTextSummary());
-        m.put("comparison_summary", a.getComparisonSummary());
         m.put("completed_at", a.getCompletedAt() != null ? a.getCompletedAt().toString() : null);
+
+        Map<String, Object> measures = new LinkedHashMap<>();
+        measures.put("shoulder_tilt_deg", a.getShoulderTiltDeg());
+        measures.put("pelvis_tilt_deg", a.getPelvisTiltDeg());
+        measures.put("neck_forward_deg", a.getNeckForwardDeg());
+        measures.put("shoulder_hip_ratio", a.getShoulderHipRatio());
+        measures.put("torso_leg_ratio", a.getTorsoLegRatio());
+        List<?> unavailable = List.of();
+        if (a.getUnavailableJson() != null) {
+            try { unavailable = objectMapper.readValue(a.getUnavailableJson(), List.class); } catch (Exception ignored) {}
+        }
+        measures.put("unavailable", unavailable);
+        m.put("measures", measures);
+
+        List<?> judgements = List.of();
+        if (a.getJudgementsJson() != null) {
+            try { judgements = objectMapper.readValue(a.getJudgementsJson(), List.class); } catch (Exception ignored) {}
+        }
+        m.put("judgements", judgements);
+        m.put("goal_comparison", null);
         return m;
     }
 }

@@ -1,7 +1,9 @@
 package com.asdf.board.be.body.controller;
 
 import com.asdf.board.be.body.entity.GoalBody;
+import com.asdf.board.be.body.entity.Photo;
 import com.asdf.board.be.body.repository.GoalBodyRepository;
+import com.asdf.board.be.body.repository.PhotoRepository;
 import com.asdf.board.be.global.exception.ApiException;
 import com.asdf.board.be.global.exception.ErrorCode;
 import com.asdf.board.be.user.entity.User;
@@ -14,6 +16,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -26,6 +29,7 @@ public class GoalBodyController {
 
     private final GoalBodyRepository goalBodyRepository;
     private final UserRepository userRepository;
+    private final PhotoRepository photoRepository;
 
     @GetMapping
     public Map<String, Object> get(@AuthenticationPrincipal Jwt jwt) {
@@ -39,14 +43,26 @@ public class GoalBodyController {
     @ResponseStatus(HttpStatus.CREATED)
     public Map<String, Object> create(@RequestBody Map<String, Object> body, @AuthenticationPrincipal Jwt jwt) {
         Long userId = Long.valueOf(jwt.getSubject());
-        User user = userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.UNAUTHORIZED));
         String description = (String) body.get("description");
-        GoalBody goal = GoalBody.builder()
-                .user(user)
-                .status(GoalBody.Status.done)
-                .description(description)
-                .summary("목표 체형: " + (description != null ? description : ""))
-                .build();
+        Photo sourcePhoto = resolvePhoto(body, userId);
+        String summary = buildSummary(description);
+
+        GoalBody goal = goalBodyRepository.findTopByUserIdOrderByCreatedAtDesc(userId).orElse(null);
+        if (goal != null) {
+            if (description != null) goal.setDescription(description);
+            if (sourcePhoto != null) goal.setSourcePhoto(sourcePhoto);
+            goal.setSummary(summary);
+            goal.setStatus(GoalBody.Status.done);
+        } else {
+            User user = userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.UNAUTHORIZED));
+            goal = GoalBody.builder()
+                    .user(user)
+                    .status(GoalBody.Status.done)
+                    .description(description)
+                    .summary(summary)
+                    .sourcePhoto(sourcePhoto)
+                    .build();
+        }
         return toMap(goalBodyRepository.save(goal));
     }
 
@@ -56,8 +72,26 @@ public class GoalBodyController {
         GoalBody goal = goalBodyRepository.findById(id).orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
         if (!goal.getUser().getId().equals(userId)) throw new ApiException(ErrorCode.FORBIDDEN);
         if (body.containsKey("description")) goal.setDescription((String) body.get("description"));
+        Photo sourcePhoto = resolvePhoto(body, userId);
+        if (sourcePhoto != null) goal.setSourcePhoto(sourcePhoto);
+        goal.setSummary(buildSummary(goal.getDescription()));
         return toMap(goalBodyRepository.save(goal));
     }
+
+    private Photo resolvePhoto(Map<String, Object> body, Long userId) {
+        Object raw = body.get("photo_id");
+        if (raw == null) return null;
+        long photoId = raw instanceof Number ? ((Number) raw).longValue() : Long.parseLong(raw.toString());
+        Photo photo = photoRepository.findById(photoId).orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
+        if (!photo.getUser().getId().equals(userId)) throw new ApiException(ErrorCode.FORBIDDEN);
+        return photo;
+    }
+
+    private String buildSummary(String description) {
+        return "목표 체형: " + (description != null ? description : "");
+    }
+
+    private static final DateTimeFormatter ISO = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
 
     private Map<String, Object> toMap(GoalBody g) {
         Map<String, Object> m = new LinkedHashMap<>();
@@ -65,6 +99,8 @@ public class GoalBodyController {
         m.put("status", g.getStatus().name());
         m.put("description", g.getDescription());
         m.put("summary", g.getSummary());
+        m.put("error_message", g.getErrorMessage());
+        m.put("created_at", g.getCreatedAt() != null ? g.getCreatedAt().format(ISO) : null);
         return m;
     }
 }

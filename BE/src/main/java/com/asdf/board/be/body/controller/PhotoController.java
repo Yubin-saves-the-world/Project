@@ -40,7 +40,7 @@ public class PhotoController {
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
     public Map<String, Object> upload(
-            @RequestPart("file") MultipartFile file,
+            @RequestPart("image") MultipartFile file,
             @RequestPart(value = "type", required = false) String type,
             @RequestPart(value = "side", required = false) String side,
             @AuthenticationPrincipal Jwt jwt
@@ -94,6 +94,7 @@ public class PhotoController {
         m.put("type", p.getType().name());
         m.put("side", p.getSide().name());
         m.put("url", baseUrl + "/uploads/" + p.getStorageKey());
+        m.put("url_expires_at", "2099-12-31T23:59:59");
         m.put("created_at", p.getCreatedAt().toString());
         return m;
     }
