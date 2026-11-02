@@ -1,3 +1,8 @@
+import 'package:fe/features/workout/presentation/workout_dependencies.dart';
+import 'package:fe/features/home/data/models/server_home_data.dart';
+import 'package:fe/ui/core/widgets/action_controls.dart';
+import '../../fakes/fake_workout_repository.dart';
+import '../../fakes/fake_exercise_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -25,6 +30,71 @@ void main() {
       'MaterialIcons',
     )..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'))).load();
   });
+  for (final scale in [1.0, 1.3]) {
+    testWidgets('추천 없음·두 진행 운동의 동작과 작은 화면 배치 $scale', (tester) async {
+      tester.view.physicalSize = scale == 1
+          ? const Size(393, 852)
+          : const Size(320, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final routines = FakeHomeRoutines()..data.clear();
+      final api = FakeHomeServer(routines)..analyses = 0;
+      api.running = [
+        for (var i = 0; i < 2; i++)
+          ServerWorkoutRecord(
+            id: 91 + i,
+            exerciseId: 20 + i,
+            name: i == 0 ? '레그 레이즈' : '고블릿 스쿼트',
+            date: DateTime(2026, 10, 26),
+            status: 'in_progress',
+            sets: 0,
+            volume: 0,
+            startedAt: DateTime.utc(2026, 10, 26, 4),
+          ),
+      ];
+      var analysisOpened = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: TextScaler.linear(scale)),
+            child: child!,
+          ),
+          home: HomePage(
+            today: DateTime(2026, 10, 26),
+            repository: FakeHomeRepository(emptySchedule: true),
+            onOpenAnalysis: () => analysisOpened++,
+            server: HomeServerDependencies(
+              repository: api,
+              routines: routines,
+              choices: FakeChoiceStore(),
+              exercises: FakeExerciseRepository(),
+              workouts: WorkoutDependencies(
+                repository: FakeWorkoutRepository(),
+                drafts: MemoryWorkoutDraftStore(),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('체형 분석하기'));
+      await tester.tap(find.text('체형 분석하기'));
+      expect(analysisOpened, 1);
+      expect(find.widgetWithText(AppActionButton, '직접 일정 만들기'), findsOneWidget);
+      for (final id in [91, 92]) {
+        final row = find.byKey(ValueKey('home-resume-$id'));
+        await tester.ensureVisible(row);
+        expect(row, findsOneWidget);
+        expect(tester.getSize(row).height, greaterThanOrEqualTo(48));
+      }
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
   for (final scale in [1.0, 1.3]) {
     testWidgets('내 운동 기본 유지·추천 교체 확인·서버 기록 달력과 $scale배 글꼴', (tester) async {
       tester.view.physicalSize = scale == 1
@@ -70,16 +140,31 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('내 운동 · 1종목'), findsOneWidget);
-      await tester.ensureVisible(find.text('추천 루틴으로 교체'));
+      expect(find.text('추천 루틴으로 교체'), findsNothing);
+      await tester.ensureVisible(find.text('일정 수정'));
+      await tester.tap(find.text('일정 수정'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('추천 루틴으로 교체'));
+      await tester.enterText(
+        find.byKey(const Key('routine-title')),
+        '작성 중인 일정',
+      );
+      await tester.tap(find.text('추천 루틴'));
+      await tester.pumpAndSettle();
+      expect(find.text('상체 균형'), findsOneWidget);
+      expect(choices.choices, isEmpty);
+      await tester.tap(find.byKey(const Key('routine-save')));
       await tester.pumpAndSettle();
       await tester.tap(find.text('내 운동 유지'));
       await tester.pumpAndSettle();
       expect(choices.choices, isEmpty);
-      await tester.tap(find.text('추천 루틴으로 교체'));
+      await tester.tap(find.text('직접 만든 일정'));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(FilledButton, '추천 루틴으로 교체'));
+      expect(find.text('작성 중인 일정'), findsOneWidget);
+      await tester.tap(find.text('추천 루틴'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('routine-save')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '적용'));
       await tester.pumpAndSettle();
       expect(choices.choices, {'2026-10-26': 44});
       expect(find.text('상체 균형'), findsOneWidget);
@@ -98,7 +183,13 @@ void main() {
       await tester.tap(find.text('보기'));
       await tester.pumpAndSettle();
       expect(find.byType(ServerRecordsDay), findsOneWidget);
-      expect(find.text('서버에 저장된 기록'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(ServerRecordsDay),
+          matching: find.text('운동 기록'),
+        ),
+        findsOneWidget,
+      );
       expect(find.text('바벨 스쿼트'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
@@ -154,7 +245,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('체형 분석하고 루틴 받기'));
+    await tester.tap(find.text('체형 분석하기'));
     expect(analyses, 1);
     await tester.pumpWidget(const SizedBox());
     api.error = StateError('네트워크 오류');

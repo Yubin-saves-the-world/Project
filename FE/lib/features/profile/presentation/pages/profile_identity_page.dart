@@ -1,3 +1,4 @@
+import '../../../../ui/core/widgets/action_controls.dart';
 import '../../../../ui/core/widgets/app_icon.dart';
 import '../widgets/account_avatar.dart';
 import 'package:flutter/foundation.dart';
@@ -56,13 +57,11 @@ class _ProfileIdentityPageState extends State<ProfileIdentityPage> {
           title: const Text('수정을 그만할까요?'),
           content: const Text('저장하지 않은 변경은 사라져요.'),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(c, false),
-              child: const Text('계속 수정'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(c, true),
-              child: const Text('나가기'),
+            AppDialogActions(
+              cancelLabel: '계속 수정',
+              actionLabel: '나가기',
+              onCancel: () => Navigator.pop(c, false),
+              onAction: () => Navigator.pop(c, true),
             ),
           ],
         ),
@@ -239,16 +238,10 @@ class _ProfileIdentityPageState extends State<ProfileIdentityPage> {
             ),
           ),
           Text(
-            widget.localNickname
-                ? '현재 기기에 등록된 계정의 닉네임과 중복을 확인해요.'
-                : '다른 회원이 사용 중인 닉네임은 저장할 수 없어요.',
+            '다른 회원이 사용 중인 닉네임은 저장할 수 없어요.',
             style: ReferenceStyle.text(12, 18, color: ReferenceStyle.muted),
           ),
           const SizedBox(height: 8),
-          Text(
-            '프로필 사진은 이 기기에 저장돼요.',
-            style: ReferenceStyle.text(12, 18, color: ReferenceStyle.muted),
-          ),
           if (_error != null)
             Padding(
               padding: const EdgeInsets.only(top: 12),

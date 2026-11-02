@@ -1,3 +1,5 @@
+import '../../../../ui/core/theme/app_spacing.dart';
+import '../../../../ui/core/widgets/action_controls.dart';
 import 'package:flutter/material.dart';
 import '../../../../ui/core/widgets/design_reference_page.dart';
 import '../../../../ui/core/widgets/management_page.dart';
@@ -49,26 +51,8 @@ class _WorkoutRecordPageState extends State<WorkoutRecordPage>
     super.dispose();
   }
 
-  Future<bool> confirm(String title, String text) async =>
-      await showDialog<bool>(
-        context: context,
-        builder: (c) => AlertDialog(
-          scrollable: true,
-          title: Text(title),
-          content: Text(text),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(c, false),
-              child: const Text('취소'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(c, true),
-              child: const Text('삭제'),
-            ),
-          ],
-        ),
-      ) ??
-      false;
+  Future<bool> confirm(String title, String text) =>
+      showAppConfirmation(context, title, text, action: '삭제');
   Future<void> edit(WorkoutSet set) async {
     final body = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
@@ -94,7 +78,10 @@ class _WorkoutRecordPageState extends State<WorkoutRecordPage>
                 onRefresh: model.load,
                 child: ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(24),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.page,
+                    vertical: AppSpacing.medium,
+                  ),
                   children: [
                     if (model.loading)
                       const Center(child: CircularProgressIndicator())
@@ -127,8 +114,9 @@ class _WorkoutRecordPageState extends State<WorkoutRecordPage>
                           color: ReferenceStyle.muted,
                         ),
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: AppSpacing.medium),
                       AnalysisPanel(
+                        padding: const EdgeInsets.all(16),
                         children: [
                           Text(
                             '${log.setCount ?? '—'}세트 · 총 볼륨 ${log.volume ?? '—'}kg',
@@ -160,6 +148,7 @@ class _WorkoutRecordPageState extends State<WorkoutRecordPage>
                         Padding(
                           padding: const EdgeInsets.only(top: 16),
                           child: AnalysisPanel(
+                            padding: const EdgeInsets.all(16),
                             children: [
                               Text(
                                 '운동 메모',
@@ -174,7 +163,7 @@ class _WorkoutRecordPageState extends State<WorkoutRecordPage>
                             ],
                           ),
                         ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: AppSpacing.medium),
                       Text(
                         '세트 기록',
                         style: ReferenceStyle.text(
@@ -187,18 +176,31 @@ class _WorkoutRecordPageState extends State<WorkoutRecordPage>
                       if (log.sets.isEmpty) const Text('등록된 세트가 없어요.'),
                       for (final set in log.sets)
                         Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
+                          padding: EdgeInsets.only(
+                            bottom: set == log.sets.last
+                                ? 0
+                                : AppSpacing.medium,
+                          ),
                           child: AnalysisPanel(
+                            padding: const EdgeInsets.all(16),
                             children: [
                               Text(
                                 '${set.number}세트 · ${set.done ? '완료' : '미완료'}',
                                 style: ReferenceStyle.text(
-                                  16,
-                                  24,
+                                  12,
+                                  18,
+                                  color: ReferenceStyle.muted,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${set.weight}kg × ${set.reps}회',
+                                style: ReferenceStyle.text(
+                                  18,
+                                  26,
                                   weight: FontWeight.w500,
                                 ),
                               ),
-                              Text('${set.weight}kg × ${set.reps}회'),
                               Text(
                                 '휴식 ${set.rest == null ? '미기록' : '${set.rest}초'}',
                                 style: ReferenceStyle.text(
@@ -208,30 +210,37 @@ class _WorkoutRecordPageState extends State<WorkoutRecordPage>
                                 ),
                               ),
                               if (log.status == 'completed')
-                                Wrap(
-                                  spacing: 8,
-                                  children: [
-                                    TextButton(
-                                      onPressed: model.canEdit
-                                          ? () => edit(set)
-                                          : null,
-                                      child: const Text('세트 수정'),
-                                    ),
-                                    TextButton(
-                                      onPressed: model.canEdit
-                                          ? () async {
-                                              if (await confirm(
-                                                    '세트를 삭제할까요?',
-                                                    '세트 번호는 다시 매기지 않아요. 기록의 통계는 서버에서 다시 계산돼요.',
-                                                  ) &&
-                                                  mounted) {
-                                                await model.deleteSet(set);
-                                              }
-                                            }
-                                          : null,
-                                      child: const Text('세트 삭제'),
-                                    ),
-                                  ],
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: TextButton(
+                                          onPressed: model.canEdit
+                                              ? () => edit(set)
+                                              : null,
+                                          child: const Text('세트 수정'),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: TextButton(
+                                          onPressed: model.canEdit
+                                              ? () async {
+                                                  if (await confirm(
+                                                        '세트를 삭제할까요?',
+                                                        '세트 번호는 다시 매기지 않아요. 변경한 내용에 맞춰 통계가 다시 계산돼요.',
+                                                      ) &&
+                                                      mounted) {
+                                                    await model.deleteSet(set);
+                                                  }
+                                                }
+                                              : null,
+                                          child: const Text('세트 삭제'),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                             ],
                           ),
@@ -242,7 +251,10 @@ class _WorkoutRecordPageState extends State<WorkoutRecordPage>
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.page,
+                vertical: AppSpacing.medium,
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -297,7 +309,7 @@ class _WorkoutRecordPageState extends State<WorkoutRecordPage>
                           ? () async {
                               if (await confirm(
                                     '운동 기록을 삭제할까요?',
-                                    '이 운동의 세트도 모두 삭제돼요. 연결된 루틴의 완료 상태와 진행률은 서버에서 다시 계산돼요.',
+                                    '이 운동의 세트도 모두 삭제돼요. 연결된 루틴의 완료 상태와 진행률도 갱신돼요.',
                                   ) &&
                                   mounted &&
                                   await model.delete() &&

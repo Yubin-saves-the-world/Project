@@ -1,9 +1,13 @@
+import '../../../../ui/core/theme/app_spacing.dart';
 import '../../../../ui/core/widgets/app_icon.dart';
 import 'package:flutter/material.dart';
 import '../../../../ui/core/widgets/design_reference_page.dart';
 import '../../../../ui/core/widgets/app_selection.dart';
 import '../../../../ui/core/theme/app_colors.dart';
 import '../home_view_model.dart';
+import '../home_server_view_model.dart';
+import '../../../routines/data/models/routine.dart';
+import '../../../../ui/core/widgets/action_controls.dart';
 
 class WeeklyRoutineEditor extends StatefulWidget {
   const WeeklyRoutineEditor({
@@ -11,8 +15,12 @@ class WeeklyRoutineEditor extends StatefulWidget {
     required this.model,
     required this.date,
     this.onOpenExercises,
+    this.server,
+    this.demoRecommendation,
   });
   final HomeViewModel model;
+  final HomeServerViewModel? server;
+  final RecommendedRoutine? demoRecommendation;
   final DateTime date;
   final VoidCallback? onOpenExercises;
   @override
@@ -25,13 +33,23 @@ class _WeeklyRoutineEditorState extends State<WeeklyRoutineEditor> {
   final title = TextEditingController();
   int? minutes;
   bool editing = false;
+  bool recommended = false;
+  bool demoApplied = false;
+  RecommendedRoutine? get recommendation =>
+      widget.server?.recommendation ?? widget.demoRecommendation;
+  bool get isDemo =>
+      widget.server?.recommendation == null &&
+      widget.demoRecommendation != null;
+  bool get busy => widget.model.busy || widget.server?.busy == true;
   static const categories = ['가슴', '등', '하체', '어깨', '팔', '코어'];
   final selected = <int>[];
+  final expandedCategories = <String>{};
   final fields = <int, (TextEditingController, TextEditingController)>{};
   bool rest = false, repeat = true, submitted = false;
   @override
   void initState() {
     super.initState();
+    recommended = widget.server?.usesRecommended ?? false;
     for (var i = 0; i < HomeViewModel.exercises.length; i++) {
       final exercise = HomeViewModel.exercises[i];
       fields[i] = (
@@ -81,7 +99,16 @@ class _WeeklyRoutineEditorState extends State<WeeklyRoutineEditor> {
   }
 
   Future<void> _save() async {
-    setState(() => submitted = true);
+    setState(() {
+      submitted = true;
+      for (final i in selected) {
+        if (HomeViewModel.parseCount(fields[i]!.$1.text, 20) == null ||
+            HomeViewModel.parseCount(fields[i]!.$2.text, 100) == null) {
+          final part = HomeViewModel.exercises[i].category;
+          expandedCategories.add(categories.contains(part) ? part : '기존 종목');
+        }
+      }
+    });
     if (!form.currentState!.validate() || (!rest && selected.isEmpty)) return;
     final routine = rest
         ? DayRoutine.rest()
@@ -102,6 +129,208 @@ class _WeeklyRoutineEditorState extends State<WeeklyRoutineEditor> {
         mounted) {
       Navigator.pop(context, true);
     }
+  }
+
+  Future<void> _applyRecommendation() async {
+    final server = widget.server;
+    if (isDemo) {
+      final confirmed = await showAppConfirmation(
+        context,
+        '이 루틴을 선택할까요?',
+        '선택한 날짜의 추천 루틴을 확인해 주세요.',
+        action: '선택',
+      );
+      if (confirmed == true && mounted) setState(() => demoApplied = true);
+      return;
+    }
+    if (server == null || !server.canChoose) return;
+    final confirmed = await showAppConfirmation(
+      context,
+      '추천 루틴으로 교체할까요?',
+      '선택한 날짜에만 적용해요. 직접 만든 반복 일정과 완료한 운동 기록은 유지돼요.',
+      action: '적용',
+      cancelLabel: '내 운동 유지',
+    );
+    if (confirmed != true || !mounted) return;
+    if (await server.chooseRecommended() && mounted) {
+      // Only manual saves return true; recommendation choices must not be
+      // cleared by HomePage.manualSaved().
+      Navigator.pop(context);
+    }
+  }
+
+  Widget _sourceSelector() => Padding(
+    padding: const EdgeInsets.only(bottom: AppSpacing.medium),
+    child: Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: AppColors.soft,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          for (final useRecommended in [false, true]) ...[
+            if (useRecommended) const SizedBox(width: 4),
+            Expanded(
+              child: Semantics(
+                selected: recommended == useRecommended,
+                button: true,
+                child: Material(
+                  color: recommended == useRecommended
+                      ? Colors.white
+                      : Colors.transparent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(
+                      color: recommended == useRecommended
+                          ? AppColors.primary
+                          : Colors.transparent,
+                    ),
+                  ),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: busy
+                        ? null
+                        : () => setState(() => recommended = useRecommended),
+                    child: Container(
+                      constraints: const BoxConstraints(minHeight: 48),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 12,
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        useRecommended ? '추천 루틴' : '직접 만든 일정',
+                        textAlign: TextAlign.center,
+                        style: ReferenceStyle.text(
+                          14,
+                          21,
+                          weight: FontWeight.w500,
+                          color: recommended == useRecommended
+                              ? AppColors.primary
+                              : AppColors.muted,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    ),
+  );
+
+  Widget _recommendedPreview() {
+    final server = widget.server;
+    final routine = recommendation!;
+    final notice = isDemo
+        ? (demoApplied ? '선택한 추천 루틴이에요.' : '이 날짜에 사용할 루틴을 선택해 주세요.')
+        : server!.usesRecommended
+        ? '이 날짜에 적용된 루틴이에요.'
+        : server.canChoose
+        ? '선택한 날짜에만 적용해요. 반복 일정은 유지돼요.'
+        : '지금은 변경할 수 없어요. 날짜와 운동 진행 상태를 확인해 주세요.';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(AppSpacing.medium),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            border: Border.all(color: AppColors.border),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(
+                    '추천 운동',
+                    style: ReferenceStyle.text(12, 18, color: AppColors.muted),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                routine.title,
+                style: ReferenceStyle.text(18, 27, weight: FontWeight.w500),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '${routine.items.length}종목 · 약 ${routine.minutes}분',
+                style: ReferenceStyle.text(13, 20, color: AppColors.muted),
+              ),
+              const SizedBox(height: 16),
+              const Divider(height: 1, color: AppColors.border),
+              for (final entry in routine.items.indexed) ...[
+                Padding(
+                  padding: EdgeInsets.only(
+                    top: 16,
+                    bottom: entry.$1 == routine.items.length - 1 ? 0 : 16,
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        width: 28,
+                        child: Text(
+                          '${entry.$1 + 1}'.padLeft(2, '0'),
+                          style: ReferenceStyle.text(
+                            12,
+                            21,
+                            color: AppColors.muted,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              entry.$2.exercise.name,
+                              style: ReferenceStyle.text(
+                                14,
+                                21,
+                                weight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${entry.$2.sets}세트 · ${entry.$2.reps}회 · 휴식 ${entry.$2.restSeconds}초',
+                              style: ReferenceStyle.text(
+                                12,
+                                18,
+                                color: AppColors.muted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (entry.$1 < routine.items.length - 1)
+                  const Divider(height: 1, color: AppColors.border),
+              ],
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: Text(
+            notice,
+            style: ReferenceStyle.text(12, 18, color: AppColors.muted),
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _dayType() => Container(
@@ -125,9 +354,7 @@ class _WeeklyRoutineEditorState extends State<WeeklyRoutineEditor> {
                     isRest ? 'routine-rest-day' : 'routine-workout-day',
                   ),
                   borderRadius: BorderRadius.circular(12),
-                  onTap: widget.model.busy
-                      ? null
-                      : () => setState(() => rest = isRest),
+                  onTap: busy ? null : () => setState(() => rest = isRest),
                   child: Container(
                     constraints: const BoxConstraints(minHeight: 48),
                     padding: const EdgeInsets.symmetric(
@@ -191,12 +418,12 @@ class _WeeklyRoutineEditorState extends State<WeeklyRoutineEditor> {
     }
     if (copies.isEmpty) return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.only(bottom: AppSpacing.medium),
       child: AppSelectionField<int>(
         key: const Key('routine-copy'),
         label: '다른 요일 루틴 복사',
         placeholder: '요일 선택',
-        enabled: !widget.model.busy,
+        enabled: !busy,
         options: copies.entries
             .map(
               (entry) => AppSelectionOption(
@@ -220,7 +447,7 @@ class _WeeklyRoutineEditorState extends State<WeeklyRoutineEditor> {
           contentPadding: const EdgeInsets.symmetric(horizontal: 12),
           value: selected.contains(i),
           title: Text(exercise.name),
-          onChanged: widget.model.busy
+          onChanged: busy
               ? null
               : (checked) => setState(() {
                   if (checked!) {
@@ -239,7 +466,7 @@ class _WeeklyRoutineEditorState extends State<WeeklyRoutineEditor> {
                   child: TextFormField(
                     key: ValueKey('routine-sets-$i'),
                     controller: fields[i]!.$1,
-                    enabled: !widget.model.busy,
+                    enabled: !busy,
                     keyboardType: TextInputType.number,
                     decoration: const InputDecoration(labelText: '세트'),
                     validator: (value) =>
@@ -253,7 +480,7 @@ class _WeeklyRoutineEditorState extends State<WeeklyRoutineEditor> {
                   child: TextFormField(
                     key: ValueKey('routine-reps-$i'),
                     controller: fields[i]!.$2,
-                    enabled: !widget.model.busy,
+                    enabled: !busy,
                     keyboardType: TextInputType.number,
                     decoration: const InputDecoration(labelText: '횟수'),
                     validator: (value) =>
@@ -271,48 +498,74 @@ class _WeeklyRoutineEditorState extends State<WeeklyRoutineEditor> {
 
   Widget _category(String name, List<int> indices) => Padding(
     key: ValueKey('routine-category-$name'),
-    padding: const EdgeInsets.only(top: 20),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(name, style: ReferenceStyle.text(14, 21, weight: FontWeight.w500)),
-        const SizedBox(height: 10),
-        DecoratedBox(
-          decoration: BoxDecoration(
-            border: Border.all(color: AppColors.border),
-            borderRadius: BorderRadius.circular(16),
+    padding: const EdgeInsets.only(top: AppSpacing.medium),
+    child: Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          ListTile(
+            key: ValueKey('routine-category-toggle-$name'),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+            title: Text(
+              name,
+              style: ReferenceStyle.text(14, 21, weight: FontWeight.w500),
+            ),
+            subtitle: Text(
+              '${indices.length}종목 · ${indices.where(selected.contains).length}개 선택',
+              style: ReferenceStyle.text(12, 18, color: AppColors.muted),
+            ),
+            trailing: AppIcon(
+              expandedCategories.contains(name)
+                  ? Icons.expand_less_rounded
+                  : Icons.expand_more_rounded,
+              size: 20,
+            ),
+            onTap: busy
+                ? null
+                : () => setState(() {
+                    if (!expandedCategories.add(name)) {
+                      expandedCategories.remove(name);
+                    }
+                  }),
           ),
-          child: Column(
-            children: [
-              for (var j = 0; j < indices.length; j++) ...[
-                if (j > 0)
+          // Keep collapsed fields mounted so validation and unsaved inputs survive.
+          Offstage(
+            offstage: !expandedCategories.contains(name),
+            child: Column(
+              children: [
+                for (final i in indices) ...[
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 16),
                     child: Divider(height: 1, color: AppColors.border),
                   ),
-                _exercise(indices[j]),
+                  _exercise(i),
+                ],
               ],
-            ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     ),
   );
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
-    animation: widget.model,
+    animation: Listenable.merge([
+      widget.model,
+      if (widget.server != null) widget.server!,
+    ]),
     builder: (context, _) => PopScope(
-      canPop: !widget.model.busy,
+      canPop: !busy,
       child: Scaffold(
         appBar: AppBar(
           centerTitle: true,
           leading: IconButton(
             key: const Key('routine-back'),
             tooltip: '뒤로가기',
-            onPressed: widget.model.busy
-                ? null
-                : () => Navigator.maybePop(context),
+            onPressed: busy ? null : () => Navigator.maybePop(context),
             icon: const AppIcon(Icons.arrow_back_ios_new_rounded, size: 20),
           ),
           title: Text(editing ? '일정 수정' : '일정 만들기'),
@@ -330,7 +583,10 @@ class _WeeklyRoutineEditorState extends State<WeeklyRoutineEditor> {
                     child: SingleChildScrollView(
                       keyboardDismissBehavior:
                           ScrollViewKeyboardDismissBehavior.onDrag,
-                      padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.page,
+                        vertical: AppSpacing.medium,
+                      ),
                       child: Form(
                         key: form,
                         child: Column(
@@ -345,124 +601,133 @@ class _WeeklyRoutineEditorState extends State<WeeklyRoutineEditor> {
                                 weight: FontWeight.w500,
                               ),
                             ),
-                            const SizedBox(height: 20),
-                            _dayType(),
-                            const SizedBox(height: 24),
-                            if (!rest) ...[
-                              TextFormField(
-                                key: const Key('routine-title'),
-                                controller: title,
-                                enabled: !widget.model.busy,
-                                decoration: const InputDecoration(
-                                  labelText: '루틴 이름',
-                                  hintText: '예: 상체 운동',
-                                ),
-                                validator: (value) =>
-                                    value == null ||
-                                        value.trim().isEmpty ||
-                                        value.trim().length > 40
-                                    ? '루틴 이름을 1~40자로 입력해 주세요.'
-                                    : null,
-                              ),
-                              const SizedBox(height: 16),
-                            ],
-                            AppSelectionField<bool>(
-                              key: const Key('routine-repeat'),
-                              label: '적용 범위',
-                              value: repeat,
-                              enabled: !widget.model.busy,
-                              options: const [
-                                AppSelectionOption(
-                                  true,
-                                  '앞으로 매주',
-                                  icon: Icons.event_repeat_rounded,
-                                ),
-                                AppSelectionOption(
-                                  false,
-                                  '이번 날짜만',
-                                  icon: Icons.today_rounded,
-                                ),
-                              ],
-                              onChanged: (value) =>
-                                  setState(() => repeat = value),
-                            ),
-                            if (!rest) ...[
-                              const SizedBox(height: 16),
-                              AppPickerField(
-                                key: const Key('routine-minutes'),
-                                label: '예상 소요 시간',
-                                value: minutes == null
-                                    ? '시간 선택'
-                                    : formatWorkoutDuration(minutes!),
-                                icon: Icons.timer_outlined,
-                                onTap: widget.model.busy
-                                    ? null
-                                    : () async {
-                                        final next =
-                                            await showWorkoutDurationPicker(
-                                              context,
-                                              minutes: minutes,
-                                            );
-                                        if (next != null && mounted) {
-                                          setState(
-                                            () => minutes = next == 0
-                                                ? null
-                                                : next,
-                                          );
-                                        }
-                                      },
-                              ),
-                              const SizedBox(height: 24),
-                              _copyField(),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      '운동 종목',
-                                      style: ReferenceStyle.text(
-                                        17,
-                                        26,
-                                        weight: FontWeight.w500,
-                                      ),
-                                    ),
+                            const SizedBox(height: AppSpacing.medium),
+                            if (recommendation != null &&
+                                (!rest || recommended))
+                              _sourceSelector(),
+                            if (recommended && recommendation != null)
+                              _recommendedPreview()
+                            else ...[
+                              _dayType(),
+                              const SizedBox(height: AppSpacing.medium),
+                              if (!rest) ...[
+                                TextFormField(
+                                  key: const Key('routine-title'),
+                                  controller: title,
+                                  enabled: !busy,
+                                  decoration: const InputDecoration(
+                                    labelText: '루틴 이름',
+                                    hintText: '예: 상체 운동',
                                   ),
-                                  if (widget.onOpenExercises != null)
-                                    TextButton(
-                                      onPressed: widget.model.busy
-                                          ? null
-                                          : widget.onOpenExercises,
-                                      child: const Text('종목 정보'),
-                                    ),
-                                  Text(
-                                    '${selected.length}개 선택',
-                                    style: ReferenceStyle.text(
-                                      12,
-                                      18,
-                                      color: AppColors.primary,
-                                    ),
+                                  validator: (value) =>
+                                      value == null ||
+                                          value.trim().isEmpty ||
+                                          value.trim().length > 40
+                                      ? '루틴 이름을 1~40자로 입력해 주세요.'
+                                      : null,
+                                ),
+                                const SizedBox(height: 16),
+                              ],
+                              AppSelectionField<bool>(
+                                key: const Key('routine-repeat'),
+                                label: '적용 범위',
+                                value: repeat,
+                                enabled: !busy,
+                                options: const [
+                                  AppSelectionOption(
+                                    true,
+                                    '앞으로 매주',
+                                    icon: Icons.event_repeat_rounded,
+                                  ),
+                                  AppSelectionOption(
+                                    false,
+                                    '이번 날짜만',
+                                    icon: Icons.today_rounded,
                                   ),
                                 ],
+                                onChanged: (value) =>
+                                    setState(() => repeat = value),
                               ),
-                              for (final category in categories)
-                                _category(category, [
-                                  for (
-                                    var i = 0;
-                                    i < HomeViewModel.exercises.length;
-                                    i++
-                                  )
-                                    if (HomeViewModel.exercises[i].category ==
-                                            category &&
-                                        HomeViewModel.exercises[i].selectable)
-                                      i,
-                                ]),
-                              if (selected.any(
-                                (i) => !HomeViewModel.exercises[i].selectable,
-                              ))
-                                _category('기존 종목', [
-                                  for (final i in selected)
-                                    if (!HomeViewModel.exercises[i].selectable)
-                                      i,
-                                ]),
+                              if (!rest) ...[
+                                const SizedBox(height: 16),
+                                AppPickerField(
+                                  key: const Key('routine-minutes'),
+                                  label: '예상 소요 시간',
+                                  value: minutes == null
+                                      ? '시간 선택'
+                                      : formatWorkoutDuration(minutes!),
+                                  icon: Icons.timer_outlined,
+                                  onTap: busy
+                                      ? null
+                                      : () async {
+                                          final next =
+                                              await showWorkoutDurationPicker(
+                                                context,
+                                                minutes: minutes,
+                                              );
+                                          if (next != null && mounted) {
+                                            setState(
+                                              () => minutes = next == 0
+                                                  ? null
+                                                  : next,
+                                            );
+                                          }
+                                        },
+                                ),
+                                const SizedBox(height: AppSpacing.medium),
+                                _copyField(),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        '운동 종목',
+                                        style: ReferenceStyle.text(
+                                          17,
+                                          26,
+                                          weight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                    if (widget.onOpenExercises != null)
+                                      TextButton(
+                                        onPressed: busy
+                                            ? null
+                                            : widget.onOpenExercises,
+                                        child: const Text('종목 정보'),
+                                      ),
+                                    Text(
+                                      '${selected.length}개 선택',
+                                      style: ReferenceStyle.text(
+                                        12,
+                                        18,
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                for (final category in categories)
+                                  _category(category, [
+                                    for (
+                                      var i = 0;
+                                      i < HomeViewModel.exercises.length;
+                                      i++
+                                    )
+                                      if (HomeViewModel.exercises[i].category ==
+                                              category &&
+                                          HomeViewModel.exercises[i].selectable)
+                                        i,
+                                  ]),
+                                if (selected.any(
+                                  (i) => !HomeViewModel.exercises[i].selectable,
+                                ))
+                                  _category('기존 종목', [
+                                    for (final i in selected)
+                                      if (!HomeViewModel
+                                          .exercises[i]
+                                          .selectable)
+                                        i,
+                                  ]),
+                              ],
                             ],
                           ],
                         ),
@@ -481,8 +746,21 @@ class _WeeklyRoutineEditorState extends State<WeeklyRoutineEditor> {
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          if (widget.model.error != null ||
-                              (submitted && !rest && selected.isEmpty))
+                          if (recommended && widget.server?.warning != null)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: Text(
+                                widget.server!.warning!,
+                                style: ReferenceStyle.text(
+                                  12,
+                                  18,
+                                  color: AppColors.error,
+                                ),
+                              ),
+                            ),
+                          if (!recommended &&
+                              (widget.model.error != null ||
+                                  (submitted && !rest && selected.isEmpty)))
                             Padding(
                               padding: const EdgeInsets.only(bottom: 10),
                               child: Text(
@@ -495,10 +773,17 @@ class _WeeklyRoutineEditorState extends State<WeeklyRoutineEditor> {
                               ),
                             ),
                           ReferenceButton(
-                            '일정 저장',
+                            recommended ? '이 날짜에 적용' : '일정 저장',
                             key: const Key('routine-save'),
-                            onPressed: _save,
-                            busy: widget.model.busy,
+                            onPressed: recommended
+                                ? ((isDemo && !demoApplied) ||
+                                          (widget.server?.canChoose == true &&
+                                              widget.server?.usesRecommended ==
+                                                  false)
+                                      ? _applyRecommendation
+                                      : null)
+                                : _save,
+                            busy: busy,
                           ),
                         ],
                       ),

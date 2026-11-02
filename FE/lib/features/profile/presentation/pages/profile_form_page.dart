@@ -6,16 +6,29 @@ import '../../../../core/validation/input_validators.dart';
 import '../../../../ui/core/widgets/design_reference_page.dart';
 import '../../data/models/body_profile.dart';
 
+enum ProfileFormSection {
+  body(0, '신체정보'),
+  goal(1, '운동 목적'),
+  frequency(1, '주 운동 횟수'),
+  experience(2, '운동 기간');
+
+  const ProfileFormSection(this.stage, this.label);
+  final int stage;
+  final String label;
+}
+
 class ProfileFormPage extends StatefulWidget {
   const ProfileFormPage({
     super.key,
     required this.model,
     this.editing = false,
+    this.initialSection = ProfileFormSection.body,
     this.onCancel,
     this.onSaved,
   });
   final ProfileFormController model;
   final bool editing;
+  final ProfileFormSection initialSection;
   final VoidCallback? onCancel, onSaved;
   @override
   State<ProfileFormPage> createState() => _ProfileFormPageState();
@@ -25,7 +38,8 @@ class _ProfileFormPageState extends State<ProfileFormPage> {
   final _form = GlobalKey<FormState>();
   late final TextEditingController _height, _weight, _age;
   bool _submitted = false;
-  int _stage = 0;
+  late int _stage;
+  final _initialSectionKey = GlobalKey();
   final _metricFocus = {
     for (final id in ['height', 'weight', 'age']) id: FocusNode(),
   };
@@ -33,6 +47,15 @@ class _ProfileFormPageState extends State<ProfileFormPage> {
   @override
   void initState() {
     super.initState();
+    _stage = widget.initialSection.stage;
+    if (widget.editing && widget.initialSection != ProfileFormSection.body) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final target = _initialSectionKey.currentContext;
+        if (mounted && target != null) {
+          Scrollable.ensureVisible(target, alignment: 0);
+        }
+      });
+    }
     _height = TextEditingController(text: model.height);
     _weight = TextEditingController(text: model.weight);
     _age = TextEditingController(text: model.age);
@@ -203,6 +226,7 @@ class _ProfileFormPageState extends State<ProfileFormPage> {
     String Function(T) name,
     ValueChanged<T> change,
   ) => Padding(
+    key: label == widget.initialSection.label ? _initialSectionKey : null,
     padding: const EdgeInsets.only(top: 21),
     child: FormField<T>(
       key: ValueKey('profile-choice-$label'),
@@ -344,7 +368,8 @@ class _ProfileFormPageState extends State<ProfileFormPage> {
     onBack: model.busy
         ? null
         : () {
-            if (_stage == 0) {
+            if (_stage == 0 ||
+                (widget.editing && _stage == widget.initialSection.stage)) {
               if (widget.editing) {
                 widget.onCancel?.call();
               } else {

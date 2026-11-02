@@ -11,8 +11,8 @@ class LocalRoutineRepository implements RoutineRepository {
       ]);
   @override
   Future<RecommendedRoutine> detail(int id) async =>
-      throw StateError('추천 루틴은 서버 연결 후 확인할 수 있어요.');
+      throw StateError('추천 루틴을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
   @override
   Future<RecommendedRoutine> setStatus(int id, RoutineStatus status) async =>
-      throw StateError('추천 루틴은 서버 연결 후 변경할 수 있어요.');
+      throw StateError('루틴을 변경하지 못했어요. 잠시 후 다시 시도해 주세요.');
 }

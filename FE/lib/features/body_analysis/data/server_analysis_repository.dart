@@ -3,9 +3,19 @@ import '../../../core/network/api_contract.dart';
 import 'analysis_repository.dart';
 import 'models/body_analysis.dart';
 
-class ServerAnalysisRepository implements AnalysisRepository {
+class ServerAnalysisRepository
+    implements AnalysisRepository, TextAnalysisRepository {
   ServerAnalysisRepository(this.api);
   final ApiClient api;
+  @override
+  Future<AnalysisTicket> startText(String text) async =>
+      AnalysisTicket.fromJson(
+        (await api.send(
+          'POST',
+          ApiContract.textAnalysis,
+          body: {'text_input': text.trim()},
+        ))!,
+      );
   @override
   Future<AnalysisTicket> start({
     required int photoId,

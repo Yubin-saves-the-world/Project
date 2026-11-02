@@ -71,7 +71,8 @@ void main() {
       expect(
         find.descendant(
           of: find.byKey(ValueKey('routine-category-$category')),
-          matching: find.byType(CheckboxListTile),
+          matching: find.byType(CheckboxListTile, skipOffstage: false),
+          skipOffstage: false,
         ),
         findsNWidgets(4),
       );

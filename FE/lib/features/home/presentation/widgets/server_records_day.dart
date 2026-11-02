@@ -49,7 +49,7 @@ class _ServerRecordsDayState extends State<ServerRecordsDay> {
         );
       });
     } catch (_) {
-      if (mounted) setState(() => _error = '서버 기록을 불러오지 못했어요.');
+      if (mounted) setState(() => _error = '운동 기록을 불러오지 못했어요.');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -60,7 +60,7 @@ class _ServerRecordsDayState extends State<ServerRecordsDay> {
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       Text(
-        '서버에 저장된 기록',
+        '운동 기록',
         style: ReferenceStyle.text(14, 21, weight: FontWeight.w500),
       ),
       const SizedBox(height: 12),

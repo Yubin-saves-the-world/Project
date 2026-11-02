@@ -102,19 +102,19 @@ void main() {
     expect(find.text('글 분석 준비 중'), findsNothing);
     await tester.tap(find.text('글로 설명하기'));
     await tester.pumpAndSettle();
-    expect(find.text('글 분석 준비 중'), findsOneWidget);
-    expect(find.byKey(const Key('analysis-text')), findsNothing);
+    expect(find.text('글 분석 준비 중'), findsNothing);
+    expect(find.byKey(const Key('analysis-text')), findsOneWidget);
     await tester.tap(find.text('확인'));
     await tester.pumpAndSettle();
     expect(find.text('분석 기록'), findsNothing);
     expect(find.text('다음에 하기').hitTestable(), findsOneWidget);
     expect(find.text('목표 체형'), findsOneWidget);
-    expect(find.textContaining('로컬 미리보기에서는 실제 체형 분석'), findsOneWidget);
+    expect(find.textContaining('로컬 미리보기에서는 실제 체형 분석'), findsNothing);
     await tester.ensureVisible(find.text('분석 시작'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('분석 시작'));
     await tester.pumpAndSettle();
-    expect(find.text('정면 사진을 추가해 주세요.'), findsOneWidget);
+    expect(find.text('몸 상태를 1~500자로 입력해 주세요.'), findsOneWidget);
     expect(repository.progress.completed, isFalse);
     await tester.ensureVisible(find.text('다음에 하기'));
     await tester.pumpAndSettle();
@@ -127,7 +127,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('분석 기록'), findsOneWidget);
     expect(find.text('목표 체형'), findsOneWidget);
-    expect(find.textContaining('로컬 미리보기에서는 실제 체형 분석'), findsOneWidget);
+    expect(find.textContaining('로컬 미리보기에서는 실제 체형 분석'), findsNothing);
     expect(find.text('다음에 하기'), findsNothing);
   });
 
@@ -312,7 +312,7 @@ void main() {
     await tester.ensureVisible(find.text('구글로 계속하기'));
     await tester.tap(find.text('구글로 계속하기'));
     await tester.pumpAndSettle();
-    expect(find.text('구글 로그인 준비 중'), findsOneWidget);
+    expect(find.text('구글 로그인'), findsOneWidget);
     expect(repository.loginCalls, 0);
     await tester.tap(find.text('확인'));
     await tester.pumpAndSettle();

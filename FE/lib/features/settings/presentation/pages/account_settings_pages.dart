@@ -1,3 +1,4 @@
+import '../../../../ui/core/widgets/action_controls.dart';
 import '../../../photos/data/models/body_photo.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/media/image_picker_service.dart';
@@ -206,27 +207,13 @@ class PrivacySettingsPage extends StatelessWidget {
   }) async {
     final withdrawing = photo == false || ai == false;
     if (withdrawing) {
-      final yes = await showDialog<bool>(
-        context: context,
-        builder: (c) => AlertDialog(
-          scrollable: true,
-          title: Text(photo == false ? '사진 이용 동의를 철회할까요?' : 'AI 처리 동의를 철회할까요?'),
-          content: Text(
-            photo == false
-                ? '새 사진을 업로드할 수 없어요. 이미 저장된 사진은 자동 삭제되지 않아요. 사진 데이터 관리에서 직접 삭제할 수 있어요.'
-                : '진행 중인 분석이 취소돼요. 새로운 AI 분석·루틴 생성은 제한되며, 이미 만들어진 기록과 결과는 계속 볼 수 있어요.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(c, false),
-              child: const Text('취소'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(c, true),
-              child: const Text('철회'),
-            ),
-          ],
-        ),
+      final yes = await showAppConfirmation(
+        context,
+        photo == false ? '사진 이용 동의를 철회할까요?' : 'AI 처리 동의를 철회할까요?',
+        photo == false
+            ? '새 사진을 업로드할 수 없어요. 이미 저장된 사진은 자동 삭제되지 않아요. 사진 데이터 관리에서 직접 삭제할 수 있어요.'
+            : '진행 중인 분석이 취소돼요. 새로운 AI 분석·루틴 생성은 제한되며, 이미 만들어진 기록과 결과는 계속 볼 수 있어요.',
+        action: '철회',
       );
       if (yes != true || !context.mounted) return;
     }
@@ -244,21 +231,70 @@ class PrivacySettingsPage extends StatelessWidget {
           child: ListView(
             padding: const EdgeInsets.all(24),
             children: [
-              const Text('동의를 철회해도 저장된 운동 기록과 분석 결과는 확인할 수 있어요.'),
-              const SizedBox(height: 20),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('신체 사진 이용'),
-                subtitle: const Text('새 사진 업로드에 사용해요.'),
-                value: m.user!.bodyPhotoAgreed,
-                onChanged: m.canWrite ? (v) => change(c, m, photo: v) : null,
+              Text(
+                '동의를 철회해도 저장된 운동 기록과 분석 결과는 확인할 수 있어요.',
+                style: ReferenceStyle.text(14, 22, color: ReferenceStyle.muted),
               ),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('AI 처리'),
-                subtitle: const Text('체형 분석과 맞춤 루틴 생성에 사용해요.'),
-                value: m.user!.aiProcessingAgreed,
-                onChanged: m.canWrite ? (v) => change(c, m, ai: v) : null,
+              const SizedBox(height: 20),
+              Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: ReferenceStyle.border),
+                ),
+                child: Column(
+                  children: [
+                    SwitchListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      title: Text(
+                        '신체 사진 이용',
+                        style: ReferenceStyle.text(
+                          14,
+                          21,
+                          weight: FontWeight.w500,
+                        ),
+                      ),
+                      subtitle: Text(
+                        '새 사진 업로드에 사용해요.',
+                        style: ReferenceStyle.text(
+                          12,
+                          18,
+                          color: ReferenceStyle.muted,
+                        ),
+                      ),
+                      value: m.user!.bodyPhotoAgreed,
+                      onChanged: m.canWrite
+                          ? (v) => change(c, m, photo: v)
+                          : null,
+                    ),
+                    SwitchListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      title: Text(
+                        'AI 처리',
+                        style: ReferenceStyle.text(
+                          14,
+                          21,
+                          weight: FontWeight.w500,
+                        ),
+                      ),
+                      subtitle: Text(
+                        '체형 분석과 맞춤 루틴 생성에 사용해요.',
+                        style: ReferenceStyle.text(
+                          12,
+                          18,
+                          color: ReferenceStyle.muted,
+                        ),
+                      ),
+                      value: m.user!.aiProcessingAgreed,
+                      onChanged: m.canWrite ? (v) => change(c, m, ai: v) : null,
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 20),
               const Text(
@@ -269,7 +305,9 @@ class PrivacySettingsPage extends StatelessWidget {
               const Text(
                 '사진 이용 동의를 철회해도 저장된 사진은 남아 있어요. 사진 데이터 관리에서 확인하고 삭제해 주세요.',
               ),
-              TextButton(
+              const SizedBox(height: 12),
+              AppActionRow(
+                '사진 데이터 관리',
                 onPressed: m.busy
                     ? null
                     : () => Navigator.push(
@@ -282,9 +320,10 @@ class PrivacySettingsPage extends StatelessWidget {
                           ),
                         ),
                       ),
-                child: const Text('사진 데이터 관리'),
               ),
-              TextButton(
+              const SizedBox(height: 8),
+              AppActionRow(
+                '목표 사진 관리',
                 onPressed: m.busy
                     ? null
                     : () => Navigator.push(
@@ -297,12 +336,15 @@ class PrivacySettingsPage extends StatelessWidget {
                           ),
                         ),
                       ),
-                child: const Text('목표 사진 관리'),
               ),
               const SizedBox(height: 24),
               const Text(
                 '이용약관·개인정보 처리 동의는 회원 탈퇴로 철회할 수 있어요.',
-                style: TextStyle(color: ReferenceStyle.muted),
+                style: TextStyle(
+                  color: ReferenceStyle.muted,
+                  fontSize: 12,
+                  height: 1.5,
+                ),
               ),
             ],
           ),
@@ -349,13 +391,10 @@ class _DeleteFormState extends State<_DeleteForm> {
           title: const Text('정말 탈퇴할까요?'),
           content: const Text('계정과 개인정보·사진·분석·운동 기록이 삭제되며 되돌릴 수 없어요.'),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(c, false),
-              child: const Text('취소'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(c, true),
-              child: const Text('탈퇴하기'),
+            AppDialogActions(
+              actionLabel: '탈퇴하기',
+              onCancel: () => Navigator.pop(c, false),
+              onAction: () => Navigator.pop(c, true),
             ),
           ],
         ),

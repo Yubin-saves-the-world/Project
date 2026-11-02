@@ -33,7 +33,7 @@ void main() {
     );
     await model.pickPhoto(PhotoSlot.front, PhotoSource.gallery);
     expect(await model.finish(prepareAnalysis: true), isFalse);
-    expect(model.error, contains('로컬 미리보기'));
+    expect(model.error, contains('분석을 시작할 수 없어요'));
     expect(photos.uploads, 0);
     expect(repository.starts, 0);
     expect(model.analysis.front, isNotNull);

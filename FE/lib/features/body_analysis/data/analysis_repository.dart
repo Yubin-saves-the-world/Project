@@ -35,3 +35,7 @@ abstract interface class AnalysisRepository {
   Future<AnalysisGoal?> goal();
   Future<List<AnalysisRoutine>> generateRoutines(int analysisId);
 }
+
+abstract interface class TextAnalysisRepository {
+  Future<AnalysisTicket> startText(String text);
+}

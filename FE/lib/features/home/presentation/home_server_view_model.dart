@@ -123,7 +123,7 @@ class HomeServerViewModel extends ChangeNotifier {
       ? '—'
       : '${streak.$1}${streak.$2 ? '+' : ''}일';
   String get streakDescription => loading || error != null
-      ? '서버 기록을 불러온 뒤 확인할 수 있어요.'
+      ? '운동 기록을 불러온 뒤 확인할 수 있어요.'
       : '${streak.$1}일${streak.$2 ? ' 이상' : ''} 연속 운동했어요.';
   bool get canMutate =>
       !loading &&
@@ -158,7 +158,7 @@ class HomeServerViewModel extends ChangeNotifier {
   }
 
   String _message(Object e) =>
-      e is StateError ? e.message.toString() : '서버 정보를 불러오지 못했어요. 다시 확인해 주세요.';
+      e is StateError ? e.message.toString() : '운동 정보를 불러오지 못했어요. 다시 확인해 주세요.';
   void _access(Object e) {
     if (e is ApiRequestError) accessCode = e.code;
   }

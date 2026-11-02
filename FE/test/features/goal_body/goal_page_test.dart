@@ -221,12 +221,12 @@ void main() {
     await tester.tap(find.text('목표 저장'));
     await tester.pumpAndSettle();
     expect((await repo.load())!.previewBytes, isNotEmpty);
-    expect(find.text('로컬에 등록한 참고 사진이에요. AI 분석 결과가 아니에요.'), findsOneWidget);
+    expect(find.text('로컬에 등록한 참고 사진이에요. AI 분석 결과가 아니에요.'), findsNothing);
     final image = tester.widget<Image>(find.byType(Image).first);
     final context = tester.element(find.byType(GoalBodyPage));
     await tester.runAsync(() => precacheImage(image.image, context));
     await tester.pumpAndSettle();
-    expect(find.text('로컬 사진은 앱을 종료하면 초기화돼요.'), findsOneWidget);
+    expect(find.text('로컬 사진은 앱을 종료하면 초기화돼요.'), findsNothing);
     await capture(tester, 'goal-local-photo');
     await tester.pumpWidget(const SizedBox());
     await tester.pumpAndSettle();

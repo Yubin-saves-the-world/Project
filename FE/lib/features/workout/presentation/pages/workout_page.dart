@@ -1,3 +1,4 @@
+import '../../../../ui/core/widgets/action_controls.dart';
 import 'workout_summary_page.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -78,26 +79,8 @@ class _WorkoutPageState extends State<WorkoutPage> with WidgetsBindingObserver {
 
   String clock(int seconds) =>
       '${(seconds ~/ 60).toString().padLeft(2, '0')}:${(seconds % 60).toString().padLeft(2, '0')}';
-  Future<bool> confirm(String title, String text) async =>
-      await showDialog<bool>(
-        context: context,
-        builder: (c) => AlertDialog(
-          scrollable: true,
-          title: Text(title),
-          content: Text(text),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(c, false),
-              child: const Text('취소'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(c, true),
-              child: const Text('확인'),
-            ),
-          ],
-        ),
-      ) ??
-      false;
+  Future<bool> confirm(String title, String text) =>
+      showAppConfirmation(context, title, text, action: '확인');
   Future<void> reload() async {
     await model.load();
     if (mounted && model.result != null) summary();
@@ -346,7 +329,7 @@ class _WorkoutPageState extends State<WorkoutPage> with WidgetsBindingObserver {
                                     ? () async {
                                         if (await confirm(
                                               '미전송 세트를 취소할까요?',
-                                              '같은 번호의 다른 세트가 서버에 있어요. 서버 기록은 그대로 두고 이 미전송 입력만 취소해요.',
+                                              '같은 번호의 세트가 이미 있어요. 기존 기록은 유지하고 저장하지 않은 입력만 취소해요.',
                                             ) &&
                                             mounted) {
                                           await model
@@ -447,7 +430,7 @@ class _WorkoutPageState extends State<WorkoutPage> with WidgetsBindingObserver {
                     ),
                     TextButton(
                       onPressed: model.loading || model.busy ? null : reload,
-                      child: const Text('서버 기록 다시 확인'),
+                      child: const Text('기록 다시 확인'),
                     ),
                   ],
                   if (model.accessCode == 'ONBOARDING_REQUIRED' &&

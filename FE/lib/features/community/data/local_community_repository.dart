@@ -205,7 +205,7 @@ class LocalCommunityRepository implements CommunityRepository {
 
   @override
   Future<void> report(String type, int id, String reason, String detail) async {
-    if (!_reports.add('$type:$id')) throw StateError('현재 앱에서 이미 신고한 항목이에요.');
+    if (!_reports.add('$type:$id')) throw StateError('이미 신고한 항목이에요.');
   }
 
   @override

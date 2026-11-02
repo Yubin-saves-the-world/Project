@@ -143,9 +143,9 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(RoutineDetailPage), findsOneWidget);
       expect(find.text('3세트 · 12회 · 무게 직접 입력'), findsOneWidget);
-      await tester.ensureVisible(find.text('운동 정보 보기'));
+      await tester.ensureVisible(find.text('운동 정보'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('운동 정보 보기'));
+      await tester.tap(find.text('운동 정보'));
       await tester.pumpAndSettle();
       expect(find.byType(ExerciseDetailPage), findsOneWidget);
       await tester.tap(find.byTooltip('뒤로가기'));
@@ -185,7 +185,7 @@ void main() {
     expect(find.text('휴식일'), findsNothing);
     await tester.tap(find.byTooltip('다음 주'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('2026-11-02'), findsOneWidget);
+    expect(find.text('11월 2일 – 11월 8일'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

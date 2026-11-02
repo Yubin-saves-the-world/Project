@@ -16,11 +16,42 @@ class PhotoInputField extends StatelessWidget {
     required this.onRemove,
     this.requiredPhoto = false,
     this.enabled = true,
+    this.height = 116,
+    this.fit = BoxFit.cover,
+    this.adaptToPhoto = false,
   });
   final String label;
+  final double height;
+  final BoxFit fit;
+  final bool adaptToPhoto;
   final SelectedPhoto? photo;
   final VoidCallback onSelect, onRemove;
   final bool requiredPhoto, enabled;
+
+  Widget _image() => Image.file(
+    File(photo!.path),
+    width: adaptToPhoto ? double.infinity : null,
+    fit: adaptToPhoto ? BoxFit.contain : fit,
+    frameBuilder: (context, child, frame, synchronouslyLoaded) =>
+        adaptToPhoto && frame == null && !synchronouslyLoaded
+        ? SizedBox(
+            height: height,
+            child: const Center(
+              child: AppIcon(
+                Icons.image_outlined,
+                size: 24,
+                color: AppColors.muted,
+              ),
+            ),
+          )
+        : child,
+    errorBuilder: (_, _, _) => SizedBox(
+      height: height,
+      child: const Center(
+        child: Text('사진을 다시 선택해 주세요.', style: TextStyle(fontSize: 11)),
+      ),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) => Column(
@@ -32,7 +63,7 @@ class PhotoInputField extends StatelessWidget {
       ),
       const SizedBox(height: 8),
       Container(
-        height: 116,
+        height: adaptToPhoto && photo != null ? null : height,
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           color: AppColors.surface,
@@ -43,6 +74,7 @@ class PhotoInputField extends StatelessWidget {
         ),
         child: Stack(
           children: [
+            if (adaptToPhoto && photo != null) _image(),
             Positioned.fill(
               child: Material(
                 color: Colors.transparent,
@@ -72,16 +104,9 @@ class PhotoInputField extends StatelessWidget {
                             ),
                           ],
                         )
-                      : Image.file(
-                          File(photo!.path),
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, error, stack) => const Center(
-                            child: Text(
-                              '사진을 다시 선택해 주세요.',
-                              style: TextStyle(fontSize: 11),
-                            ),
-                          ),
-                        ),
+                      : adaptToPhoto
+                      ? null
+                      : _image(),
                 ),
               ),
             ),

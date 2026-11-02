@@ -1,3 +1,4 @@
+import '../../../../ui/core/widgets/action_controls.dart';
 import '../../../../ui/core/theme/app_colors.dart';
 import '../../../../ui/core/widgets/app_icon.dart';
 import 'package:flutter/material.dart';
@@ -79,7 +80,7 @@ Future<void> showVerificationSentDialog(
               style: ReferenceStyle.text(11, 17, color: ReferenceStyle.muted),
             ),
             const SizedBox(height: 20),
-            ReferenceButton('확인', onPressed: () => Navigator.pop(context)),
+            AppActionButton('확인', onPressed: () => Navigator.pop(context)),
           ],
         ),
       ),
