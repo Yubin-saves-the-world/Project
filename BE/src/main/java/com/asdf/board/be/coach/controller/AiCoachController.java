@@ -39,7 +39,7 @@ public class AiCoachController {
     private String anthropicApiKey;
 
     private final RestTemplate restTemplate = new RestTemplate();
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private ObjectMapper objectMapper = new ObjectMapper();
 
     private static final String SYSTEM_PROMPT =
         "당신은 체형 분석 전문 AI 피트니스 코치입니다. 사용자의 체형 분석 데이터를 바탕으로 맞춤형 운동과 건강 관리 조언을 한국어로 제공합니다. " +

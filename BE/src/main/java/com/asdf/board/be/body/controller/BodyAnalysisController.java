@@ -47,7 +47,7 @@ public class BodyAnalysisController {
     private final RoutineItemRepository routineItemRepository;
     private final ExerciseRepository exerciseRepository;
     private final AiAnalysisClient aiClient;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private ObjectMapper objectMapper = new ObjectMapper();
 
     private Long userId(Jwt jwt) { return Long.valueOf(jwt.getSubject()); }
     private User user(Jwt jwt) {
