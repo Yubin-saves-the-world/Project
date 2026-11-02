@@ -18,11 +18,11 @@ class ManualExerciseResolver {
           result.total < items.length ||
           result.items.any((e) => items.any((old) => old.id == e.id)) ||
           result.items.map((e) => e.id).toSet().length != result.items.length) {
-        throw StateError('서버 운동 목록을 다시 확인해 주세요.');
+        throw StateError('운동 목록을 다시 확인해 주세요.');
       }
       items.addAll(result.items);
       if (items.length >= result.total) break;
-      if (result.items.isEmpty) throw StateError('서버 운동 목록을 모두 확인하지 못했어요.');
+      if (result.items.isEmpty) throw StateError('운동 목록을 모두 확인하지 못했어요.');
       page++;
     }
     _catalog = List.unmodifiable(items);
@@ -46,7 +46,7 @@ class ManualExerciseResolver {
     final found = match(index);
     if (found == null) {
       throw StateError(
-        '이 종목을 서버에서 확인하지 못했어요. 일정 수정에서 현재 지원하는 종목을 선택해 주세요. 기존 기록은 유지돼요.',
+        '이 종목의 정보를 확인하지 못했어요. 일정 수정에서 현재 지원하는 종목을 선택해 주세요. 기존 기록은 유지돼요.',
       );
     }
     final current = await repository.detail(found.id);

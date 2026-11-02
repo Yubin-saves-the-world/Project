@@ -77,55 +77,91 @@ class _OnboardingAnalysisPageState extends State<OnboardingAnalysisPage> {
 
   Future<void> _photos({bool goal = false}) async {
     if (!goal) model.setMethod(AnalysisMethod.photo);
-    await showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      builder: (context) => AnimatedBuilder(
-        animation: model,
-        builder: (context, _) => SafeArea(
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    goal ? '목표 체형 사진' : '분석할 사진',
-                    style: ReferenceStyle.text(20, 28, weight: FontWeight.w500),
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AnimatedBuilder(
+          animation: model,
+          builder: (context, _) => PopScope(
+            canPop: !model.busy,
+            child: Scaffold(
+              appBar: AppBar(
+                title: Text(goal ? '목표 체형 사진' : '분석할 사진'),
+                centerTitle: true,
+                leading: IconButton(
+                  tooltip: '뒤로가기',
+                  onPressed: model.busy ? null : () => Navigator.pop(context),
+                  icon: const AppIcon(
+                    Icons.arrow_back_ios_new_rounded,
+                    size: 20,
                   ),
-                  const SizedBox(height: 16),
-                  for (final slot
-                      in goal
-                          ? [PhotoSlot.goal]
-                          : [PhotoSlot.front, PhotoSlot.side])
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: PhotoInputField(
-                        key: Key('${slot.name}-photo'),
-                        label: switch (slot) {
-                          PhotoSlot.front => '정면',
-                          PhotoSlot.side => '측면',
-                          PhotoSlot.goal => '목표 체형',
-                        },
-                        photo: model.photoFor(slot),
-                        requiredPhoto: slot == PhotoSlot.front,
-                        enabled: model.bodyPhotoAgreed && !model.busy,
-                        onSelect: () => _select(slot),
-                        onRemove: () => model.removePhoto(slot),
+                ),
+              ),
+              body: SafeArea(
+                top: false,
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 16,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            for (final slot
+                                in goal
+                                    ? [PhotoSlot.goal]
+                                    : [PhotoSlot.front, PhotoSlot.side])
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 16),
+                                child: LayoutBuilder(
+                                  builder: (context, constraints) =>
+                                      PhotoInputField(
+                                        key: Key('${slot.name}-photo'),
+                                        label: switch (slot) {
+                                          PhotoSlot.front => '정면',
+                                          PhotoSlot.side => '측면',
+                                          PhotoSlot.goal => '목표 체형',
+                                        },
+                                        height: constraints.maxWidth,
+                                        adaptToPhoto: true,
+                                        fit: BoxFit.contain,
+                                        photo: model.photoFor(slot),
+                                        requiredPhoto: slot == PhotoSlot.front,
+                                        enabled:
+                                            model.bodyPhotoAgreed &&
+                                            !model.busy,
+                                        onSelect: () => _select(slot),
+                                        onRemove: () => model.removePhoto(slot),
+                                      ),
+                                ),
+                              ),
+                            if (model.error != null)
+                              Text(
+                                model.error!,
+                                style: ReferenceStyle.text(
+                                  12,
+                                  18,
+                                  color: Colors.red,
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
                     ),
-                  if (model.error != null)
-                    Text(
-                      model.error!,
-                      style: ReferenceStyle.text(12, 18, color: Colors.red),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+                      child: ReferenceButton(
+                        '확인',
+                        onPressed: model.busy
+                            ? null
+                            : () => Navigator.pop(context),
+                      ),
                     ),
-                  ReferenceButton(
-                    '확인',
-                    onPressed: model.busy ? null : () => Navigator.pop(context),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -135,22 +171,6 @@ class _OnboardingAnalysisPageState extends State<OnboardingAnalysisPage> {
   }
 
   Future<void> _description() async {
-    if (!widget.supportsText) {
-      await showDialog<void>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('글 분석 준비 중'),
-          content: const Text('현재는 사진으로 체형을 분석할 수 있어요.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('확인'),
-            ),
-          ],
-        ),
-      );
-      return;
-    }
     model.setMethod(AnalysisMethod.text);
     await showModalBottomSheet<void>(
       context: context,
@@ -231,8 +251,19 @@ class _OnboardingAnalysisPageState extends State<OnboardingAnalysisPage> {
               ),
               child: Center(
                 child: photo
-                    ? _svg('521_55', 16.9, 14.2)
-                    : const EditIcon(size: 14.9, color: ReferenceStyle.muted),
+                    ? SvgPicture.asset(
+                        'assets/icons/figma/figma-521_55.svg',
+                        width: 16.9,
+                        height: 14.2,
+                        colorFilter: ColorFilter.mode(
+                          selected ? Colors.white : ReferenceStyle.muted,
+                          BlendMode.srcIn,
+                        ),
+                      )
+                    : EditIcon(
+                        size: 14.9,
+                        color: selected ? Colors.white : ReferenceStyle.muted,
+                      ),
               ),
             ),
             const SizedBox(width: 12),
@@ -306,7 +337,7 @@ class _OnboardingAnalysisPageState extends State<OnboardingAnalysisPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'SHOOTING GUIDE',
+          '촬영 안내',
           style: ReferenceStyle.text(
             10,
             15,
@@ -372,7 +403,38 @@ class _OnboardingAnalysisPageState extends State<OnboardingAnalysisPage> {
                 const SizedBox(height: 15),
                 _card(photo: false),
                 const SizedBox(height: 15),
-                _guide(),
+                if (model.analysis.method == AnalysisMethod.photo)
+                  _guide()
+                else
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: ReferenceStyle.border),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '작성 안내',
+                          style: ReferenceStyle.text(
+                            14,
+                            21,
+                            weight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '평소 자세, 불편한 부위, 개선하고 싶은 점을 적어 주세요.',
+                          style: ReferenceStyle.text(
+                            12,
+                            18,
+                            color: ReferenceStyle.muted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 const SizedBox(height: 15),
                 InkWell(
                   onTap: model.busy

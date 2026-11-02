@@ -142,13 +142,9 @@ class _CommunityEditorPageState extends State<CommunityEditorPage> {
         _busy = false;
       });
       Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            widget.dependencies.preview ? '게시글을 현재 앱에 저장했어요.' : '게시글을 저장했어요.',
-          ),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('게시글을 저장했어요.')));
     } catch (e) {
       if (!mounted) return;
       setState(() {

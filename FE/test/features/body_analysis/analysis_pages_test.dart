@@ -81,7 +81,11 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('글로 설명하기'));
       await tester.pumpAndSettle();
-      expect(find.text('글 분석 준비 중'), findsOneWidget);
+      expect(find.byKey(const Key('analysis-text')), findsOneWidget);
+      await tester.enterText(
+        find.byKey(const Key('analysis-text')),
+        '어깨가 자주 뻐근해요.',
+      );
       await tester.tap(find.text('확인'));
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.text('분석 기록'));

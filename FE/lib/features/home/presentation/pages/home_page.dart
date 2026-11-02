@@ -1,4 +1,6 @@
+import '../../../../ui/core/theme/app_spacing.dart';
 import '../../../../ui/core/theme/app_colors.dart';
+import '../../../../ui/core/widgets/action_controls.dart';
 import '../../../workout/presentation/pages/workout_page.dart';
 import '../../../../ui/core/widgets/app_icon.dart';
 import '../../../workout/presentation/pages/workout_history_page.dart';
@@ -12,6 +14,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../../auth/data/models/onboarding_progress.dart';
 import '../../../../ui/core/widgets/design_reference_page.dart';
 import '../../data/home_preview_repository.dart';
+import '../../data/recommendation_demo.dart';
 import '../home_view_model.dart';
 import 'workout_calendar_page.dart';
 import 'weekly_routine_editor.dart';
@@ -121,32 +124,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (mounted) await server?.refresh();
   }
 
-  Future<void> _chooseRecommended() async {
-    final data = server;
-    if (data == null || !data.canChoose) return;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        scrollable: true,
-        title: const Text('추천 루틴으로 교체할까요?'),
-        content: const Text(
-          '선택한 날짜에는 추천 루틴을 사용해요. 다른 날짜와 반복 일정, 완료한 기록은 유지돼요.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('내 운동 유지'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('추천 루틴으로 교체'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed == true && mounted) await data.chooseRecommended();
-  }
-
   Future<void> _releaseRest() async {
     if (server != null && await server!.restoreRestDay()) return;
     if (mounted) await _editSchedule();
@@ -164,33 +141,19 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   );
   Widget _card(
     Widget child, {
-    bool blue = false,
     double radius = 16,
-    EdgeInsets padding = const EdgeInsets.all(18),
+    EdgeInsets padding = const EdgeInsets.all(AppSpacing.medium),
   }) => Container(
     width: double.infinity,
     padding: padding,
     decoration: BoxDecoration(
       color: Colors.white,
-      border: Border.all(color: blue ? ReferenceStyle.blue : AppColors.border),
+      border: Border.all(color: AppColors.border),
       borderRadius: BorderRadius.circular(radius),
     ),
     child: child,
   );
-  void _info(String title, String body) => showDialog<void>(
-    context: context,
-    builder: (context) => AlertDialog(
-      scrollable: true,
-      title: Text(title),
-      content: Text(body),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('확인'),
-        ),
-      ],
-    ),
-  );
+  void _info(String title, String body) => showAppNotice(context, title, body);
   Future<void> _editSchedule() async {
     if (!model.canWrite || server?.busy == true) return;
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
@@ -198,6 +161,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       MaterialPageRoute(
         builder: (_) => WeeklyRoutineEditor(
           model: model,
+          server: server,
+          demoRecommendation:
+              RecommendationDemo.enabled && server?.recommendation == null
+              ? RecommendationDemo.forDate(model.selectedDate)
+              : null,
           date: model.selectedDate,
           onOpenExercises: widget.onOpenExercises,
         ),
@@ -233,7 +201,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       builder: (context) => SafeArea(
         child: SingleChildScrollView(
           child: Padding(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.page,
+              vertical: AppSpacing.medium,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -274,7 +245,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final dependencies = widget.server;
     final resolver = server?.manualExercises;
     if (resolver == null || dependencies?.workouts == null) {
-      _info('운동을 시작할 수 없어요', '서버 운동 연결을 확인한 뒤 다시 시도해 주세요.');
+      _info('운동을 시작할 수 없어요', '잠시 후 다시 시도해 주세요.');
       return;
     }
     setState(() => _openingManual = true);
@@ -300,7 +271,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           '운동을 시작할 수 없어요',
           e is StateError
               ? e.message.toString()
-              : '서버 운동 정보를 확인하지 못했어요. 다시 시도해 주세요.',
+              : '운동 정보를 확인하지 못했어요. 다시 시도해 주세요.',
         );
       }
     } finally {
@@ -329,17 +300,28 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               '${HomeViewModel.exercises[current.exercise].name}을 진행 중이에요. 이어하거나 취소한 뒤 새 종목을 시작해 주세요.',
             ),
             actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('닫기'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(context, 'resume'),
-                child: const Text('기존 운동 이어하기'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(context, 'replace'),
-                child: const Text('취소하고 새 운동'),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  AppActionButton(
+                    '기존 운동 이어하기',
+                    onPressed: () => Navigator.pop(context, 'resume'),
+                  ),
+                  const SizedBox(height: 8),
+                  AppActionButton(
+                    '취소하고 새 운동',
+                    secondary: true,
+                    onPressed: () => Navigator.pop(context, 'replace'),
+                  ),
+                  const SizedBox(height: 8),
+                  AppActionButton(
+                    '닫기',
+                    secondary: true,
+                    neutral: true,
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
               ),
             ],
           ),
@@ -372,7 +354,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 if (server != null)
                   const Padding(
                     padding: EdgeInsets.all(16),
-                    child: Text('이 운동 기록은 현재 기기에 저장돼요.'),
+                    child: SizedBox.shrink(),
                   ),
                 Flexible(
                   child: _WorkoutPreviewForm(model: model, exercise: exercise),
@@ -416,7 +398,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 physics: server == null
                     ? null
                     : const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.page,
+                  vertical: AppSpacing.medium,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -427,17 +412,26 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                '${widget.onboarding?.account?.nickname ?? '회원'}님, ${_planned(model.today)
+                                '${widget.onboarding?.account?.nickname ?? '회원'}님,',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: ReferenceStyle.text(
+                                  18,
+                                  27,
+                                  weight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _planned(model.today)
                                     ? '오늘도 함께해요'
                                     : model.routineFor(model.today) == null
                                     ? '일정을 정해요'
-                                    : '오늘은 휴식일'}',
-                                maxLines: 2,
+                                    : '오늘은 휴식일',
                                 style: ReferenceStyle.text(
-                                  20,
-                                  31,
-                                  weight: FontWeight.w500,
-                                  spacing: -.5,
+                                  12,
+                                  18,
+                                  color: ReferenceStyle.muted,
                                 ),
                               ),
                             ],
@@ -655,7 +649,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       ),
                     if (model.active != null)
                       Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.only(
+                          bottom: AppSpacing.medium,
+                        ),
                         child: _card(
                           ListTile(
                             contentPadding: EdgeInsets.zero,
@@ -672,7 +668,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             onTap: () =>
                                 _exercise(model.active!.exercise, resume: true),
                           ),
-                          blue: true,
                         ),
                       ),
                     if (server != null &&
@@ -681,7 +676,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       ServerRecommendationCard(
                         model: server!,
                         onEdit: _editSchedule,
-                        onChoose: _chooseRecommended,
                         onAnalysis: widget.onOpenAnalysis,
                       )
                     else
@@ -772,13 +766,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                     ),
                                   ),
                                 ),
-                              TextButton(
-                                onPressed: _routine,
-                                child: Text(
-                                  '전체 ${model.routineItems.length}종목 보기',
-                                ),
-                              ),
-                              const SizedBox(height: 4),
+                              const SizedBox(height: 8),
                               ReferenceButton(
                                 _routineDone
                                     ? '운동 완료 · 기록 보기'
@@ -807,23 +795,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             ],
                           ],
                         ),
-                        blue: true,
                         radius: 18,
                       ),
                     const SizedBox(height: 16),
-                    if (server != null &&
-                        !server!.usesRecommended &&
-                        model.selectedRoutine != null &&
-                        server!.recommendation != null)
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton(
-                          onPressed: server!.canChoose
-                              ? _chooseRecommended
-                              : null,
-                          child: const Text('추천 루틴으로 교체'),
-                        ),
-                      ),
                     if (server?.warning != null) ...[
                       Text(
                         server!.warning!,
@@ -839,7 +813,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       Text(server!.error!, style: _text(12, color: Colors.red)),
                       TextButton(
                         onPressed: server!.refresh,
-                        child: const Text('서버 다시 확인'),
+                        child: const Text('다시 확인'),
                       ),
                     ],
                     if (server?.accessCode == 'ONBOARDING_REQUIRED' &&
@@ -860,7 +834,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           child: _shortcut(
                             Icons.restaurant_outlined,
                             '맞춤 식단',
-                            '준비 중',
+                            '',
                             () => _info('맞춤 식단', '맞춤 식단을 준비하고 있어요.'),
                           ),
                         ),
@@ -869,7 +843,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           child: _shortcut(
                             Icons.accessibility_new_rounded,
                             '자세 교정',
-                            '준비 중',
+                            '',
                             () => _info('자세 교정', '자세 교정을 준비하고 있어요.'),
                           ),
                         ),
@@ -1050,7 +1024,10 @@ class _WorkoutPreviewFormState extends State<_WorkoutPreviewForm> {
     builder: (context, _) => widget.model.active == null
         ? SafeArea(
             child: Padding(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.page,
+                vertical: AppSpacing.medium,
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -1156,15 +1133,13 @@ class _WorkoutPreviewFormState extends State<_WorkoutPreviewForm> {
                                       '현재 진행 중인 기록만 취소합니다. 이미 완료한 운동 기록은 유지됩니다.',
                                     ),
                                     actions: [
-                                      TextButton(
-                                        onPressed: () =>
+                                      AppDialogActions(
+                                        cancelLabel: '계속 운동하기',
+                                        actionLabel: '운동 취소',
+                                        onCancel: () =>
                                             Navigator.pop(context, false),
-                                        child: const Text('계속 운동하기'),
-                                      ),
-                                      TextButton(
-                                        onPressed: () =>
+                                        onAction: () =>
                                             Navigator.pop(context, true),
-                                        child: const Text('운동 취소'),
                                       ),
                                     ],
                                   ),

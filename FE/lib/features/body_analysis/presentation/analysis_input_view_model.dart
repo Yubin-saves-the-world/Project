@@ -4,6 +4,7 @@ import '../../photos/data/models/selected_photo.dart';
 import '../../photos/data/models/body_photo.dart';
 import '../../photos/data/photo_preparer.dart';
 import '../data/models/analysis_input.dart';
+import '../data/analysis_repository.dart';
 import '../data/models/body_analysis.dart';
 import 'analysis_dependencies.dart';
 import 'analysis_form_controller.dart';
@@ -89,7 +90,13 @@ class AnalysisInputViewModel extends ChangeNotifier
   }
 
   @override
-  void setText(String value) {}
+  void setText(String value) {
+    if (busy) return;
+    analysis = analysis.copyWith(text: value);
+    error = null;
+    _notify();
+  }
+
   @override
   void back() {}
   @override
@@ -195,13 +202,21 @@ class AnalysisInputViewModel extends ChangeNotifier
   Future<bool> finish({required bool prepareAnalysis}) async {
     if (busy) return false;
     if (pendingId != null) return true;
-    if (analysis.front == null) {
+    final textMode = analysis.method == AnalysisMethod.text;
+    if (textMode &&
+        (analysis.text.trim().isEmpty ||
+            analysis.text.trim().runes.length > 500)) {
+      error = '몸 상태를 1~500자로 입력해 주세요.';
+      _notify();
+      return false;
+    }
+    if (!textMode && analysis.front == null) {
       error = '정면 사진을 추가해 주세요.';
       _notify();
       return false;
     }
     if (dependencies.localPreview) {
-      error = '로컬 미리보기에서는 실제 체형 분석을 제공하지 않아요. 서버 연결 후 이용해 주세요.';
+      error = '분석을 시작할 수 없어요. 잠시 후 다시 시도해 주세요.';
       _notify();
       return false;
     }
@@ -216,7 +231,7 @@ class AnalysisInputViewModel extends ChangeNotifier
     _notify();
     try {
       dependencies.ensureCanAnalyze?.call();
-      if (selectedGoal != null && dependencies.goals != null) {
+      if (!textMode && selectedGoal != null && dependencies.goals != null) {
         final currentGoal = await dependencies.goals!.repository.load();
         if (currentGoal?.status != AnalysisStatus.done ||
             currentGoal?.id != selectedGoal?.id) {
@@ -226,16 +241,28 @@ class AnalysisInputViewModel extends ChangeNotifier
         }
         selectedGoal = currentGoal!.comparison;
       }
-      final front = await _upload(analysis.front!, BodyPhotoSide.front);
-      final side = analysis.side == null
-          ? null
-          : await _upload(analysis.side!, BodyPhotoSide.side);
+      final AnalysisTicket ticket;
+      if (textMode) {
+        final repository = dependencies.repository;
+        if (repository is! TextAnalysisRepository) {
+          throw StateError('분석을 시작할 수 없어요. 잠시 후 다시 시도해 주세요.');
+        }
+        ticket = await (repository as TextAnalysisRepository).startText(
+          analysis.text.trim(),
+        );
+      } else {
+        final front = await _upload(analysis.front!, BodyPhotoSide.front);
+        final side = analysis.side == null
+            ? null
+            : await _upload(analysis.side!, BodyPhotoSide.side);
+        if (_disposed) return false;
+        ticket = await dependencies.repository.start(
+          photoId: front,
+          sidePhotoId: side,
+          goalId: selectedGoal?.id,
+        );
+      }
       if (_disposed) return false;
-      final ticket = await dependencies.repository.start(
-        photoId: front,
-        sidePhotoId: side,
-        goalId: selectedGoal?.id,
-      );
       pendingId = ticket.id;
       try {
         await dependencies.pending.write(ticket.id);

@@ -1,3 +1,5 @@
+import '../../../../ui/core/theme/app_spacing.dart';
+import '../../../../ui/core/widgets/action_controls.dart';
 import '../../../routines/presentation/pages/routine_detail_page.dart';
 import '../../../routines/presentation/pages/routine_week_page.dart';
 import 'package:flutter/material.dart';
@@ -52,24 +54,11 @@ class _AnalysisRunPageState extends State<AnalysisRunPage>
   }
 
   Future<void> _generate() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('맞춤 루틴을 만들까요?'),
-        content: const Text(
-          '이 분석으로 앞으로의 추천 루틴을 새로 만들어요. 기존 추천 중 예정된 루틴은 교체되며, 직접 만든 일정과 완료 기록은 유지돼요.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('취소'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('만들기'),
-          ),
-        ],
-      ),
+    final confirmed = await showAppConfirmation(
+      context,
+      '맞춤 루틴을 만들까요?',
+      '이 분석으로 앞으로의 추천 루틴을 새로 만들어요. 기존 추천 중 예정된 루틴은 교체되며, 직접 만든 일정과 완료 기록은 유지돼요.',
+      action: '만들기',
     );
     if (confirmed == true && mounted) await model.generate();
   }
@@ -80,7 +69,10 @@ class _AnalysisRunPageState extends State<AnalysisRunPage>
     builder: (context, _) => ManagementPage(
       title: '체형 분석',
       body: ListView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.page,
+          vertical: AppSpacing.medium,
+        ),
         children: [
           if (model.phase == AnalysisRunPhase.done)
             ..._result()
@@ -90,7 +82,7 @@ class _AnalysisRunPageState extends State<AnalysisRunPage>
                 if (model.phase == AnalysisRunPhase.loading ||
                     model.phase == AnalysisRunPhase.pending) ...[
                   const Center(child: CircularProgressIndicator()),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: AppSpacing.medium),
                   Text(
                     '체형을 분석하고 있어요',
                     style: ReferenceStyle.text(20, 28, weight: FontWeight.w500),
@@ -116,7 +108,7 @@ class _AnalysisRunPageState extends State<AnalysisRunPage>
                         : model.error ??
                               '같은 분석의 상태를 다시 확인하거나, 나중에 분석 기록에서 확인할 수 있어요.',
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: AppSpacing.medium),
                   if ((model.accessCode == 'CONSENT_REQUIRED' ||
                           model.accessCode == 'ONBOARDING_REQUIRED') &&
                       widget.dependencies.onAccessRequired != null)
@@ -141,60 +133,78 @@ class _AnalysisRunPageState extends State<AnalysisRunPage>
   List<Widget> _result() {
     final result = model.result!;
     return [
-      AnalysisPanel(
-        children: [
-          Text(
-            '분석 결과',
-            style: ReferenceStyle.text(20, 28, weight: FontWeight.w500),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            result.score == null ? '점수 산출 불가' : '${result.score}점',
-            style: ReferenceStyle.text(30, 39, color: ReferenceStyle.blue),
-          ),
-          Text(result.bodyType ?? '체형을 분류하지 못했어요.'),
-          if (result.measurementVersion == 'stub-v0')
-            const Text(
-              '현재 서버의 시험용 분석 결과예요.',
-              style: TextStyle(color: ReferenceStyle.muted),
+      if (result.source == 'text')
+        AnalysisPanel(
+          children: [
+            Text(
+              '분석 결과',
+              style: ReferenceStyle.text(20, 28, weight: FontWeight.w500),
             ),
-        ],
-      ),
-      const SizedBox(height: 16),
-      AnalysisPanel(
-        children: [
-          Text(
-            '체형 측정',
-            style: ReferenceStyle.text(16, 24, weight: FontWeight.w500),
-          ),
-          for (final (key, label, unavailableKey) in const [
-            ('shoulder_tilt_deg', '어깨 기울기', 'shoulder_tilt'),
-            ('pelvis_tilt_deg', '골반 기울기', 'pelvis_tilt'),
-            ('neck_forward_deg', '목 전방 기울기', 'neck_forward'),
-            ('shoulder_hip_ratio', '어깨·골반 비율', 'shoulder_hip_ratio'),
-            ('torso_leg_ratio', '상체·다리 비율', 'torso_leg_ratio'),
-          ])
-            Padding(
-              padding: const EdgeInsets.only(top: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(label),
-                  Text(
-                    result.measures[key] == null
-                        ? measurementReason(result.unavailable[unavailableKey])
-                        : '${result.measures[key]!.toStringAsFixed(1)}${key.endsWith('_deg') ? '°' : ''}',
-                    style: ReferenceStyle.text(
-                      14,
-                      21,
-                      color: ReferenceStyle.muted,
+            const SizedBox(height: 12),
+            Text(result.textSummary ?? '분석 내용을 불러오지 못했어요.'),
+          ],
+        )
+      else ...[
+        AnalysisPanel(
+          children: [
+            Text(
+              '분석 결과',
+              style: ReferenceStyle.text(20, 28, weight: FontWeight.w500),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              result.score == null ? '점수 산출 불가' : '${result.score}점',
+              style: ReferenceStyle.text(30, 39, color: ReferenceStyle.blue),
+            ),
+            Text(result.bodyType ?? '체형을 분류하지 못했어요.'),
+          ],
+        ),
+        const SizedBox(height: 16),
+        AnalysisPanel(
+          children: [
+            Text(
+              '체형 측정',
+              style: ReferenceStyle.text(16, 24, weight: FontWeight.w500),
+            ),
+            for (final (key, label, unavailableKey) in const [
+              ('shoulder_tilt_deg', '어깨 기울기', 'shoulder_tilt'),
+              ('pelvis_tilt_deg', '골반 기울기', 'pelvis_tilt'),
+              ('neck_forward_deg', '목 전방 기울기', 'neck_forward'),
+              ('shoulder_hip_ratio', '어깨·골반 비율', 'shoulder_hip_ratio'),
+              ('torso_leg_ratio', '상체·다리 비율', 'torso_leg_ratio'),
+            ])
+              Padding(
+                padding: const EdgeInsets.only(top: AppSpacing.medium),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      flex: 4,
+                      child: Text(label, style: ReferenceStyle.text(14, 21)),
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 5,
+                      child: Text(
+                        result.measures[key] == null
+                            ? measurementReason(
+                                result.unavailable[unavailableKey],
+                              )
+                            : '${result.measures[key]!.toStringAsFixed(1)}${key.endsWith('_deg') ? '°' : ''}',
+                        textAlign: TextAlign.right,
+                        style: ReferenceStyle.text(
+                          14,
+                          21,
+                          color: ReferenceStyle.muted,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-        ],
-      ),
+          ],
+        ),
+      ],
       if (result.judgements.isNotEmpty) ...[
         const SizedBox(height: 16),
         AnalysisPanel(
@@ -233,7 +243,7 @@ class _AnalysisRunPageState extends State<AnalysisRunPage>
           ],
         ),
       ],
-      const SizedBox(height: 24),
+      const SizedBox(height: AppSpacing.medium),
       if (model.routines == null)
         ReferenceButton(
           '맞춤 루틴 만들기',
@@ -251,7 +261,7 @@ class _AnalysisRunPageState extends State<AnalysisRunPage>
       if (model.routines != null) ...[
         Text(
           '추천 루틴',
-          style: ReferenceStyle.text(20, 28, weight: FontWeight.w500),
+          style: ReferenceStyle.text(16, 24, weight: FontWeight.w500),
         ),
         if (model.routines!.isEmpty) const Text('생성된 추천 루틴이 없어요.'),
         if (widget.dependencies.routines != null && model.routines!.isNotEmpty)
@@ -273,7 +283,7 @@ class _AnalysisRunPageState extends State<AnalysisRunPage>
 
         for (final routine in model.routines!)
           Padding(
-            padding: const EdgeInsets.only(top: 12),
+            padding: const EdgeInsets.only(top: AppSpacing.medium),
             child: AnalysisPanel(
               children: [
                 Text(
@@ -290,7 +300,9 @@ class _AnalysisRunPageState extends State<AnalysisRunPage>
                 ),
                 for (final exercise in routine.items) Text(exercise),
                 if (widget.dependencies.routines != null)
-                  TextButton(
+                  AppActionButton(
+                    '루틴 상세 보기',
+                    secondary: true,
                     onPressed: () => Navigator.push(
                       context,
                       MaterialPageRoute<void>(
@@ -304,7 +316,6 @@ class _AnalysisRunPageState extends State<AnalysisRunPage>
                         ),
                       ),
                     ),
-                    child: const Text('루틴 상세 보기'),
                   ),
               ],
             ),
@@ -315,12 +326,17 @@ class _AnalysisRunPageState extends State<AnalysisRunPage>
 }
 
 class AnalysisPanel extends StatelessWidget {
-  const AnalysisPanel({super.key, required this.children});
+  const AnalysisPanel({
+    super.key,
+    required this.children,
+    this.padding = const EdgeInsets.all(AppSpacing.medium),
+  });
   final List<Widget> children;
+  final EdgeInsetsGeometry padding;
   @override
   Widget build(BuildContext context) => Container(
     width: double.infinity,
-    padding: const EdgeInsets.all(20),
+    padding: padding,
     decoration: BoxDecoration(
       color: Colors.white,
       borderRadius: BorderRadius.circular(16),

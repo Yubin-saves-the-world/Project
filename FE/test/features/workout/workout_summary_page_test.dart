@@ -200,7 +200,7 @@ void main() {
     await tester.tap(find.text('기록 저장하고 종료'));
     await tester.pumpAndSettle();
     expect(find.text('종료 응답 손실'), findsOneWidget);
-    await tester.tap(find.text('서버 기록 다시 확인'));
+    await tester.tap(find.text('기록 다시 확인'));
     await tester.pumpAndSettle();
     expect(find.byType(WorkoutSummaryPage), findsOneWidget);
     expect(repo.completions, 1);

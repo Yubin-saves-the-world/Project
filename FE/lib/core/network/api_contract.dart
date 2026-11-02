@@ -18,6 +18,7 @@ abstract final class ApiContract {
   static String photo(int id) => '$photos/$id';
   static const bodyAnalyses = '$prefix/body-analyses';
   static const photoAnalysis = '$bodyAnalyses/photo';
+  static const textAnalysis = '$bodyAnalyses/text';
   static const analysisUsage = '$bodyAnalyses/usage';
   static String bodyAnalysis(int id) => '$bodyAnalyses/$id';
   static const goalBodies = '$prefix/goal-bodies';

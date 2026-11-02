@@ -129,6 +129,8 @@ class BodyAnalysis {
     this.errorCode,
     this.errorMessage,
     this.measurementVersion,
+    this.source = 'photo',
+    this.textSummary,
     Map<String, num?> measures = const {},
     Map<String, String> unavailable = const {},
     List<AnalysisJudgement> judgements = const [],
@@ -139,6 +141,8 @@ class BodyAnalysis {
   final int id;
   final AnalysisStatus status;
   final DateTime createdAt;
+  final String source;
+  final String? textSummary;
   final num? score;
   final String? bodyType, errorCode, errorMessage, measurementVersion;
   final Map<String, num?> measures;
@@ -156,6 +160,8 @@ class BodyAnalysis {
       errorCode: json['error_code'] as String?,
       errorMessage: json['error_message'] as String?,
       measurementVersion: json['measurement_version'] as String?,
+      source: json['source'] as String? ?? 'photo',
+      textSummary: json['text_summary'] as String?,
       measures: {
         for (final key in [
           'shoulder_tilt_deg',

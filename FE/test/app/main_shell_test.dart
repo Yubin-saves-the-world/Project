@@ -18,11 +18,11 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.fitness_center_outlined));
     await tester.pumpAndSettle();
-    expect(find.text('운동 기록 준비 중'), findsOneWidget);
+    expect(find.text('운동 기록이 없어요.'), findsOneWidget);
 
     await tester.tap(find.byIcon(Icons.chat_bubble_outline_rounded));
     await tester.pumpAndSettle();
-    expect(find.text('인공지능 코치 준비 중'), findsOneWidget);
+    expect(find.text('대화 내역이 없어요.'), findsOneWidget);
     await tester.tap(find.byIcon(Icons.people_outline_rounded));
     await tester.pumpAndSettle();
     expect(find.text('로그인 후 커뮤니티를 이용해 주세요.'), findsOneWidget);

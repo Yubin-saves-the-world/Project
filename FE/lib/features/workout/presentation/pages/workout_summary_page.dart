@@ -1,3 +1,5 @@
+import '../../../../ui/core/widgets/action_controls.dart';
+import '../../../../ui/core/theme/app_spacing.dart';
 import '../../../../ui/core/widgets/app_icon.dart';
 import 'package:flutter/material.dart';
 import '../../../../ui/core/widgets/design_reference_page.dart';
@@ -82,13 +84,16 @@ class _WorkoutSummaryPageState extends State<WorkoutSummaryPage> {
         children: [
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.page,
+                vertical: AppSpacing.medium,
+              ),
               children: [
                 AppIcon(
                   model.routineDone
                       ? Icons.emoji_events_outlined
                       : Icons.check_circle_outline_rounded,
-                  size: 48,
+                  size: 36,
                   color: ReferenceStyle.blue,
                 ),
                 const SizedBox(height: 16),
@@ -98,15 +103,16 @@ class _WorkoutSummaryPageState extends State<WorkoutSummaryPage> {
                             ? '오늘의 루틴을 모두 마쳤어요'
                             : '루틴을 모두 마쳤어요')
                       : '${widget.log.name} 완료',
-                  style: ReferenceStyle.text(24, 32, weight: FontWeight.w500),
+                  style: ReferenceStyle.text(20, 28, weight: FontWeight.w500),
                 ),
                 const SizedBox(height: 8),
                 const Text(
                   '수고했어요. 운동 기록이 저장되었어요.',
                   style: TextStyle(color: ReferenceStyle.muted),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: AppSpacing.medium),
                 AnalysisPanel(
+                  padding: const EdgeInsets.all(16),
                   children: [
                     _metric(
                       '운동 시간',
@@ -125,9 +131,10 @@ class _WorkoutSummaryPageState extends State<WorkoutSummaryPage> {
                     ],
                   ],
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: AppSpacing.medium),
                 if (widget.result.memo?.trim().isNotEmpty == true)
                   AnalysisPanel(
+                    padding: const EdgeInsets.all(16),
                     children: [
                       Text(
                         '운동 메모',
@@ -148,8 +155,9 @@ class _WorkoutSummaryPageState extends State<WorkoutSummaryPage> {
                   ),
                 if (model.nextItem case final item?)
                   Padding(
-                    padding: const EdgeInsets.only(top: 20),
+                    padding: const EdgeInsets.only(top: AppSpacing.medium),
                     child: AnalysisPanel(
+                      padding: const EdgeInsets.all(16),
                       children: [
                         Text(
                           '다음 운동',
@@ -187,7 +195,10 @@ class _WorkoutSummaryPageState extends State<WorkoutSummaryPage> {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.page,
+              vertical: AppSpacing.medium,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -203,14 +214,18 @@ class _WorkoutSummaryPageState extends State<WorkoutSummaryPage> {
                   ),
                 ],
                 if (model.nextItem != null && !model.loading) ...[
-                  ReferenceButton(
+                  AppActionButton(
                     '다음 종목',
                     onPressed: _opening ? null : next,
                     busy: _opening,
                   ),
                   const SizedBox(height: 10),
                 ],
-                ReferenceButton('홈으로', onPressed: _opening ? null : home),
+                AppActionButton(
+                  '홈으로',
+                  secondary: model.nextItem != null && !model.loading,
+                  onPressed: _opening ? null : home,
+                ),
               ],
             ),
           ),

@@ -1,5 +1,6 @@
 import '../../features/community/presentation/community_controller.dart';
 import '../../features/community/presentation/community_page.dart';
+import '../../features/community/presentation/community_safety_pages.dart';
 import '../../features/settings/presentation/account_settings_dependencies.dart';
 import '../../features/settings/presentation/pages/account_settings_pages.dart';
 import '../../features/home/presentation/home_server_dependencies.dart';
@@ -173,6 +174,69 @@ class _MainShellState extends State<MainShell> {
     );
   }
 
+  bool get _canOpenMyPage =>
+      widget.onboarding != null &&
+      widget.profileRepository != null &&
+      widget.photoRepository != null &&
+      widget.photoPicker != null;
+
+  Future<void> _openMyPage() async {
+    if (!_canOpenMyPage) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MyPage(
+          onboarding: widget.onboarding!,
+          accountSettings: widget.accountSettings,
+          onConsentRequired: _openPrivacy,
+          profileRepository: widget.profileRepository!,
+          routineRefreshRepository: widget.routineRefreshRepository,
+          photoRepository: widget.photoRepository!,
+          photoPicker: widget.photoPicker!,
+          onOpenAnalysisHistory: widget.analysisDependencies == null
+              ? null
+              : () => Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => AnalysisHistoryPage(
+                      dependencies: widget.analysisDependencies!,
+                    ),
+                  ),
+                ),
+          onOpenGoal: widget.analysisDependencies?.goals == null
+              ? null
+              : () => Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => GoalBodyPage(
+                      dependencies: widget.analysisDependencies!.goals!,
+                    ),
+                  ),
+                ),
+          onOpenExercises: widget.exerciseRepository == null
+              ? null
+              : _openExercises,
+          onOpenRoutines: widget.analysisDependencies?.routines == null
+              ? null
+              : _openRoutines,
+          onOpenBlocks: widget.community == null
+              ? null
+              : () => Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) =>
+                        CommunityBlocksPage(dependencies: widget.community!),
+                  ),
+                ),
+          onProfileSaved: widget.onProfileSaved,
+          onNicknameSave: widget.onNicknameSave,
+          onLogout: widget.onLogout,
+        ),
+      ),
+    );
+    if (mounted) setState(() => _homeRevision++);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -189,63 +253,7 @@ class _MainShellState extends State<MainShell> {
             onOpenExercises: widget.exerciseRepository == null
                 ? null
                 : _openExercises,
-            onOpenMyPage:
-                widget.onboarding == null ||
-                    widget.profileRepository == null ||
-                    widget.photoRepository == null ||
-                    widget.photoPicker == null
-                ? null
-                : () async {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => MyPage(
-                          onboarding: widget.onboarding!,
-                          accountSettings: widget.accountSettings,
-                          onConsentRequired: _openPrivacy,
-                          profileRepository: widget.profileRepository!,
-                          routineRefreshRepository:
-                              widget.routineRefreshRepository,
-                          photoRepository: widget.photoRepository!,
-                          photoPicker: widget.photoPicker!,
-                          onOpenAnalysisHistory:
-                              widget.analysisDependencies == null
-                              ? null
-                              : () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute<void>(
-                                    builder: (_) => AnalysisHistoryPage(
-                                      dependencies:
-                                          widget.analysisDependencies!,
-                                    ),
-                                  ),
-                                ),
-                          onOpenGoal: widget.analysisDependencies?.goals == null
-                              ? null
-                              : () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute<void>(
-                                    builder: (_) => GoalBodyPage(
-                                      dependencies:
-                                          widget.analysisDependencies!.goals!,
-                                    ),
-                                  ),
-                                ),
-                          onOpenExercises: widget.exerciseRepository == null
-                              ? null
-                              : _openExercises,
-                          onOpenRoutines:
-                              widget.analysisDependencies?.routines == null
-                              ? null
-                              : _openRoutines,
-                          onProfileSaved: widget.onProfileSaved,
-                          onNicknameSave: widget.onNicknameSave,
-                          onLogout: widget.onLogout,
-                        ),
-                      ),
-                    );
-                    if (mounted) setState(() => _homeRevision++);
-                  },
+            onOpenMyPage: _canOpenMyPage ? _openMyPage : null,
             loggingOut: widget.loggingOut,
             logoutError: widget.logoutError,
           ),
@@ -260,13 +268,14 @@ class _MainShellState extends State<MainShell> {
           ),
           const AppScaffold(
             title: '인공지능 코치',
-            body: EmptyView(title: '인공지능 코치 준비 중', description: '곧 만나요.'),
+            body: EmptyView(title: '대화 내역이 없어요.', description: ''),
           ),
           CommunityPage(
             key: ValueKey(
               'community:${widget.onboarding?.account?.storageOwner}',
             ),
             dependencies: widget.community,
+            onOpenMyPage: _canOpenMyPage ? _openMyPage : null,
             isActive: _selectedIndex == 4,
           ),
         ],

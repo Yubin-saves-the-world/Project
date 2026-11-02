@@ -1,3 +1,4 @@
+import 'dart:async';
 import '../../../ui/core/theme/app_colors.dart';
 import '../../../ui/core/widgets/app_icon.dart';
 import 'package:flutter/material.dart';
@@ -7,12 +8,18 @@ import 'community_controller.dart';
 import 'community_widgets.dart';
 import 'community_detail_page.dart';
 import 'community_editor_page.dart';
-import 'community_safety_pages.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 class CommunityPage extends StatefulWidget {
-  const CommunityPage({super.key, this.dependencies, this.isActive = false});
+  const CommunityPage({
+    super.key,
+    this.dependencies,
+    this.isActive = false,
+    this.onOpenMyPage,
+  });
   final CommunityDependencies? dependencies;
   final bool isActive;
+  final FutureOr<void> Function()? onOpenMyPage;
   @override
   State<CommunityPage> createState() => _CommunityPageState();
 }
@@ -134,58 +141,28 @@ class _CommunityPageState extends State<CommunityPage>
                           ),
                         ),
                         const SizedBox(width: 8),
-                        PopupMenuButton<String>(
-                          key: const Key('community-menu'),
-                          tooltip: '커뮤니티 메뉴',
-                          position: PopupMenuPosition.under,
-                          color: Colors.white,
-                          surfaceTintColor: Colors.transparent,
-                          elevation: 0,
-                          offset: const Offset(0, 4),
-                          menuPadding: const EdgeInsets.all(6),
-                          constraints: const BoxConstraints(
-                            minWidth: 224,
-                            maxWidth: 260,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
+                        IconButton(
+                          key: const Key('community-profile'),
+                          tooltip: '마이페이지',
+                          onPressed: widget.onOpenMyPage == null
+                              ? null
+                              : () async {
+                                  await widget.onOpenMyPage!();
+                                  if (mounted) await model.load();
+                                },
+                          style: IconButton.styleFrom(
                             side: const BorderSide(color: communityBorder),
+                            fixedSize: const Size(44, 44),
                           ),
-                          icon: const AppIcon(
-                            Icons.more_horiz_rounded,
-                            size: 22,
-                            color: ReferenceStyle.muted,
-                          ),
-                          onSelected: (_) => _open(
-                            CommunityBlocksPage(dependencies: model.deps),
-                          ),
-                          itemBuilder: (_) => [
-                            PopupMenuItem(
-                              value: 'blocks',
-                              height: 48,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                              ),
-                              child: Row(
-                                children: [
-                                  const AppIcon(
-                                    Icons.person_off_outlined,
-                                    size: 18,
-                                    color: ReferenceStyle.muted,
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Flexible(
-                                    child: Text(
-                                      '차단한 사용자 관리',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: ReferenceStyle.text(14, 22),
-                                    ),
-                                  ),
-                                ],
-                              ),
+                          icon: SvgPicture.asset(
+                            'assets/icons/profile.svg',
+                            width: 20,
+                            height: 20,
+                            colorFilter: const ColorFilter.mode(
+                              ReferenceStyle.muted,
+                              BlendMode.srcIn,
                             ),
-                          ],
+                          ),
                         ),
                       ],
                     ),
@@ -266,10 +243,12 @@ class _CommunityPageState extends State<CommunityPage>
                                   padding: const EdgeInsets.only(bottom: 12),
                                   child: _PostCard(
                                     post: post,
+                                    onOpenMyPage: widget.onOpenMyPage,
                                     onTap: () => _open(
                                       CommunityDetailPage(
                                         dependencies: model.deps,
                                         postId: post.id,
+                                        onOpenMyPage: widget.onOpenMyPage,
                                       ),
                                     ),
                                   ),
@@ -325,8 +304,9 @@ class _CommunityPageState extends State<CommunityPage>
 }
 
 class _PostCard extends StatelessWidget {
-  const _PostCard({required this.post, required this.onTap});
+  const _PostCard({required this.post, required this.onTap, this.onOpenMyPage});
   final CommunityPost post;
+  final FutureOr<void> Function()? onOpenMyPage;
   final VoidCallback onTap;
   @override
   Widget build(BuildContext context) {
@@ -412,11 +392,15 @@ class _PostCard extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: communityText(
-                        '${post.author.name} · ${communityDate(post.created)}',
-                        size: 10,
-                        color: ReferenceStyle.muted,
-                        lines: 1,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: post.mine ? onOpenMyPage : null,
+                        child: communityText(
+                          '${post.author.name} · ${communityDate(post.created)}',
+                          size: 10,
+                          color: ReferenceStyle.muted,
+                          lines: 1,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),

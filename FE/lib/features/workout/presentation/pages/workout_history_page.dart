@@ -1,3 +1,4 @@
+import '../../../../ui/core/theme/app_spacing.dart';
 import '../../../../ui/core/widgets/app_icon.dart';
 import 'package:flutter/material.dart';
 import '../../../../ui/core/widgets/app_scaffold.dart';
@@ -95,7 +96,7 @@ class _WorkoutHistoryPageState extends State<WorkoutHistoryPage>
     if (m == null) {
       return const AppScaffold(
         title: '운동 기록',
-        body: EmptyView(title: '운동 기록 준비 중', description: '곧 만나요.'),
+        body: EmptyView(title: '운동 기록이 없어요.', description: ''),
       );
     }
     return ListenableBuilder(
@@ -106,7 +107,10 @@ class _WorkoutHistoryPageState extends State<WorkoutHistoryPage>
           onRefresh: m.refresh,
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.page,
+              vertical: AppSpacing.medium,
+            ),
             children: [
               Row(
                 children: [
@@ -200,7 +204,7 @@ class _WorkoutHistoryPageState extends State<WorkoutHistoryPage>
                 '파란 점은 완료한 운동이 있는 날이에요.',
                 style: TextStyle(fontSize: 12, color: ReferenceStyle.muted),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: AppSpacing.medium),
               Text(
                 '${m.selected.month}월 ${m.selected.day}일 운동 기록',
                 style: ReferenceStyle.text(18, 26, weight: FontWeight.w500),
