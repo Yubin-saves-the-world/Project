@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import io
 import math
+import logging
 import os
 import threading
 import time
@@ -17,6 +18,17 @@ from measurement_report import measurement_report
 from analyzers.photo_geometry import extra_geometry, photo_quality, side_neck_measurement
 from analyzers.pose_guard import create_pose_guard
 from analyzers.overlay import draw_overlay
+
+logger = logging.getLogger(__name__)
+
+
+def public_measurement_reason(reason):
+    if reason in {'SIDE_PHOTO_REQUIRED', 'SIDE_PHOTO_MISSING'}:
+        return 'SIDE_PHOTO_MISSING'
+    if reason in {'OCCLUDED', 'PROFILE_NOT_VALIDATED'}:
+        return reason
+    return 'LOW_CONFIDENCE'
+
 
 class AnalysisFailure(ValueError):
     def __init__(self, code, message):
@@ -41,12 +53,22 @@ def valid_landmark(point):
 
 class AnalysisEngine:
     def __init__(self, model_path, device='cpu', *, pose_guard=None):
+        if os.environ.get('AI_DISABLE_DINO') == '1' and os.environ.get('AI_REQUIRE_DINO') == '1':
+            raise ValueError('AI_DISABLE_DINO와 AI_REQUIRE_DINO를 동시에 켤 수 없습니다.')
         self.lock = threading.Lock()
         self.pose_guard = create_pose_guard() if pose_guard is None else pose_guard
+        self.dino = None
+        self.contour = None
         try:
-            self.dino = DinoFeatureExtractor(model_path, device=device, local_only=Path(model_path).exists())
+            try:
+                if os.environ.get('AI_DISABLE_DINO') != '1':
+                    self.dino = DinoFeatureExtractor(model_path, device=device, local_only=Path(model_path).exists())
+            except Exception as exc:
+                if os.environ.get('AI_REQUIRE_DINO') == '1':
+                    raise
+                logger.warning('DINOv3 unavailable; geometry-only mode (%s)', type(exc).__name__)
             classifier_path = os.environ.get('AI_CONTOUR_MODEL')
-            self.contour = ContourClassifier(classifier_path) if classifier_path else None
+            self.contour = ContourClassifier(classifier_path) if classifier_path and self.dino is not None else None
         except Exception:
             self.close()
             raise
@@ -113,30 +135,34 @@ class AnalysisEngine:
             side_dir = Path(output_dir) / 'side'
             side_dir.mkdir(exist_ok=True)
             side_measure = self._side_measure(side_path, side_dir)
+            if side_measure['status'] != 'measured':
+                side_measure['diagnostic_reason'] = side_measure['reason']
+                side_measure['reason'] = public_measurement_reason(side_measure['reason'])
             measures['neck_forward_deg'] = side_measure['value']
             measures['side_neck'] = side_measure
             measures['unavailable'] = [] if side_measure['status'] == 'measured' else [
                 {'key': 'neck_forward_deg', 'reason': side_measure['reason']}]
             quality = photo_quality(lm, image.shape[1], image.shape[0], blur, person_check)
             features = []
-            with Image.open(image_path) as pil:
-                for side in ('left','right'):
-                    box = upper_arm_box(lm, side, *pil.size)
-                    if box is None:
-                        features.append({'part': f'{side}_upper_arm','status':'unavailable','reason':'LOW_CONFIDENCE'})
-                        continue
-                    crop = pil.crop(box).convert('RGB')
-                    values, elapsed = self.dino.extract(crop)
-                    if any(not np.isfinite(v).all() for v in values.values()):
-                        raise RuntimeError('Non-finite DINOv3 features')
-                    features.append({'part':f'{side}_upper_arm', 'status':'extracted',
-                                     'classification':'not_trained','crop_box':list(box),
-                                     'cls':values['cls'].tolist(), 'patch_mean':values['patch_mean'].tolist(),
-                                     'patch_shape':list(values['patches'].shape), 'seconds':round(elapsed,4)})
-                    if include_review_previews:
-                        preview = io.BytesIO()
-                        crop.save(preview, format='JPEG', quality=85)
-                        features[-1]['preview_image_base64'] = base64.b64encode(preview.getvalue()).decode()
+            if self.dino is not None:
+                with Image.open(image_path) as pil:
+                    for side in ('left','right'):
+                        box = upper_arm_box(lm, side, *pil.size)
+                        if box is None:
+                            features.append({'part': f'{side}_upper_arm','status':'unavailable','reason':'LOW_CONFIDENCE'})
+                            continue
+                        crop = pil.crop(box).convert('RGB')
+                        values, elapsed = self.dino.extract(crop)
+                        if any(not np.isfinite(v).all() for v in values.values()):
+                            raise RuntimeError('Non-finite DINOv3 features')
+                        features.append({'part':f'{side}_upper_arm', 'status':'extracted',
+                                         'classification':'not_trained','crop_box':list(box),
+                                         'cls':values['cls'].tolist(), 'patch_mean':values['patch_mean'].tolist(),
+                                         'patch_shape':list(values['patches'].shape), 'seconds':round(elapsed,4)})
+                        if include_review_previews:
+                            preview = io.BytesIO()
+                            crop.save(preview, format='JPEG', quality=85)
+                            features[-1]['preview_image_base64'] = base64.b64encode(preview.getvalue()).decode()
             if self.contour is not None:
                 for part in features:
                     if part['status'] == 'extracted':
@@ -155,7 +181,7 @@ class AnalysisEngine:
                     'measurement_report':report,
                     'summary':report['summary'],
                     'dinov3':{'model':'facebook/dinov3-vits16-pretrain-lvd1689m','revision':self.dino.revision,
-                               'device':self.dino.device,'parts':features},
+                               'device':self.dino.device,'parts':features} if self.dino is not None else None,
                     'warnings':['사진 기반 참고 수치이며 의료적 진단이 아닙니다.',
                                 '의복과 가림은 자동 판정하지 못합니다. 특징 추출을 근육 등급으로 해석하지 마세요.',
                                 '인물 수 검사는 보조 검출이며 정면 여부와 의복은 직접 확인해야 합니다.'],

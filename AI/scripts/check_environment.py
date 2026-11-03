@@ -62,18 +62,24 @@ def pose_asset():
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--model', action='store_true')
+    parser.add_argument('--geometry-only', action='store_true', help='DINOv3 없이 사진 측정 환경만 검사')
     parser.add_argument('--contour-model', type=Path)
     args = parser.parse_args()
     if sys.version_info[:2] != (3, 12):
         raise ValueError('Python 3.12가 필요합니다.')
-    for name in ('fastapi', 'uvicorn', 'multipart', 'cv2', 'numpy', 'PIL', 'mediapipe',
-                 'torch', 'torchvision', 'transformers', 'joblib', 'sklearn'):
+    names = ['fastapi', 'uvicorn', 'multipart', 'cv2', 'numpy', 'PIL', 'mediapipe',
+             'requests', 'joblib', 'sklearn']
+    if not args.geometry_only:
+        names += ['torch', 'torchvision', 'transformers']
+    for name in names:
         importlib.import_module(name)
     import mediapipe as mp
     if not hasattr(mp, 'solutions'):
         raise ValueError('이 코드는 MediaPipe 0.10.21의 solutions API가 필요합니다. 고정된 requirements로 재설치하세요.')
     print('라이브러리 확인 완료.', flush=True)
     if args.contour_model:
+        if args.geometry_only:
+            raise ValueError('측정 전용 모드에서는 윤곽 분류 모델을 사용할 수 없습니다.')
         sys.path.insert(0, str(ROOT))
         from analyzers.contour_classifier import ContourClassifier
         classifier = ContourClassifier(args.contour_model)
@@ -81,6 +87,9 @@ def main():
     if args.model:
         pose_asset()
         print('공식 다중 포즈 검사 모델 확인 완료.', flush=True)
+        if args.geometry_only:
+            print('측정 전용 모드: Hugging Face 승인·DINOv3 다운로드가 필요하지 않습니다.', flush=True)
+            return
         directory = model_directory()
         runtime = ROOT / '.runtime'
         runtime.mkdir(exist_ok=True)
