@@ -103,7 +103,10 @@ def main():
     parser.add_argument('--port', type=int, default=8080)
     parser.add_argument('--backend-port', type=int, default=8082)
     parser.add_argument('--contour-model', type=Path, help='로컬 실험 윤곽 분류기 JSON; 생략하면 사진 측정만 실행')
+    parser.add_argument('--geometry-only', action='store_true', help='DINOv3 인증 없이 측정 전용 브리지 데모')
     args = parser.parse_args()
+    if args.geometry_only and args.contour_model:
+        parser.error('--geometry-only와 --contour-model을 함께 사용할 수 없습니다.')
     if sys.version_info[:2] != (3, 12):
         raise RuntimeError('Python 3.12로 실행하세요.')
     if args.port == args.backend_port or not all(1 <= p <= 65535 for p in (args.port, args.backend_port)):
@@ -118,7 +121,12 @@ def main():
     print('원본 FE/BE를 AI 실행 폴더에 동일하게 복사합니다.', flush=True)
     stage()
     env = dict(os.environ)
-    classifier = args.contour_model or env.get('AI_CONTOUR_MODEL')
+    classifier = None if args.geometry_only else args.contour_model or env.get('AI_CONTOUR_MODEL')
+    mode_flags = ['--geometry-only'] if args.geometry_only else []
+    if args.geometry_only:
+        env.update(AI_DISABLE_DINO='1')
+        env.pop('AI_REQUIRE_DINO', None)
+        env.pop('AI_CONTOUR_MODEL', None)
     if classifier:
         classifier = Path(classifier).expanduser().resolve()
         if not classifier.is_file():
@@ -126,7 +134,7 @@ def main():
         env['AI_CONTOUR_MODEL'] = str(classifier)
         print('실험 윤곽 분류기: ' + str(classifier), flush=True)
     else:
-        print('윤곽 분류기 미지정: 사진 측정·특징 추출은 실행합니다.', flush=True)
+        print('측정 전용 모드입니다.' if args.geometry_only else '윤곽 분류기 미지정: 사진 측정·특징 추출은 실행합니다.', flush=True)
     env.setdefault('MPLCONFIGDIR', str(ROOT / '.runtime/matplotlib'))
     env.setdefault('HF_HUB_CACHE', str(ROOT / '.cache/hub'))
     env.setdefault('GRADLE_USER_HOME', str(ROOT / '.cache/gradle'))
@@ -134,14 +142,15 @@ def main():
     brew_java = Path('/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home')
     if not env.get('JAVA_HOME') and brew_java.is_dir():
         env['JAVA_HOME'] = str(brew_java)
-    subprocess.run(['bash', str(ROOT / 'run.sh'), '--install-only'], env=env, check=True)
+    subprocess.run(['bash', str(ROOT / 'run.sh'), '--install-only', *mode_flags], env=env, check=True)
     python = ROOT / '.venv/bin/python'
-    check = [str(python), str(ROOT / 'scripts/check_environment.py'), '--model']
+    check = [str(python), str(ROOT / 'scripts/check_environment.py'), '--model', *mode_flags]
     if classifier:
         check += ['--contour-model', str(classifier)]
     subprocess.run(check, cwd=ROOT, env=env, check=True)
-    model = json.loads((ROOT / '.runtime/model.json').read_text())['path']
-    env['DINO_MODEL_PATH'] = model
+    if not args.geometry_only:
+        model = json.loads((ROOT / '.runtime/model.json').read_text())['path']
+        env['DINO_MODEL_PATH'] = model
     subprocess.run(['bash', str(RUNTIME / 'BE/gradlew'), '--project-dir', str(RUNTIME / 'BE'),
                     '--init-script', str(ROOT / 'bridge/spring-h2.init.gradle'), 'bootJar', '--no-daemon', '--console=plain'], env=env, check=True)
     auth_dir = RUNTIME / 'auth'
