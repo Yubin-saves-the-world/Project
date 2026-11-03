@@ -71,6 +71,11 @@ def coach_page():
     return FileResponse(Path(__file__).resolve().parent / 'static' / 'coach.html', headers={'Cache-Control':'no-store'})
 
 
+@app.get('/coach/account', include_in_schema=False)
+def account_coach_page():
+    return FileResponse(Path(__file__).resolve().parent / 'static' / 'account-coach.html', headers={'Cache-Control':'no-store'})
+
+
 @app.get('/v1/coach/health')
 def coach_health():
     if coach is None:
