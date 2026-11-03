@@ -16,6 +16,8 @@ from .dataset import AnnotationStore, DIMENSION, LABELS, SCHEMA, SPLITS, write_j
 
 def read_training_data(directory, enforce_holdout=True, *, allow_reserved_test=False):
     store = AnnotationStore(directory)
+    if store.dataset.get('purpose') == 'label_audit':
+        raise ValueError('라벨 기준 재검수 자료는 학습·모델 평가에 사용할 수 없습니다.')
     reserved = store.dataset.get('purpose')=='independent_test'
     if reserved and not allow_reserved_test:
         raise ValueError('독립 시험 예약 자료는 학습에 사용할 수 없습니다.')

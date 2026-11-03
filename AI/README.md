@@ -1,5 +1,17 @@
 # MOVID AI 서버
 
+[PR #23 · 실제 GitHub ZIP 검증 결과](docs/ZIP_RELEASE_CHECK_2026-11-03.md): 별도 Python 환경에서 152개 테스트와 실제 사진·인증된 Qwen3 대화 API를 검증했습니다. 모델·Ollama·인증 BE 준비는 별도이며 원본 Flutter 코치 UI는 미연결입니다.
+
+최신 [AI-only 연결·배포 안내](docs/AI_ONLY_RELEASE_2026-11-03.md): 인증된 Qwen3 대화 API를 AI 호환 서버에도 연결했습니다. 원본 Flutter 코치 탭은 아직 준비 중 화면이므로 FE 담당 연결이 필요합니다.
+
+**Qwen3 코치 시연:** `/coach`에서 로컬 Qwen3와 대화할 수 있습니다. [실행·영상 시연 순서·BE API 계약](docs/QWEN3_COACH_DEMO.md)을 참고하세요. 원본 Flutter 코치 탭 연결과는 별도입니다.
+
+승인·로그인 없이 관절 측정만 실행하려면 AI 폴더에서 `bash run.sh --geometry-only`를 사용하세요. DINOv3 특징 추출은 생략됩니다. [종합 문제점 대응과 실제 BE 연결 설정](docs/COMPREHENSIVE_FIXES_2026-11-03.md)을 참고하세요.
+
+[AI.md 대응·실제 BE/MySQL 검증 결과](docs/AI_MD_REVIEW_2026-11-03.md)를 확인하세요. DINOv3가 없으면 측정 전용 모드로 동작하며 `/health`는 기능 제한을 표시합니다. 기본 실행은 Python 3.12 전용입니다.
+
+최신 확인 결과는 [2026-11-03 AI 작업·검증 보고서](docs/WORK_REPORT_2026-11-03.md)를 참고하세요. 확정 라벨 139개로 v9 실험 학습을 마쳤지만 운영 모델은 v4를 유지합니다. 이번 로그인·업로드·분석 검사는 실제 HTTP 흐름이며 Flutter UI·카메라 검사와 구분합니다.
+
 학습에 섞이지 않는 시험 예약 묶음은 [독립 시험 후보 준비·검수 안내](docs/INDEPENDENT_TEST_V1.md)를 따릅니다. 라벨 저장 전에 모델을 고정하고 test만 저장하며, 학습·통합 명령은 이 묶음을 거절합니다.
 
 **AI 전용 홈:** 서버 `/`에서 분석 시작·수치 기록·비교·데이터 준비·검수 기준을 확인합니다. 사진 상세 분석은 `/analysis`로 이동했습니다. 기록은 사용자가 선택한 숫자만 해당 브라우저에 저장하며 사진은 보관하지 않습니다. [화면 사용·라벨 기준·독립 평가 안내](docs/AI_HOME_AND_VALIDATION.md)를 참고하세요.

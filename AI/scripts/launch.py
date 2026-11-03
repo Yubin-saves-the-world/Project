@@ -39,6 +39,7 @@ def main():
     parser.add_argument('--port', type=int, default=int(os.environ.get('AI_PORT', '8001')))
     parser.add_argument('--no-browser', action='store_true')
     parser.add_argument('--install-only', action='store_true')
+    parser.add_argument('--geometry-only', action='store_true', help='Hugging Face 인증 없이 관절 측정만 실행')
     args = parser.parse_args()
     if sys.version_info[:2] != (3, 12):
         raise SystemExit('Python 3.12로 실행하세요. 현재 버전: ' + sys.version.split()[0])
@@ -59,21 +60,29 @@ def main():
         print('1/3 AI 전용 Python 환경을 만듭니다.', flush=True)
         subprocess.run([sys.executable, '-m', 'venv', str(ROOT / '.venv')], check=True)
     stamp = runtime / 'dependencies.sha256'
-    digest = dependency_digest()
+    digest = dependency_digest() + ('-geometry-only' if args.geometry_only else '')
+    check_flags = ['--geometry-only'] if args.geometry_only else []
     if not stamp.is_file() or stamp.read_text() != digest:
         print('2/3 검증된 라이브러리를 설치합니다. 첫 실행에는 시간이 걸립니다.', flush=True)
-        subprocess.run([str(python), '-m', 'pip', 'install', '-r', str(ROOT / 'requirements-dinov3.txt')],
+        requirements = 'requirements.txt' if args.geometry_only else 'requirements-dinov3.txt'
+        subprocess.run([str(python), '-m', 'pip', 'install', '-r', str(ROOT / requirements)],
                        cwd=ROOT, env=env, check=True)
-        subprocess.run([str(python), str(ROOT / 'scripts' / 'check_environment.py')], cwd=ROOT, env=env, check=True)
+        subprocess.run([str(python), str(ROOT / 'scripts' / 'check_environment.py'), *check_flags], cwd=ROOT, env=env, check=True)
         stamp.write_text(digest)
     if args.install_only:
         print('설치와 라이브러리 확인을 완료했습니다.', flush=True)
         return 0
-    print('3/3 모델 접근을 확인합니다. 최초 실행에는 공식 가중치를 다운로드합니다.', flush=True)
-    subprocess.run([str(python), str(ROOT / 'scripts' / 'check_environment.py'), '--model'],
+    print('3/3 모델 자산을 확인합니다. 측정 전용 모드는 DINOv3를 내려받지 않습니다.', flush=True)
+    subprocess.run([str(python), str(ROOT / 'scripts' / 'check_environment.py'), '--model', *check_flags],
                    cwd=ROOT, env=env, check=True)
-    model = json.loads((runtime / 'model.json').read_text())
-    env['DINO_MODEL_PATH'] = model['path']
+    if args.geometry_only:
+        env['AI_DISABLE_DINO'] = '1'
+        env.pop('AI_REQUIRE_DINO', None)
+        env.pop('AI_CONTOUR_MODEL', None)
+    else:
+        env.pop('AI_DISABLE_DINO', None)
+        model = json.loads((runtime / 'model.json').read_text())
+        env['DINO_MODEL_PATH'] = model['path']
     url = f'http://127.0.0.1:{args.port}'
     print(f'AI 서버 시작: {url}\n사진 테스트: {url}\nAPI 문서: {url}/docs\n종료: Ctrl+C', flush=True)
     process = subprocess.Popen([str(python), '-m', 'uvicorn', 'app:app', '--host', '127.0.0.1',

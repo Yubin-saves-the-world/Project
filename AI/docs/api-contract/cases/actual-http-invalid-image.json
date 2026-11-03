@@ -1,0 +1,6 @@
+{
+  "detail": {
+    "code": "INVALID_IMAGE",
+    "message": "올바른 JPG 또는 PNG 사진이 필요합니다."
+  }
+}

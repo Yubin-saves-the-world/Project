@@ -18,6 +18,7 @@ from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Body, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse, Response
 import requests
+from coach import ChatRequest, CoachFailure
 
 log = logging.getLogger(__name__)
 
@@ -57,6 +58,8 @@ class FlutterBridge:
         self.engine, self.normalize = engine, normalize
         self.executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix='movid-ai')
         self.capacity = threading.BoundedSemaphore(1)
+        self.coach = None
+        self.chat_lock = threading.Lock()
         with self.db() as db:
             db.executescript('''
                 PRAGMA journal_mode=WAL;
@@ -71,6 +74,11 @@ class FlutterBridge:
                   created_at TEXT NOT NULL, completed_at TEXT);
                 CREATE UNIQUE INDEX IF NOT EXISTS one_pending_per_user
                   ON analyses(uid) WHERE status='pending';
+                CREATE TABLE IF NOT EXISTS coach_messages (
+                  id INTEGER PRIMARY KEY AUTOINCREMENT, uid INTEGER NOT NULL,
+                  role TEXT NOT NULL, content TEXT NOT NULL, created_at TEXT NOT NULL,
+                  model TEXT, source TEXT NOT NULL);
+                CREATE INDEX IF NOT EXISTS coach_messages_owner ON coach_messages(uid,id);
             ''')
             db.execute("UPDATE analyses SET status='failed', error_code='AI_FAILED', error_message=?, completed_at=? WHERE status='pending'",
                        ('서버가 재시작되어 분석이 중단됐어요. 다시 시도해 주세요.', now()))
@@ -126,6 +134,66 @@ class FlutterBridge:
         if photo is None:
             raise BridgeError('NOT_FOUND', '사진을 찾을 수 없어요.', 404)
         return photo
+
+    @staticmethod
+    def chat_view(row):
+        return {'message_id':row['id'],'role':row['role'],'content':row['content'],
+                'created_at':row['created_at'],'model':row['model'],'response_source':row['source']}
+
+    def chat_history(self, uid):
+        with self.db() as db:
+            rows=db.execute('SELECT * FROM coach_messages WHERE uid=? ORDER BY id DESC LIMIT 20',(uid,)).fetchall()
+        return [self.chat_view(row) for row in reversed(rows)]
+
+    def chat_send(self, uid, content):
+        if not isinstance(content,str) or not 1<=len(content.strip())<=500:
+            raise BridgeError('VALIDATION_FAILED','대화는 1~500자로 입력해 주세요.',422)
+        if self.coach is None:
+            raise BridgeError('COACH_NOT_CONFIGURED','코치 모델을 설정해 주세요.',503)
+        if not self.chat_lock.acquire(False):
+            raise BridgeError('COACH_BUSY','다른 대화에 답변 중입니다. 잠시 후 다시 시도하세요.',503)
+        try:
+            previous=self.chat_history(uid)[-14:]
+            messages=[{'role':m['role'],'content':m['content']} for m in previous]
+            messages.append({'role':'user','content':content.strip()})
+            while sum(len(m['content'].encode('utf-8')) for m in messages)>5500 and len(messages)>1:
+                messages=messages[2:]
+            from pydantic import ValidationError
+            try:
+                result=self.coach.chat(ChatRequest(messages=messages))
+            except ValidationError as exc:
+                raise BridgeError('VALIDATION_FAILED','대화 내용을 확인해 주세요.',422) from exc
+            except CoachFailure as exc:
+                raise BridgeError(exc.code,exc.message,exc.status) from exc
+            text=result['message']['content']
+            source=result['response_source']
+            if source=='rule_based_scope_guidance':text='[안내 원칙 · 규칙 기반]\n'+text
+            if result.get('plan'):
+                plan=result['plan']
+                text+='\n\n[규칙 기반 일반 예시]\n'+f"주 {plan['weekly_days']}회 · 한 번에 {plan['session_minutes']}분\n"
+                text+='\n'.join(f"{step['title']}: {step['minutes']}분" for step in plan['steps'])
+                text+='\n개인별 운동 처방이나 저장된 루틴이 아닙니다.'
+            # Commit both sides only after a successful response; no orphan user turn.
+            with self.db() as db:
+                first=db.execute('INSERT INTO coach_messages(uid,role,content,created_at,model,source) VALUES(?,?,?,?,?,?)',
+                    (uid,'user',content.strip(),now(),None,'user')).lastrowid
+                second=db.execute('INSERT INTO coach_messages(uid,role,content,created_at,model,source) VALUES(?,?,?,?,?,?)',
+                    (uid,'assistant',text,now(),result.get('model'),source)).lastrowid
+                user_message=self.chat_view(db.execute('SELECT * FROM coach_messages WHERE id=?',(first,)).fetchone())
+                assistant_message=self.chat_view(db.execute('SELECT * FROM coach_messages WHERE id=?',(second,)).fetchone())
+                db.execute('DELETE FROM coach_messages WHERE uid=? AND id NOT IN (SELECT id FROM coach_messages WHERE uid=? ORDER BY id DESC LIMIT 100)',(uid,uid))
+            return {'user_message':user_message,'assistant_message':assistant_message}
+        finally:
+            self.chat_lock.release()
+
+    def chat_clear(self, uid):
+        if not self.chat_lock.acquire(False):
+            raise BridgeError('COACH_BUSY','답변이 끝난 뒤 대화를 삭제해 주세요.',409)
+        try:
+            with self.db() as db:
+                count=db.execute('DELETE FROM coach_messages WHERE uid=?',(uid,)).rowcount
+            return {'deleted':count}
+        finally:self.chat_lock.release()
 
     def signature(self, photo, expires):
         return hmac.new(self.secret, f"{photo['id']}:{photo['uid']}:{expires}".encode(), hashlib.sha256).hexdigest()
@@ -236,9 +304,10 @@ class FlutterBridge:
         return result
 
 
-def install(app, directory, backend_url, normalize):
+def install(app, directory, backend_url, normalize, coach=None):
     service = FlutterBridge(directory, backend_url, lambda: app.state.engine, normalize)
     app.state.flutter_bridge = service
+    service.coach = coach
     router = APIRouter()
 
     @app.exception_handler(BridgeError)
@@ -258,6 +327,21 @@ def install(app, directory, backend_url, normalize):
     @router.api_route('/api/users/{tail:path}', methods=['GET', 'PATCH', 'POST', 'DELETE'])
     def users(request: Request, tail: str = '', body: dict | None = Body(default=None)):
         return proxy(request, body)
+
+    @router.get('/api/ai-coach/messages')
+    def coach_messages(request: Request):
+        user=service.user(request,True)
+        return {'messages':service.chat_history(user['user_id'])}
+
+    @router.post('/api/ai-coach/messages')
+    def coach_message(request: Request, body: dict = Body()):
+        user=service.user(request,True)
+        return service.chat_send(user['user_id'],body.get('content'))
+
+    @router.delete('/api/ai-coach/messages')
+    def coach_delete(request: Request):
+        user=service.user(request,True)
+        return service.chat_clear(user['user_id'])
 
     @router.post('/api/photos', status_code=201)
     def upload(request: Request, image: UploadFile = File(), type: str = Form(default='current'), side: str = Form(default='front')):

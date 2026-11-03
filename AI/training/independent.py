@@ -34,7 +34,8 @@ def freeze_reference(directory, model_path, training_directory):
     return dataset['evaluation_reference']
 
 
-def evaluate_independent(model_path, training_directory, test_directory, output, *, identities_confirmed=False):
+def evaluate_independent(model_path, training_directory, test_directory, output, *, identities_confirmed=False,
+                         allow_missing_test_classes=False):
     identity_record=Path(test_directory)/'identity-review.json'
     if identity_record.exists():
         audit=json.loads(identity_record.read_text())
@@ -62,7 +63,10 @@ def evaluate_independent(model_path, training_directory, test_directory, output,
         raise ValueError('학습·시험 자료의 검수를 먼저 완료하세요.')
     training = [r for rows in train_groups.values() for r in rows]
     test = [r for rows in test_groups.values() for r in rows]
-    if set(classes) != set(model.labels):
+    if not set(classes).issubset(model.labels):
+        raise ValueError('시험 자료에 모델이 지원하지 않는 등급이 있습니다.')
+    missing_classes=sorted(set(model.labels)-set(classes))
+    if missing_classes and not allow_missing_test_classes:
         raise ValueError('시험 자료에는 모델의 모든 등급이 필요합니다.')
     source_hashes = []
     for directory in (training_directory, test_directory):
@@ -83,11 +87,17 @@ def evaluate_independent(model_path, training_directory, test_directory, output,
               'model_sha256':model.model_sha256,'identity_confirmation':'human_declaration',
               'identity_automatically_verified':False,'samples':len(test),
               'subject_groups':len({r[2] for r in test}), 'classes':model.labels,
+              'observed_classes':classes,'missing_classes':missing_classes,
+              'class_coverage':'partial' if missing_classes else 'complete',
+              'evaluation_scope':'observed classes only' if missing_classes else 'all model classes',
               'label_counts':{c:int(sum(truth==c)) for c in model.labels},
               'candidate_accuracy':float(accuracy_score(truth,candidates)),
-              'candidate_macro_f1':float(f1_score(truth,candidates,labels=model.labels,average='macro',zero_division=0)),
+              'candidate_macro_f1':None if missing_classes else float(f1_score(truth,candidates,labels=model.labels,average='macro',zero_division=0)),
+              'observed_classes_macro_f1':float(f1_score(truth,candidates,labels=classes,average='macro',zero_division=0)),
               'confusion_matrix':confusion_matrix(truth,candidates,labels=model.labels).tolist(),
               'accepted_coverage':float(accepted.mean()),
+              'accepted_samples':int(accepted.sum()),
+              'accepted_correct':int(((truth==candidates)&accepted).sum()),
               'accepted_accuracy':float(accuracy_score(truth[accepted],candidates[accepted])) if accepted.any() else None,
               'threshold':model.threshold,'clinical_validity':False,
               'limitations':['No automatic identity verification; renamed IDs cannot prove different people.',

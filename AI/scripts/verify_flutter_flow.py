@@ -49,9 +49,11 @@ def verify(base, photo, password, report_path):
     report = {'status': 'failed', 'checks': [], 'photo_cleanup': 'not_uploaded'}
     try:
         health = request('GET', '/health')
-        if health.get('status') != 'ok' or not health.get('dinov3_loaded'):
+        geometry_ready = health.get('capabilities', {}).get('photo_measurement') is True
+        if health.get('status') not in {'ok','degraded'} or not (health.get('dinov3_loaded') or geometry_ready):
             raise ValueError('AI 모델이 준비되지 않았습니다.')
         report['checks'].append('model_health')
+        report['dinov3_loaded'] = bool(health.get('dinov3_loaded'))
         login = request('POST', '/api/auth/login', json={
             'email': 'demo@movid.local', 'password': password})
         session.headers['Authorization'] = 'Bearer ' + login['access_token']
