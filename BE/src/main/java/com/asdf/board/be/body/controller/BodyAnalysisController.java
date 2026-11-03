@@ -107,7 +107,6 @@ public class BodyAnalysisController {
                 .goalBody(goal)
                 .textInput(text)
                 .balanceScore(70)
-                .bodyType("분석 중")
                 .textSummary(text.length() > 100 ? text.substring(0, 100) + "..." : text)
                 .completedAt(LocalDateTime.now())
                 .build();
@@ -150,7 +149,7 @@ public class BodyAnalysisController {
 
         BodyAnalysis analysis = analysisRepository.save(builder
                 .status(BodyAnalysis.Status.done)
-                .balanceScore(75).bodyType("균형형")
+                .balanceScore(75)
                 .textSummary("전반적으로 균형 잡힌 체형입니다.")
                 .completedAt(LocalDateTime.now()).build());
         return Map.of("analysis_id", analysis.getId());
@@ -188,7 +187,7 @@ public class BodyAnalysisController {
 
         Double shoulderHip = measures != null ? toDouble(measures.get("shoulder_hip_ratio")) : null;
         if (shoulderHip != null) {
-            a.setBodyType(shoulderHip >= 1.35 ? "역삼각형" : shoulderHip >= 0.95 ? "균형형" : "직사각형");
+            a.setBodyType(shoulderHip >= 1.35 ? "역삼각형" : shoulderHip >= 0.95 ? "직사각형" : "사다리꼴");
         }
     }
 
@@ -233,7 +232,13 @@ public class BodyAnalysisController {
 
         for (int i = 0; i < Math.min(7, parts.length); i++) {
             LocalDate date = today.plusDays(i);
-            if (routineRepository.findByUserIdAndScheduledDate(u.getId(), date).isPresent()) continue;
+            Routine existing = routineRepository.findByUserIdAndScheduledDate(u.getId(), date).orElse(null);
+            if (existing != null) {
+                if (existing.getStatus() != Routine.Status.planned) continue;
+                routineItemRepository.deleteAll(routineItemRepository.findByRoutineIdOrderByOrderNoAsc(existing.getId()));
+                routineRepository.delete(existing);
+                routineRepository.flush();
+            }
 
             TargetPart part = parts[i % parts.length];
             Routine r = Routine.builder()

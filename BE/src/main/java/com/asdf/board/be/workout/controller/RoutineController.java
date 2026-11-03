@@ -1,5 +1,6 @@
 package com.asdf.board.be.workout.controller;
 
+import com.asdf.board.be.body.controller.BodyAnalysisController;
 import com.asdf.board.be.global.exception.ApiException;
 import com.asdf.board.be.global.exception.ErrorCode;
 import com.asdf.board.be.workout.entity.Routine;
@@ -9,6 +10,7 @@ import com.asdf.board.be.workout.repository.RoutineRepository;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
@@ -25,8 +27,15 @@ public class RoutineController {
 
     private final RoutineRepository routineRepository;
     private final RoutineItemRepository itemRepository;
+    private final BodyAnalysisController bodyAnalysisController;
 
     private Long userId(Jwt jwt) { return Long.valueOf(jwt.getSubject()); }
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public Map<String, Object> create(@RequestBody Map<String, Object> body, @AuthenticationPrincipal Jwt jwt) {
+        return bodyAnalysisController.generateRoutines(body, jwt);
+    }
 
     @GetMapping("/today")
     public Map<String, Object> today(@AuthenticationPrincipal Jwt jwt) {
@@ -117,12 +126,14 @@ public class RoutineController {
     }
 
     private Map<String, Object> itemToMap(RoutineItem item) {
-        Map<String, Object> exerciseMap = Map.of(
-                "exercise_id", item.getExercise().getId(),
-                "name", item.getExercise().getName(),
-                "target_part", item.getExercise().getTargetPart().name(),
-                "equipment", item.getExercise().getEquipment().name()
-        );
+        Map<String, Object> exerciseMap = new LinkedHashMap<>();
+        exerciseMap.put("exercise_id", item.getExercise().getId());
+        exerciseMap.put("name", item.getExercise().getName());
+        exerciseMap.put("target_part", item.getExercise().getTargetPart().name());
+        exerciseMap.put("equipment", item.getExercise().getEquipment().name());
+        exerciseMap.put("difficulty", item.getExercise().getDifficulty());
+        exerciseMap.put("description", item.getExercise().getDescription());
+        exerciseMap.put("media_url", item.getExercise().getMediaUrl());
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("item_id", item.getId());
         m.put("order_no", item.getOrderNo());
