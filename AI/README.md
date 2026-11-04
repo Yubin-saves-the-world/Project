@@ -1,3 +1,5 @@
+[BE 코치 호환 계약 및 수정 내역 적용 결과](docs/BE_COACH_COMPATIBILITY.md): `POST /v1/chat` 요청·응답, 실행 모델, 오류 코드, 기존 수정 적용 여부.
+
 # MOVID AI 서버
 
 [PR #23 · 실제 GitHub ZIP 검증 결과](docs/ZIP_RELEASE_CHECK_2026-11-03.md): 별도 Python 환경에서 152개 테스트와 실제 사진·인증된 Qwen3 대화 API를 검증했습니다. 모델·Ollama·인증 BE 준비는 별도이며 원본 Flutter 코치 UI는 미연결입니다.

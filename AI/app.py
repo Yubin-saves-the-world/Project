@@ -20,7 +20,7 @@ from integration import AnalysisEngine, AnalysisFailure
 from schemas.analysis_result import BodyAnalysisResponse
 from pydantic import BaseModel, Field
 from review_sessions import ReviewSessions
-from coach import LocalCoach, ChatRequest, CoachFailure
+from coach import LocalCoach, ChatRequest, BackendChatRequest, CoachFailure
 
 review_sessions = ReviewSessions()
 try:
@@ -91,6 +91,19 @@ def coach_chat(body: ChatRequest):
         return coach.chat(body)
     except CoachFailure as exc:
         raise HTTPException(exc.status, detail={'code':exc.code,'message':exc.message}) from exc
+
+
+@app.post('/v1/chat')
+def backend_coach_chat(body: BackendChatRequest):
+    if coach is None:
+        raise HTTPException(503, detail={'code':'COACH_NOT_CONFIGURED','message':'코치 서버 설정을 확인해 주세요.'})
+    try:
+        result = coach.chat(body)
+    except CoachFailure as exc:
+        raise HTTPException(exc.status, detail={'code':exc.code,'message':exc.message}) from exc
+    return {'reply':result['message']['content'], 'model':result['model'],
+            'seconds':result['processing_seconds'], 'response_source':result['response_source'],
+            'truncated':result['truncated']}
 
 
 @app.get('/goal-compare', include_in_schema=False)
