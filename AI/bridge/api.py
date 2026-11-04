@@ -58,6 +58,8 @@ class FlutterBridge:
         self.engine, self.normalize = engine, normalize
         self.executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix='movid-ai')
         self.capacity = threading.BoundedSemaphore(1)
+        self.active_lock = threading.Lock()
+        self.active_files = {}
         self.coach = None
         self.chat_lock = threading.Lock()
         with self.db() as db:
@@ -96,6 +98,14 @@ class FlutterBridge:
     def close(self):
         self.executor.shutdown(wait=True)
 
+    def photo_is_active(self, filename):
+        with self.active_lock:
+            return any(filename in files for files in self.active_files.values())
+
+    def release_files(self, analysis_id):
+        with self.active_lock:
+            self.active_files.pop(analysis_id, None)
+
     def backend_request(self, method, path, authorization=None, body=None, query=None):
         headers = {'Accept': 'application/json'}
         if authorization:
@@ -108,25 +118,30 @@ class FlutterBridge:
         except requests.RequestException as exc:
             raise BridgeError('AUTH_SERVER_UNAVAILABLE', '로그인 서버에 연결하지 못했어요.', 503) from exc
 
-    def user(self, request, ai=False):
+    def user(self, request, ai=False, *, cleanup=False):
         authorization = request.headers.get('authorization', '')
         if not authorization.startswith('Bearer '):
             raise BridgeError('UNAUTHORIZED', '로그인이 필요해요.', 401)
         response = self.backend_request('GET', '/api/users/me', authorization)
-        if response.status_code != 200:
+        if response.status_code in (401, 403):
             raise BridgeError('UNAUTHORIZED', '로그인 정보를 확인해 주세요.', 401)
+        if response.status_code != 200:
+            raise BridgeError('AUTH_SERVER_UNAVAILABLE', '로그인 서버가 응답하지 못했어요. 잠시 후 다시 시도하세요.', 503)
         try:
             user = response.json()
             if not isinstance(user, dict):
                 raise ValueError('Invalid user response')
         except (ValueError, TypeError) as exc:
             raise BridgeError('AUTH_SERVER_UNAVAILABLE', '사용자 응답을 확인하지 못했어요.', 503) from exc
+        if type(user.get('user_id')) is not int or user['user_id'] <= 0:
+            raise BridgeError('AUTH_SERVER_UNAVAILABLE', '사용자 응답을 확인하지 못했어요.', 503)
+        # Revoking processing consent must not prevent deleting one's own data.
+        if cleanup:
+            return user
         if user.get('onboarding_completed') is not True:
             raise BridgeError('ONBOARDING_REQUIRED', '신체 정보를 먼저 입력해 주세요.', 403)
         if user.get('body_photo_agreed') is not True or (ai and user.get('ai_processing_agreed') is not True):
             raise BridgeError('CONSENT_REQUIRED', '사진·AI 처리 동의가 필요해요.', 403)
-        if type(user.get('user_id')) is not int or user['user_id'] <= 0:
-            raise BridgeError('AUTH_SERVER_UNAVAILABLE', '사용자 응답을 확인하지 못했어요.', 503)
         return user
 
     def owned_photo(self, db, uid, photo_id):
@@ -245,6 +260,7 @@ class FlutterBridge:
         if side_id is not None and (not isinstance(side_id, int) or isinstance(side_id, bool) or side_id <= 0):
             raise BridgeError('VALIDATION_FAILED', '측면 사진 ID를 확인하세요.')
         acquired = False
+        reserved_id = None
         try:
             with self.db() as db:
                 db.execute('BEGIN IMMEDIATE')
@@ -270,13 +286,21 @@ class FlutterBridge:
                 cursor = db.execute("INSERT INTO analyses(uid,photo_id,side_id,status,created_at) VALUES(?,?,?,'pending',?)",
                                     (uid, photo_id, side_id, now()))
                 analysis = db.execute('SELECT * FROM analyses WHERE id=?', (cursor.lastrowid,)).fetchone()
+                reserved_id = analysis['id']
+                with self.active_lock:
+                    self.active_files[reserved_id] = {photo['file']}
+                    if side_id is not None:
+                        self.active_files[reserved_id].add(side['file'])
         except Exception:
+            if reserved_id is not None:
+                self.release_files(reserved_id)
             if acquired:
                 self.capacity.release()
             raise
         try:
             self.executor.submit(self.process, analysis['id'], photo['file'], side['file'] if side_id is not None else None)
         except Exception:
+            self.release_files(analysis['id'])
             self.capacity.release()
             self.fail(analysis['id'], 'AI_FAILED', '분석을 시작하지 못했어요.')
         return self.ticket(analysis)
@@ -309,6 +333,7 @@ class FlutterBridge:
             log.warning('Analysis %s failed: %s', analysis_id, type(exc).__name__)
             self.fail(analysis_id, code, message)
         finally:
+            self.release_files(analysis_id)
             self.capacity.release()
 
     def detail(self, db, uid, analysis_id):
@@ -316,7 +341,7 @@ class FlutterBridge:
         if row is None:
             raise BridgeError('NOT_FOUND', '분석을 찾을 수 없어요.', 404)
         if row['status'] == 'pending' and (datetime.now(timezone.utc)-datetime.fromisoformat(row['created_at'])).total_seconds() > 90:
-            db.execute("UPDATE analyses SET status='failed',error_code='AI_TIMEOUT',error_message=?,completed_at=? WHERE id=?",
+            db.execute("UPDATE analyses SET status='failed',error_code='AI_TIMEOUT',error_message=?,completed_at=? WHERE id=? AND status='pending'",
                        ('분석 시간이 초과됐어요.', now(), analysis_id))
             row = db.execute('SELECT * FROM analyses WHERE id=?', (analysis_id,)).fetchone()
         result = json.loads(row['payload']) if row['payload'] else {}
@@ -365,7 +390,7 @@ def install(app, directory, backend_url, normalize, coach=None):
 
     @router.delete('/api/ai-coach/messages')
     def coach_delete(request: Request):
-        user=service.user(request,True)
+        user=service.user(request,cleanup=True)
         return service.chat_clear(user['user_id'])
 
     @router.post('/api/photos', status_code=201)
@@ -373,26 +398,30 @@ def install(app, directory, backend_url, normalize, coach=None):
         user = service.user(request)
         if type not in {'current', 'goal'} or side not in {'front', 'side', 'back'}:
             raise BridgeError('VALIDATION_FAILED', '사진 종류를 확인해 주세요.')
-        with service.db() as db:
-            db.execute('BEGIN IMMEDIATE')
-            if db.execute('SELECT COUNT(*) FROM photos WHERE uid=? AND deleted_at IS NULL', (user['user_id'],)).fetchone()[0] >= 20:
-                raise BridgeError('PHOTO_LIMIT_EXCEEDED', '사진은 최대 20장 보관할 수 있어요.')
-            with tempfile.TemporaryDirectory(dir=service.root) as directory:
-                try:
-                    normalized = service.normalize(image, Path(directory))
-                except HTTPException as exc:
-                    raise BridgeError('VALIDATION_FAILED', '올바른 10MB 이하 JPG/PNG 사진을 사용해 주세요.') from exc
-                filename = uuid.uuid4().hex + '.jpg'
-                target = service.photos / filename
-                target.write_bytes(normalized.read_bytes())
-            try:
+        target = None
+        try:
+            with service.db() as db:
+                db.execute('BEGIN IMMEDIATE')
+                if db.execute('SELECT COUNT(*) FROM photos WHERE uid=? AND deleted_at IS NULL', (user['user_id'],)).fetchone()[0] >= 20:
+                    raise BridgeError('PHOTO_LIMIT_EXCEEDED', '사진은 최대 20장 보관할 수 있어요.')
+                with tempfile.TemporaryDirectory(dir=service.root) as directory:
+                    try:
+                        normalized = service.normalize(image, Path(directory))
+                    except HTTPException as exc:
+                        raise BridgeError('VALIDATION_FAILED', '올바른 10MB 이하 JPG/PNG 사진을 사용해 주세요.') from exc
+                    filename = uuid.uuid4().hex + '.jpg'
+                    target = service.photos / filename
+                    target.write_bytes(normalized.read_bytes())
                 cursor = db.execute('INSERT INTO photos(uid,type,side,file,created_at) VALUES(?,?,?,?,?)',
                                     (user['user_id'], type, side, filename, now()))
                 photo = db.execute('SELECT * FROM photos WHERE id=?', (cursor.lastrowid,)).fetchone()
                 return service.photo_view(photo, str(request.base_url).rstrip('/'))
-            except Exception:
+        except Exception:
+            # The context manager commits after constructing the response. Include
+            # that commit in cleanup, otherwise a disk/DB error leaves an orphan.
+            if target is not None:
                 target.unlink(missing_ok=True)
-                raise
+            raise
 
     @router.get('/api/photos')
     def photos(request: Request, type: str = 'current', page: int = 1, page_size: int = 20):
@@ -407,28 +436,54 @@ def install(app, directory, backend_url, normalize, coach=None):
     def photo_file(photo_id: int, expires: int, signature: str):
         with service.db() as db:
             row = db.execute('SELECT * FROM photos WHERE id=? AND deleted_at IS NULL', (photo_id,)).fetchone()
-        if row is None or expires < int(datetime.now(timezone.utc).timestamp()) or not hmac.compare_digest(service.signature(row, expires), signature):
+        # compare_digest rejects non-ASCII strings; malformed links must stay a 404.
+        if (row is None or expires < int(datetime.now(timezone.utc).timestamp())
+                or len(signature) != 64 or not signature.isascii()
+                or not hmac.compare_digest(service.signature(row, expires), signature)):
             raise BridgeError('NOT_FOUND', '사진을 찾을 수 없어요.', 404)
         path = service.photos / row['file']
         if not path.is_file():
             raise BridgeError('NOT_FOUND', '사진을 찾을 수 없어요.', 404)
-        return Response(path.read_bytes(), media_type='image/jpeg', headers={'Cache-Control': 'no-store'})
+        try:
+            content = path.read_bytes()
+        except FileNotFoundError as exc:
+            # A deletion may complete between the existence check and the read.
+            raise BridgeError('NOT_FOUND', '사진을 찾을 수 없어요.', 404) from exc
+        return Response(content, media_type='image/jpeg', headers={'Cache-Control': 'no-store'})
 
     def delete(request, photo_id=None, type='current'):
-        user = service.user(request)
+        user = service.user(request, cleanup=True)
+        files_to_delete = []
         with service.db() as db:
             db.execute('BEGIN IMMEDIATE')
-            rows = [service.owned_photo(db, user['user_id'], photo_id)] if photo_id is not None else db.execute('SELECT * FROM photos WHERE uid=? AND type=? AND deleted_at IS NULL', (user['user_id'], type)).fetchall()
+            if photo_id is not None:
+                # A completed soft delete can be retried after a filesystem error.
+                row = db.execute('SELECT * FROM photos WHERE id=? AND uid=?', (photo_id, user['user_id'])).fetchone()
+                if row is None:
+                    raise BridgeError('NOT_FOUND', '사진을 찾을 수 없어요.', 404)
+                rows = [row]
+            else:
+                rows = db.execute('SELECT * FROM photos WHERE uid=? AND type=? AND deleted_at IS NULL', (user['user_id'], type)).fetchall()
             deleted = skipped = 0
             for row in rows:
                 busy = db.execute("SELECT id FROM analyses WHERE uid=? AND status='pending' AND (photo_id=? OR side_id=?)", (user['user_id'], row['id'], row['id'])).fetchone()
-                if busy:
+                if busy or service.photo_is_active(row['file']):
                     skipped += 1
                     continue
-                (service.photos / row['file']).unlink(missing_ok=True)
                 db.execute('UPDATE photos SET deleted_at=? WHERE id=?', (now(), row['id']))
+                files_to_delete.append(service.photos / row['file'])
                 deleted += 1
-            return {'deleted_count': deleted, 'skipped_count': skipped}
+        # Never remove the only source file before the database commit succeeds.
+        incomplete = False
+        for path in files_to_delete:
+            try:
+                path.unlink(missing_ok=True)
+            except OSError:
+                incomplete = True
+                log.warning('A deleted photo awaits filesystem cleanup')
+        if incomplete:
+            raise BridgeError('PHOTO_DELETE_INCOMPLETE', '사진 접근은 차단했지만 원본 정리를 마치지 못했어요. 같은 사진 삭제를 다시 시도해 주세요.', 503)
+        return {'deleted_count': deleted, 'skipped_count': skipped}
 
     @router.delete('/api/photos/{photo_id}', status_code=204)
     def delete_one(request: Request, photo_id: int):
