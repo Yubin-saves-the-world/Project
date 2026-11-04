@@ -32,8 +32,8 @@ def merge(destination, source_names=None):
         if not path.is_relative_to(ROOT / '.runtime') or any(p.startswith('quarantine_web_') for p in path.parts):
             raise ValueError('격리되지 않은 AI/.runtime 검수 자료만 통합합니다.')
         store = AnnotationStore(path)
-        if store.dataset.get('purpose')=='independent_test':
-            raise ValueError('독립 시험 예약 자료를 학습 묶음에 통합할 수 없습니다.')
+        if store.dataset.get('purpose') in {'independent_test','label_audit'}:
+            raise ValueError('독립 시험·라벨 재검수 자료를 학습 묶음에 통합할 수 없습니다.')
         validate_release(store)
         if not store.path.is_file() or not store.entries:
             raise ValueError('입력 항목의 실제 검수 저장이 필요합니다: ' + prefix)
