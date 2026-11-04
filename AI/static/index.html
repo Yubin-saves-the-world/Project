@@ -234,7 +234,7 @@
   <body>
     <main>
       <header>
-        <div class="brand">MOVID · AI LAB</div>
+        <div class="brand"><a href="/">MOVID · 분석 홈</a> / 상세 분석</div>
         <h1>사진 속 변화를, 구체적으로</h1>
         <p>
           관절의 기울기와 비율을 확인하고 상완 크롭을 검수해 실험 분류를
@@ -286,7 +286,7 @@
           <div class="row">
             <span class="badge">02 · 사진 측정 완료</span
             ><button id="download" class="secondary">결과 파일 저장</button
-            ><button id="print" class="secondary">인쇄 / PDF</button>
+            ><button id="print" class="secondary">인쇄 / PDF</button><button id="save-history" class="secondary">이 브라우저에 수치 기록</button><a href="/">기록·비교 보기</a>
           </div>
           <h2 style="margin-top: 18px">이번 사진에서 확인한 내용</h2>
           <p id="summary"></p>
@@ -343,7 +343,8 @@
         <a href="/docs">API 문서</a>
       </footer>
     </main>
-    <script>
+    <script type="module">
+      import {save as saveHistory} from "/assets/history.mjs";
       "use strict";
       const $ = (s) => document.querySelector(s),
         labels = {
@@ -447,6 +448,7 @@
       }
       function render(payload) {
         current = payload;
+        $("#save-history").disabled = false;
         $("#metrics").replaceChildren(
           ...(payload.measurement_report?.items || []).map(metricCard),
         );
@@ -664,6 +666,10 @@
         a.download = "movid-photo-report.json";
         a.click();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
+      });
+      $("#save-history").addEventListener("click",()=>{
+        try {saveHistory(current);$("#save-history").disabled=true;message("수치만 이 브라우저에 저장했습니다. 사진·크롭·특징·검수 토큰은 저장하지 않습니다. 공유 컴퓨터에서는 홈에서 기록을 삭제하세요.");}
+        catch(error){message("기록을 저장하지 못했습니다. "+error.message,true);}
       });
       $("#print").addEventListener("click", () => window.print());
     </script>

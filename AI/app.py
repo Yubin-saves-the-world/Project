@@ -44,7 +44,34 @@ app = FastAPI(title='MOVID AI server', version='1.0.0', lifespan=lifespan)
 
 @app.get('/', include_in_schema=False)
 def index():
+    return FileResponse(Path(__file__).resolve().parent / 'static' / 'home.html', headers={'Cache-Control':'no-store'})
+
+
+@app.get('/analysis', include_in_schema=False)
+def analysis_page():
     return FileResponse(Path(__file__).resolve().parent / 'static' / 'index.html')
+
+
+@app.get('/assets/history.mjs', include_in_schema=False)
+def history_script():
+    return FileResponse(Path(__file__).resolve().parent / 'static' / 'history.mjs', media_type='text/javascript')
+
+
+@app.get('/v1/data-readiness')
+def data_readiness():
+    configured = os.environ.get('AI_REVIEWED_DATASET')
+    if not configured:
+        return {'configured':False,'message':'검수 자료가 연결되지 않았습니다. 사진 분석은 사용할 수 있습니다.'}
+    root = Path(__file__).resolve().parent / '.runtime'
+    path = Path(configured).expanduser().resolve()
+    if not path.is_relative_to(root) or any(p.startswith('quarantine_web_') for p in path.parts):
+        raise HTTPException(503, detail={'message':'검수 자료 경로 설정을 확인하세요.'})
+    try:
+        from training.readiness import readiness
+        report = readiness(path)
+    except (OSError, ValueError, KeyError):
+        raise HTTPException(503, detail={'message':'검수 자료를 읽지 못했습니다. 서버 설정을 확인하세요.'})
+    return {'configured':True,'report':report}
 
 
 @app.get('/contour-test', include_in_schema=False)
