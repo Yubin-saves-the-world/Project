@@ -134,6 +134,8 @@ def main():
     integration = inspect_sources(ROOT.parent)
     for blocker in integration['blockers']:
         print('원본 앱 연결 확인: ' + blocker, flush=True)
+    if not integration['backend'].get('email_verification_source_evidence'):
+        print('새 회원가입 시연: 이메일 인증번호 API 근거가 없습니다. 실제 발송·확인 연결이 필요하며, 기존 시연 계정 로그인과 구분하세요.', flush=True)
     print('원본 FE/BE를 AI 실행 폴더에 동일하게 복사합니다.', flush=True)
     stage()
     env = dict(os.environ)
@@ -205,6 +207,7 @@ def main():
         print(coach_message, flush=True)
         print(f'사진 분석: http://127.0.0.1:{args.port}/analysis\n계정 코치: http://127.0.0.1:{args.port}/coach/account', flush=True)
         print('원본 Flutter 코치 탭은 별도 연결이 필요합니다. 계정 코치는 위 웹 주소를 사용하세요.', flush=True)
+        print('AI 브리지 플랜·오늘의 플랜·세트 기록·달력 API를 제공합니다. 일반 운동 예시이며 원본 BE DB와 별도 저장합니다.', flush=True)
         if args.require_coach and not coach_ready:
             raise RuntimeError('필수 코치 준비 확인 실패. 시작한 서버를 종료합니다.')
         if args.no_app:

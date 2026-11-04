@@ -18,12 +18,15 @@ def inspect_sources(repo):
     java_root = repo / 'BE/src/main/java'
     calls = []
     controllers = []
+    email_endpoints = []
     for path in sorted(java_root.rglob('*.java')) if java_root.is_dir() else []:
         text = path.read_text(encoding='utf-8')
         if 'class AiCoachController' in text:
             controllers.append(str(path.relative_to(repo)))
         if '/v1/chat' in text and ('COACH_SERVER_URL' in text or 'coach.server' in text):
             calls.append(str(path.relative_to(repo)))
+        if 'email-verifications' in text and '@PostMapping' in text:
+            email_endpoints.append(str(path.relative_to(repo)))
     blockers = []
     if placeholder is True:
         blockers.append('원본 Flutter 코치 탭이 빈 화면입니다. FE 담당 화면 연결이 필요합니다.')
@@ -35,7 +38,9 @@ def inspect_sources(repo):
         'check_type': 'source_evidence_only',
         'status': 'blocked' if blockers else 'runtime_verification_required',
         'frontend': {'coach_placeholder_detected': placeholder},
-        'backend': {'coach_controllers': controllers, 'local_coach_call_evidence': calls},
+        'backend': {'coach_controllers': controllers, 'local_coach_call_evidence': calls,
+                    'email_verification_source_evidence': email_endpoints,
+                    'actual_email_delivery_verified': False},
         'blockers': blockers,
         'ai_web_alternative': '/coach/account',
         'note': '소스 문자열 점검이며 앱·BE·모델을 실행하거나 파일을 수정하지 않습니다. 근거가 있어도 종단 실행 검증은 별도입니다.',

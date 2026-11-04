@@ -21,6 +21,8 @@ class TeamSourceCheckTests(unittest.TestCase):
             self.assertEqual(result['status'],'blocked')
             self.assertTrue(result['frontend']['coach_placeholder_detected'])
             self.assertEqual(len(result['blockers']),2)
+            self.assertEqual(result['backend']['email_verification_source_evidence'], [])
+            self.assertFalse(result['backend']['actual_email_delivery_verified'])
 
     def test_source_evidence_is_never_reported_as_runtime_success(self):
         with tempfile.TemporaryDirectory() as tmp:

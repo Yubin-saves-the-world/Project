@@ -1,0 +1,51 @@
+{
+  "log_id": 2,
+  "exercise": {
+    "exercise_id": 910002,
+    "name": "가벼운 물병 팔 굽히기",
+    "target_part": "arm",
+    "equipment": "dumbbell",
+    "difficulty": 1,
+    "min_sets": 1,
+    "max_sets": 2,
+    "media_url": null,
+    "description": "가벼운 물병을 잡고 팔꿈치를 몸 가까이 둔 채 천천히 굽혔다 펴세요.",
+    "source_url": "https://www.nhs.uk/live-well/exercise/strength-exercises/"
+  },
+  "routine_id": 1,
+  "started_at": "2026-11-04T11:27:37.219317+00:00",
+  "completed_at": "2026-11-04T11:27:37.246500+00:00",
+  "workout_date": "2026-11-04",
+  "status": "completed",
+  "duration_sec": 0,
+  "memo": "시연용 입력 · 실제 운동 수행 검증 아님",
+  "sets": [
+    {
+      "client_set_id": "demo-2-1",
+      "set_no": 1,
+      "weight_kg": 0.0,
+      "reps": 5,
+      "is_done": true,
+      "rest_sec": 60,
+      "version": 1,
+      "set_id": 3
+    },
+    {
+      "client_set_id": "demo-2-2",
+      "set_no": 2,
+      "weight_kg": 0.0,
+      "reps": 5,
+      "is_done": true,
+      "rest_sec": 60,
+      "version": 1,
+      "set_id": 4
+    }
+  ],
+  "set_count": 2,
+  "total_volume_kg": 0.0,
+  "routine_status": "done",
+  "routine_progress": {
+    "done": 2,
+    "total": 2
+  }
+}
