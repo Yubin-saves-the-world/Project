@@ -71,11 +71,46 @@ class Profile(BaseModel):
     minutes: int = Field(default=20, ge=5, le=120, strict=True)
 
 
+class SavedRoutineItem(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    name: str = Field(min_length=1, max_length=100)
+    sets: int = Field(ge=1, le=20, strict=True)
+    reps: int = Field(ge=1, le=100, strict=True)
+    rest_sec: int = Field(ge=0, le=3600, strict=True)
+
+    @field_validator('name')
+    @classmethod
+    def safe_name(cls, value):
+        return Message.nonblank(value)
+
+
+class SavedRoutine(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    routine_id: int = Field(ge=1, le=2**53-1, strict=True)
+    title: str = Field(min_length=1, max_length=120)
+    scheduled_date: str = Field(pattern=r'^\d{4}-\d{2}-\d{2}$')
+    status: Literal['planned', 'done', 'skipped']
+    items: list[SavedRoutineItem] = Field(min_length=1, max_length=10)
+
+    @field_validator('title')
+    @classmethod
+    def safe_title(cls, value):
+        return Message.nonblank(value)
+
+    @field_validator('scheduled_date')
+    @classmethod
+    def calendar_date(cls, value):
+        from datetime import date
+        date.fromisoformat(value)
+        return value
+
+
 class ChatRequest(BaseModel):
     model_config = ConfigDict(extra='forbid')
     messages: list[Message] = Field(min_length=1, max_length=15)
     profile: Profile = Field(default_factory=Profile)
     measurements: Measurements | None = None
+    saved_routine: SavedRoutine | None = None
 
     @model_validator(mode='after')
     def conversation_order(self):
@@ -223,10 +258,26 @@ class LocalCoach:
                         'local_only':True,'context_used':request.measurements is not None,
                         'conversation_storage':'none','finish_reason':'stop','truncated':False,
                         'processing_seconds':round(time.perf_counter()-started,3),'plan':None}
-            plan=None if isinstance(request, BackendChatRequest) else example_plan(request)
+            saved = getattr(request, 'saved_routine', None)
+            if saved and re.search(r'오늘|플랜|루틴|계획|세트|휴식', request.messages[-1].content):
+                if re.search(r'바꿔|변경|저장|늘려|줄여', request.messages[-1].content):
+                    content = '이 대화는 저장된 플랜이나 기록을 변경하지 않습니다. 플랜 화면에서 설정과 상태를 확인해 주세요.'
+                elif re.search(r'알려|뭐|무엇|보여|몇|얼마', request.messages[-1].content):
+                    lines = [f"{saved.scheduled_date} 저장 플랜: {saved.title} ({saved.status})"]
+                    lines += [f'{item.name}: {item.sets}세트 × {item.reps}회, 휴식 {item.rest_sec}초' for item in saved.items]
+                    lines.append('저장된 일반 운동 예시이며 사진으로 판정한 맞춤 처방이 아닙니다.')
+                    content = '\n'.join(lines)
+                else:
+                    content = None
+                if content:
+                    return {'status':'done','message':{'role':'assistant','content':content},'model':None,
+                        'provider':'saved_routine','response_source':'rule_based_saved_routine',
+                        'local_only':True,'context_used':True,'plan':None,'conversation_storage':'none',
+                        'finish_reason':'stop','truncated':False,'processing_seconds':round(time.perf_counter()-started,3)}
+            plan=None if isinstance(request, BackendChatRequest) or saved else example_plan(request)
             context={'user_preferences':request.profile.model_dump(),
                      'photo_measurements':request.measurements.model_dump() if request.measurements else None,
-                     'server_example_plan':plan}
+                     'server_example_plan':plan, 'saved_routine': saved.model_dump() if saved else None}
             if isinstance(request, BackendChatRequest):
                 context={'backend_context':request.system}
             messages=[{'role':'system','content':SYSTEM+'\nJSON의 reply 문자열에 사용자 질문에 대한 실제 답변을 작성하세요. 예시 문구나 형식 설명을 답으로 쓰지 마세요. '+'\n사용자 설정·사진 수치: '+json.dumps(context,ensure_ascii=False)}]
@@ -287,7 +338,7 @@ class LocalCoach:
                     'response_source':'model_generated_filtered' if filtered else 'model_generated',
                     'filtered_sentences':filtered,
                     'plan':plan,'local_only':True,
-                    'context_used':request.measurements is not None and plan is None,
+                    'context_used':(request.measurements is not None or saved is not None) and plan is None,
                     'history_used':plan is None,'conversation_storage':'none',
                     'finish_reason':data.get('done_reason','stop'),
                     'truncated':data.get('done_reason')=='length',

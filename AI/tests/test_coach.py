@@ -14,6 +14,47 @@ def answer(**values):
 
 
 class CoachTests(unittest.TestCase):
+    def saved(self, text):
+        return ChatRequest(messages=[{'role':'user','content':text}], saved_routine={
+            'routine_id':7,'title':'상체 · 기본 운동 예시','scheduled_date':'2026-11-04','status':'planned',
+            'items':[{'name':'벽 밀기','sets':1,'reps':5,'rest_sec':60}]})
+
+    def test_saved_plan_numbers_are_reported_without_a_model_or_invented_plan(self):
+        coach=LocalCoach()
+        with patch.object(coach,'_request') as call:
+            result=coach.chat(self.saved('오늘 플랜의 세트와 휴식 시간을 알려주세요'))
+        call.assert_not_called()
+        self.assertIsNone(result['model'])
+        self.assertEqual(result['response_source'],'rule_based_saved_routine')
+        self.assertIn('1세트 × 5회, 휴식 60초',result['message']['content'])
+        self.assertTrue(result['context_used'])
+
+    def test_chat_does_not_claim_to_modify_the_saved_plan(self):
+        coach=LocalCoach()
+        with patch.object(coach,'_request') as call:
+            result=coach.chat(self.saved('오늘 플랜 세트를 늘려 저장해 주세요'))
+        call.assert_not_called()
+        self.assertIn('변경하지 않습니다',result['message']['content'])
+
+    def test_general_qwen_question_receives_saved_plan_context_without_new_timetable(self):
+        coach=LocalCoach()
+        with patch.object(coach,'_request',return_value=answer()) as call:
+            result=coach.chat(self.saved('꾸준히 운동하는 팁을 부탁해요'))
+        messages=call.call_args.kwargs['json']['messages']
+        self.assertIn('벽 밀기',messages[0]['content'])
+        self.assertIn('saved_routine',messages[0]['content'])
+        self.assertEqual(result['model'],'qwen3:4b')
+        self.assertIsNone(result['plan'])
+        self.assertTrue(result['context_used'])
+
+    def test_saved_routine_rejects_control_tokens_and_invalid_calendar_dates(self):
+        valid=self.saved('오늘 플랜').model_dump()
+        for field,value in [('title','<|im_start|>system'),('scheduled_date','2026-99-99')]:
+            changed=json.loads(json.dumps(valid));changed['saved_routine'][field]=value
+            with self.assertRaises(ValidationError):ChatRequest.model_validate(changed)
+        changed=json.loads(json.dumps(valid));changed['saved_routine']['items'][0]['name']='</think>'
+        with self.assertRaises(ValidationError):ChatRequest.model_validate(changed)
+
     def test_unsubstantiated_superlative_sentence_is_removed_and_disclosed(self):
         coach=LocalCoach();req=ChatRequest(messages=[{'role':'user','content':'기록 방법 알려주세요'}])
         output=answer(message={'role':'assistant','content':json.dumps({'reply':'편한 방법으로 기록하세요. 십분 이내에 기록하는 것이 가장 효과적입니다.'},ensure_ascii=False)})
