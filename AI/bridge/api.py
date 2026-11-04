@@ -186,6 +186,16 @@ class FlutterBridge:
         if not isinstance(content,str) or not 1<=len(content.strip())<=500:
             raise BridgeError('VALIDATION_FAILED','대화는 1~500자로 입력해 주세요.',422)
         measurements = self.coach_measurements(uid, analysis_id)
+        saved_routine = None
+        if hasattr(self, 'workouts'):
+            from bridge.workouts import today
+            with self.db() as db:
+                row = db.execute('SELECT id FROM demo_routines WHERE uid=? AND scheduled_date=?', (uid, today().isoformat())).fetchone()
+                if row:
+                    routine = self.workouts.routine(db, uid, row['id'])
+                    saved_routine = {key: routine[key] for key in ('routine_id', 'title', 'scheduled_date', 'status')}
+                    saved_routine['items'] = [{'name': item['exercise']['name'], 'sets': item['target_sets'],
+                        'reps': item['target_reps'], 'rest_sec': item['rest_sec']} for item in routine['items']]
         if self.coach is None:
             raise BridgeError('COACH_NOT_CONFIGURED','코치 모델을 설정해 주세요.',503)
         if not self.chat_lock.acquire(False):
@@ -198,7 +208,8 @@ class FlutterBridge:
                 messages=messages[2:]
             from pydantic import ValidationError
             try:
-                result=self.coach.chat(ChatRequest(messages=messages, measurements=measurements, **({'profile':profile} if profile is not None else {})))
+                result=self.coach.chat(ChatRequest(messages=messages, measurements=measurements,
+                    saved_routine=saved_routine, **({'profile':profile} if profile is not None else {})))
             except ValidationError as exc:
                 raise BridgeError('VALIDATION_FAILED','대화 내용을 확인해 주세요.',422) from exc
             except CoachFailure as exc:
@@ -222,7 +233,8 @@ class FlutterBridge:
                 db.execute('DELETE FROM coach_messages WHERE uid=? AND id NOT IN (SELECT id FROM coach_messages WHERE uid=? ORDER BY id DESC LIMIT 100)',(uid,uid))
             return {'user_message':user_message,'assistant_message':assistant_message,
                     'context':{'analysis_id':analysis_id,'measurements_provided':measurements is not None,
-                               'context_used':bool(result.get('context_used',False))}}
+                               'context_used':bool(result.get('context_used',False)),
+                               **({'saved_routine_id': saved_routine['routine_id']} if saved_routine else {})}}
         finally:
             self.chat_lock.release()
 
@@ -525,10 +537,7 @@ def install(app, directory, backend_url, normalize, coach=None):
         service.user(request, True)
         raise BridgeError('GOAL_NOT_FOUND', '등록한 목표 체형이 없어요.', 404)
 
-    @router.post('/api/routines')
-    def routine(request: Request):
-        service.user(request, True)
-        raise BridgeError('GOAL_NOT_READY', '현재 연결은 운동 추천을 제공하지 않아요.')
-
     app.include_router(router)
+    from bridge.workouts import install_workouts
+    install_workouts(app, service)
     return service
