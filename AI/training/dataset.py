@@ -83,6 +83,9 @@ def prepare_dataset(images, directory, api='http://127.0.0.1:8001'):
             image_rel = 'images/' + sha + '.jpg'
             (directory / 'images').mkdir(exist_ok=True)
             image.save(directory / image_rel, quality=95)
+            if not result.get('dinov3'):
+                failures.append({'image_name': path.name, 'code': 'MODEL_NOT_CONFIGURED'})
+                continue
             for part in result['dinov3']['parts']:
                 if part['status'] != 'extracted':
                     failures.append({'image_name': path.name, 'part': part['part'], 'code': part.get('reason', 'UNAVAILABLE')})
@@ -130,8 +133,8 @@ class AnnotationStore:
 
     def save(self, key, subject_id, label, split, reason=''):
         import re
-        if self.dataset.get('purpose')=='independent_test' and split!='test':
-            raise ValueError('독립 시험 예약 묶음은 test로만 저장할 수 있습니다.')
+        if self.dataset.get('purpose') in {'independent_test','label_audit'} and split!='test':
+            raise ValueError('독립 시험·라벨 재검수 묶음은 test로만 저장할 수 있습니다.')
         if key not in self.entries or not re.fullmatch(r'[A-Za-z0-9_-]{1,64}', subject_id):
             raise ValueError('사진 ID와 인물 ID를 확인하세요. 인물 ID는 영문·숫자·밑줄·하이픈으로 입력하세요.')
         if label not in (*LABELS, 'exclude') or split not in SPLITS or (label == 'exclude' and not reason.strip()):

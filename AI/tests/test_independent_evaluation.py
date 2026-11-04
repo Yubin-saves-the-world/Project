@@ -10,6 +10,20 @@ from training.independent import evaluate_independent, freeze_reference
 
 
 class IndependentTests(unittest.TestCase):
+    def test_partial_classes_require_opt_in_and_do_not_report_full_macro_f1(self):
+        self.entries=[e for e in self.entries if not e['id'].startswith('clear-')]
+        self.annotations={k:a for k,a in self.annotations.items() if not k.startswith('clear-')}
+        self.persist()
+        with self.assertRaisesRegex(ValueError,'모든 등급'):self.evaluate()
+        report=evaluate_independent(self.model,self.train,self.test,self.output,
+                                    identities_confirmed=True,allow_missing_test_classes=True)
+        self.assertEqual(report['samples'],8)
+        self.assertEqual(report['missing_classes'],['clear'])
+        self.assertEqual(report['class_coverage'],'partial')
+        self.assertIsNone(report['candidate_macro_f1'])
+        self.assertIsNotNone(report['observed_classes_macro_f1'])
+        self.assertEqual(report['label_counts']['clear'],0)
+
     def test_reported_identity_overlap_blocks_even_with_confirmation_flag(self):
         write_json(self.test/'identity-review.json',{'status':'overlap_reported'})
         with self.assertRaisesRegex(ValueError,'인물 중복'):

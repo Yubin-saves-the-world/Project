@@ -188,7 +188,7 @@ def analyze_body_images(image_paths: list[str], output_dir: str, text_input: str
         with quiet_mediapipe_logs():
             _, debug_image_path, analysis = analyze_image(image_path, str(output), min_detection_confidence=0.5)
         analyses.append(analysis)
-        debug_images.append(os.path.abspath(debug_image_path))
+        # Request-scoped debug files are deleted; never return server filesystem paths.
 
     posture_keys = [
         "shoulder_tilt_deg",

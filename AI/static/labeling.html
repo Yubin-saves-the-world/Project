@@ -149,6 +149,7 @@
         <aside id="screen-panel" class="card" style="background: #eef3ff">
           <b id="screen-title"></b>
           <p id="screen-reason"></p>
+          <p id="source-credits"></p>
           <small
             >원본 사진 기준 의견입니다. 잘린 상완을 확인하고 최종 라벨은 사람이
             저장합니다.</small
@@ -243,8 +244,11 @@
         render();
       }
       function render() {
-        const reserved = data.purpose === "independent_test";
-        q("#purpose-note").textContent = reserved
+        const audit = data.purpose === "label_audit";
+        const reserved = data.purpose === "independent_test" || audit;
+        q("#purpose-note").textContent = audit
+          ? "라벨 기준 재검수입니다. 이전 정답은 숨겨져 있으며 저장값은 학습·모델 평가에 넣지 않습니다. test는 저장용 구분입니다."
+          : reserved
           ? "독립 시험 예약 묶음입니다. test로만 저장하며 학습에 합치지 않습니다. 실제 인물 독립성은 별도 확인해야 합니다."
           : "학습용 검수 묶음입니다. 시험 자료와 혼동하지 마세요.";
         if (data.independent_evaluation_blocked)
@@ -281,6 +285,19 @@
             exclude_recommended: "제외 추천",
           }[opinion?.status] || "미검수");
         q("#screen-reason").textContent = opinion?.reason || "";
+        q("#source-credits").replaceChildren();
+        for (const credit of opinion?.credits || []) {
+          if (typeof credit?.label !== "string" || typeof credit?.url !== "string") continue;
+          let url;
+          try { url = new URL(credit.url); } catch { continue; }
+          if (url.protocol !== "https:") continue;
+          const link = document.createElement("a");
+          link.textContent = credit.label;
+          link.href = url.href;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          q("#source-credits").append(link, document.createTextNode(" · "));
+        }
         q("#name").textContent =
           index +
           1 +

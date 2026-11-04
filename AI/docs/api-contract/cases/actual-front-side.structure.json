@@ -1,0 +1,192 @@
+{
+  "status": "done",
+  "measurement_version": "pixel-dino-v2",
+  "measures": {
+    "shoulder_tilt_deg": 2.94,
+    "pelvis_tilt_deg": 3.12,
+    "neck_forward_deg": 9.13,
+    "shoulder_hip_ratio": 1.59,
+    "torso_leg_ratio": 0.45,
+    "unavailable": [],
+    "body_axis_tilt_deg": 0.09,
+    "arm_projected_length_difference_pct": 3.82,
+    "leg_projected_length_difference_pct": 1.16,
+    "joint_angles": {
+      "left_elbow_deg": 169.54,
+      "left_knee_deg": 177.45,
+      "right_elbow_deg": 168.76,
+      "right_knee_deg": 178.01
+    },
+    "side_neck": {
+      "status": "measured",
+      "value": 9.13,
+      "unit": "deg",
+      "landmark_side": "left",
+      "view_check": "narrow_shoulder_projection",
+      "reason": null,
+      "description": "측면 사진의 귀·어깨 연결선과 사진 수직선의 차이입니다.",
+      "limitation": "촬영 방향과 카메라 기울기에 영향을 받습니다. 거북목·골격 상태를 판정하지 않습니다.",
+      "person_check": {
+        "status": "checked",
+        "detected_poses": 1,
+        "multiple_people_detected": false,
+        "detection_limit": 3,
+        "note": "검출되지 않은 인물이나 사진 속 인쇄된 인물이 있을 수 있습니다. 인물 수 보장은 아닙니다."
+      }
+    }
+  },
+  "measurement_report": {
+    "version": "photo-measurement-report-v1",
+    "title": "사진 측정 결과",
+    "summary": "어깨 연결선 2.94° · 골반 연결선 3.12° · 어깨·골반 너비 비율 1.59배 · 상체·다리 길이 비율 0.45배 · 몸통 중심선 기울기 0.09° · 사진상 양팔 길이 차이 3.82% · 사진상 양다리 길이 차이 1.16% · 측면 귀·어깨 각도 9.13°",
+    "measured_count": 8,
+    "items": [
+      {
+        "key": "shoulder_tilt_deg",
+        "title": "어깨 연결선",
+        "status": "measured",
+        "value": 2.94,
+        "unit": "°",
+        "display_value": "2.94°",
+        "description": "좌우 어깨 추정점을 연결한 선과 사진 수평선의 차이: 2.94°.",
+        "meaning": "좌우 어깨 추정점을 연결한 선과 사진 수평선의 차이",
+        "limitation": "카메라 기울기와 팔 자세의 영향을 받습니다."
+      },
+      {
+        "key": "pelvis_tilt_deg",
+        "title": "골반 연결선",
+        "status": "measured",
+        "value": 3.12,
+        "unit": "°",
+        "display_value": "3.12°",
+        "description": "좌우 골반 추정점을 연결한 선과 사진 수평선의 차이: 3.12°.",
+        "meaning": "좌우 골반 추정점을 연결한 선과 사진 수평선의 차이",
+        "limitation": "골반뼈 자체의 변형이나 실제 높이 차이를 판정한 값은 아닙니다."
+      },
+      {
+        "key": "shoulder_hip_ratio",
+        "title": "어깨·골반 너비 비율",
+        "status": "measured",
+        "value": 1.59,
+        "unit": "배",
+        "display_value": "1.59배",
+        "description": "어깨 관절 사이 거리를 골반 관절 사이 거리로 나눈 값: 1.59배.",
+        "meaning": "어깨 관절 사이 거리를 골반 관절 사이 거리로 나눈 값",
+        "limitation": "신체 외곽 너비나 근육량을 측정한 값은 아닙니다."
+      },
+      {
+        "key": "torso_leg_ratio",
+        "title": "상체·다리 길이 비율",
+        "status": "measured",
+        "value": 0.45,
+        "unit": "배",
+        "display_value": "0.45배",
+        "description": "어깨 중심부터 골반 중심까지 거리를 골반 중심부터 발목 중심까지 거리로 나눈 값: 0.45배.",
+        "meaning": "어깨 중심부터 골반 중심까지 거리를 골반 중심부터 발목 중심까지 거리로 나눈 값",
+        "limitation": "사진의 원근과 카메라 높이에 영향을 받으며 실제 신체 치수가 아닙니다."
+      },
+      {
+        "key": "body_axis_tilt_deg",
+        "title": "몸통 중심선 기울기",
+        "status": "measured",
+        "value": 0.09,
+        "unit": "°",
+        "display_value": "0.09°",
+        "description": "어깨 중심과 골반 중심의 연결선과 사진 수직선의 차이: 0.09°.",
+        "meaning": "어깨 중심과 골반 중심의 연결선과 사진 수직선의 차이",
+        "limitation": "몸을 돌리거나 카메라가 기울면 달라집니다."
+      },
+      {
+        "key": "arm_projected_length_difference_pct",
+        "title": "사진상 양팔 길이 차이",
+        "status": "measured",
+        "value": 3.82,
+        "unit": "%",
+        "display_value": "3.82%",
+        "description": "양팔 관절 연결 길이 차이를 평균 길이로 나눈 값: 3.82%.",
+        "meaning": "양팔 관절 연결 길이 차이를 평균 길이로 나눈 값",
+        "limitation": "원근·팔의 굽힘에 영향을 받습니다. 실제 팔 길이 차이가 아닙니다."
+      },
+      {
+        "key": "leg_projected_length_difference_pct",
+        "title": "사진상 양다리 길이 차이",
+        "status": "measured",
+        "value": 1.16,
+        "unit": "%",
+        "display_value": "1.16%",
+        "description": "양다리 관절 연결 길이 차이를 평균 길이로 나눈 값: 1.16%.",
+        "meaning": "양다리 관절 연결 길이 차이를 평균 길이로 나눈 값",
+        "limitation": "원근·다리의 굽힘에 영향을 받습니다. 실제 다리 길이 차이가 아닙니다."
+      },
+      {
+        "key": "neck_forward_deg",
+        "title": "측면 귀·어깨 각도",
+        "status": "measured",
+        "value": 9.13,
+        "unit": "°",
+        "display_value": "9.13°",
+        "description": "귀·어깨 연결선과 사진 수직선의 차이: 9.13°.",
+        "meaning": "귀·어깨 연결선과 사진 수직선의 차이",
+        "limitation": "거북목 또는 골격 상태를 판정하지 않습니다. 측면 사진과 카메라 기울기에 영향을 받습니다."
+      }
+    ],
+    "features": [
+      {
+        "part": "left_upper_arm",
+        "title": "왼쪽 상완",
+        "status": "extracted",
+        "description": "사진 특징 추출 완료",
+        "classification_status": "review_required",
+        "contour": null
+      },
+      {
+        "part": "right_upper_arm",
+        "title": "오른쪽 상완",
+        "status": "extracted",
+        "description": "사진 특징 추출 완료",
+        "classification_status": "review_required",
+        "contour": null
+      }
+    ],
+    "interpretation": "사진에서 관찰한 기울기와 비율입니다. 정상·이상, 근육 발달 또는 건강 점수 판정은 포함하지 않습니다.",
+    "next_steps": [
+      "카메라를 수평으로 고정하고 같은 높이와 거리에서 전신을 촬영해 비교하세요.",
+      "양팔이 몸통을 가리지 않게 하고 관절이 보이는 사진을 사용하세요."
+    ],
+    "capabilities": {
+      "geometry": "available",
+      "balance_score": "not_implemented",
+      "body_type": "not_implemented",
+      "muscle_grade": "not_implemented",
+      "contour_classifier": "review_required"
+    }
+  },
+  "photo_quality": {
+    "width_px": 769,
+    "height_px": 1024,
+    "blur_variance": 92.4,
+    "required_landmarks_visible": 7,
+    "required_landmarks_total": 7,
+    "minimum_landmark_score": 0.744,
+    "body_vertical_frame_fraction": 0.691,
+    "person_check": {
+      "status": "checked",
+      "detected_poses": 1,
+      "multiple_people_detected": false,
+      "detection_limit": 3,
+      "note": "검출되지 않은 인물이나 사진 속 인쇄된 인물이 있을 수 있습니다. 인물 수 보장은 아닙니다."
+    },
+    "warnings": [],
+    "score_meaning": "관절 모델 점수와 촬영 조건입니다. 측정 정확도나 건강 점수가 아닙니다.",
+    "content_safety": "not_automatically_checked",
+    "front_view": "not_automatically_verified"
+  },
+  "balance_score": null,
+  "body_type": null,
+  "goal_comparison": null,
+  "warnings": [
+    "사진 기반 참고 수치이며 의료적 진단이 아닙니다.",
+    "의복과 가림은 자동 판정하지 못합니다. 특징 추출을 근육 등급으로 해석하지 마세요.",
+    "인물 수 검사는 보조 검출이며 정면 여부와 의복은 직접 확인해야 합니다."
+  ]
+}
