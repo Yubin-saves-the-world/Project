@@ -102,6 +102,7 @@ def main():
     parser.add_argument('--device', help='명시적으로 선택할 Flutter 기기 ID; 기본은 별도 QA 시뮬레이터')
     parser.add_argument('--port', type=int, default=8080)
     parser.add_argument('--backend-port', type=int, default=8082)
+    parser.add_argument('--contour-model', type=Path, help='로컬 실험 윤곽 분류기 JSON; 생략하면 사진 측정만 실행')
     args = parser.parse_args()
     if sys.version_info[:2] != (3, 12):
         raise RuntimeError('Python 3.12로 실행하세요.')
@@ -117,6 +118,15 @@ def main():
     print('원본 FE/BE를 AI 실행 폴더에 동일하게 복사합니다.', flush=True)
     stage()
     env = dict(os.environ)
+    classifier = args.contour_model or env.get('AI_CONTOUR_MODEL')
+    if classifier:
+        classifier = Path(classifier).expanduser().resolve()
+        if not classifier.is_file():
+            raise RuntimeError('윤곽 분류기 파일을 찾을 수 없습니다: ' + str(classifier))
+        env['AI_CONTOUR_MODEL'] = str(classifier)
+        print('실험 윤곽 분류기: ' + str(classifier), flush=True)
+    else:
+        print('윤곽 분류기 미지정: 사진 측정·특징 추출은 실행합니다.', flush=True)
     env.setdefault('MPLCONFIGDIR', str(ROOT / '.runtime/matplotlib'))
     env.setdefault('HF_HUB_CACHE', str(ROOT / '.cache/hub'))
     env.setdefault('GRADLE_USER_HOME', str(ROOT / '.cache/gradle'))
