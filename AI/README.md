@@ -4,6 +4,8 @@
 
 최신 [AI-only 연결·배포 안내](docs/AI_ONLY_RELEASE_2026-11-03.md): 인증된 Qwen3 대화 API를 AI 호환 서버에도 연결했습니다. 원본 Flutter 코치 탭은 아직 준비 중 화면이므로 FE 담당 연결이 필요합니다.
 
+**계정 코치 시연:** `bash AI/run-flutter.sh --no-app --require-coach` 실행 후 출력된 `/coach/account`에서 로그인합니다. 대화 저장·복원·삭제를 지원하며 코치 준비 실패 시 실행을 중단합니다.
+
 **Qwen3 코치 시연:** `/coach`에서 로컬 Qwen3와 대화할 수 있습니다. [실행·영상 시연 순서·BE API 계약](docs/QWEN3_COACH_DEMO.md)을 참고하세요. 원본 Flutter 코치 탭 연결과는 별도입니다.
 
 승인·로그인 없이 관절 측정만 실행하려면 AI 폴더에서 `bash run.sh --geometry-only`를 사용하세요. DINOv3 특징 추출은 생략됩니다. [종합 문제점 대응과 실제 BE 연결 설정](docs/COMPREHENSIVE_FIXES_2026-11-03.md)을 참고하세요.

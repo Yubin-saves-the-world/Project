@@ -47,6 +47,17 @@ def wait_url(url, process, seconds=180):
     raise RuntimeError('서버 준비 시간이 초과됐습니다. 실행 로그를 확인하세요.')
 
 
+def coach_readiness(base):
+    """Report model readiness without sending or saving a conversation."""
+    try:
+        status, result = http_json('GET', base + '/v1/coach/health')
+        if status == 200 and isinstance(result, dict) and result.get('status') == 'ready':
+            return True, 'Qwen3 코치 준비 완료'
+        return False, 'Qwen3 코치가 준비되지 않았습니다. Ollama 실행과 모델 설치를 확인하세요.'
+    except (OSError, ValueError, TypeError):
+        return False, '코치 연결 상태를 확인하지 못했습니다. 서버 로그를 확인하세요.'
+
+
 def seed_account(base, password):
     email = 'demo@movid.local'
     status, _ = http_json('POST', base + '/api/users', {
@@ -97,6 +108,7 @@ def qa_simulator(photo=None):
 
 def main():
     parser = argparse.ArgumentParser(description='원본 FE/BE를 수정하지 않는 로컬 Flutter AI 연결')
+    parser.add_argument('--require-coach', action='store_true', help='Qwen3 준비를 먼저 확인하고 코치가 없으면 실행 중단')
     parser.add_argument('--no-app', action='store_true', help='인증·분석 서버만 실행')
     parser.add_argument('--photo', type=Path, help='전용 QA 시뮬레이터에 가져올 기존 사진')
     parser.add_argument('--device', help='명시적으로 선택할 Flutter 기기 ID; 기본은 별도 QA 시뮬레이터')
@@ -151,6 +163,8 @@ def main():
     if not args.geometry_only:
         model = json.loads((ROOT / '.runtime/model.json').read_text())['path']
         env['DINO_MODEL_PATH'] = model
+    if args.require_coach:
+        subprocess.run([str(python), str(ROOT / 'scripts/check_coach.py')], cwd=ROOT, env=env, check=True)
     subprocess.run(['bash', str(RUNTIME / 'BE/gradlew'), '--project-dir', str(RUNTIME / 'BE'),
                     '--init-script', str(ROOT / 'bridge/spring-h2.init.gradle'), 'bootJar', '--no-daemon', '--console=plain'], env=env, check=True)
     auth_dir = RUNTIME / 'auth'
@@ -183,6 +197,12 @@ def main():
         processes.append(ai)
         wait_url(f'http://127.0.0.1:{args.port}/health', ai)
         print(f'Flutter 연결 API: http://127.0.0.1:{args.port}\n원본 소스 검사: {verify_originals()}개 동일\n로그: AI/.runtime/flutter_demo/', flush=True)
+        coach_ready, coach_message = coach_readiness(f'http://127.0.0.1:{args.port}')
+        print(coach_message, flush=True)
+        print(f'사진 분석: http://127.0.0.1:{args.port}/analysis\n계정 코치: http://127.0.0.1:{args.port}/coach/account', flush=True)
+        print('원본 Flutter 코치 탭은 별도 연결이 필요합니다. 계정 코치는 위 웹 주소를 사용하세요.', flush=True)
+        if args.require_coach and not coach_ready:
+            raise RuntimeError('필수 코치 준비 확인 실패. 시작한 서버를 종료합니다.')
         if args.no_app:
             print('서버 준비 완료. 종료: Ctrl+C', flush=True)
             while all(p.poll() is None for p in processes):
