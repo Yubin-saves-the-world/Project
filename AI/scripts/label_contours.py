@@ -18,6 +18,8 @@ def main():
     parser.add_argument('--prepare-only', action='store_true')
     args = parser.parse_args()
     dataset = args.dataset.resolve()
+    if any(part.startswith('quarantine_web_') for part in dataset.parts):
+        raise ValueError('격리된 인터넷 자료는 재검수 전 라벨링에 사용할 수 없습니다.')
     if not dataset.is_relative_to(ROOT / '.runtime'):
         raise ValueError('데이터셋 저장 위치는 AI/.runtime 폴더 안이어야 합니다.')
     if not (dataset / 'dataset.json').exists():
