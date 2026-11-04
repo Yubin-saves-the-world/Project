@@ -27,6 +27,19 @@ class ZipLauncherTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'model.safetensors'):
                 check_environment.model_directory()
 
+    def test_pose_asset_rejects_corruption_and_missing_explicit_path(self):
+        from analyzers.pose_guard import validate_asset
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'pose.task'
+            path.write_bytes(b'not the official model')
+            with self.assertRaisesRegex(ValueError, 'SHA256'):
+                validate_asset(path)
+            with patch.dict(check_environment.os.environ, {'AI_POSE_MODEL_PATH': str(path.parent/'missing')}), \
+                 patch.object(check_environment.urllib.request, 'urlopen') as network:
+                with self.assertRaisesRegex(ValueError, '없습니다'):
+                    check_environment.pose_asset()
+                network.assert_not_called()
+
     def test_lock_change_invalidates_install_stamp_even_with_spaces_in_path(self):
         with tempfile.TemporaryDirectory(prefix='AI ZIP ') as root, patch.object(launch, 'ROOT', Path(root)):
             for name in ('requirements.txt', 'requirements-dinov3.txt', 'requirements-tested.lock.txt'):

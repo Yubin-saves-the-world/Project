@@ -2,6 +2,18 @@
 
 **확정 작업 범위는 `AI/` 폴더뿐입니다.** FE·BE·루트 문서·공통 설정을 변경하지 않습니다. AI 문서, 테스트, 설정도 이 폴더 안에서 관리합니다. [작업 지침](AGENTS.md)을 따릅니다.
 
+## 사진 분석 v2
+
+정면 사진과 선택 측면 사진의 관절 측정, 촬영 정보, 상완 크롭 확인 후 실험 분류, 두 결과 수치 비교, 결과 저장을 AI 웹 화면에서 연결했습니다. 원본 FE·BE는 변경하지 않았습니다. [새 화면·API·실행 방법](docs/PHOTO_ANALYSIS_V2.md)을 확인하세요.
+
+## 검수한 상완 크롭의 실험용 윤곽 분류
+
+`POST /v1/contour/classify`와 `/contour-test` 화면을 추가했습니다. 피부가 보이는 상완 크롭을 사람이 확인한 경우에만 실험 모델의 참고 후보·모델 점수·보류 상태를 반환합니다. 근육량이나 체형 점수가 아닙니다. 학습 모델을 명시적으로 설정해야 하며 사진·학습 결과는 Git에 포함하지 않습니다. [초기 실험과 실행 방법](docs/CURRENT_EXPERIMENT.md)을 확인하세요.
+
+## 원본 Flutter 앱에서 테스트하기
+
+프로젝트 루트에서 `bash AI/run-flutter.sh --photo "/사진/test1.jpg"`를 실행합니다. 원본 FE·BE 코드는 수정하지 않고 AI 실행 폴더의 복사본으로 로그인·사진 선택·실제 AI 분석을 연결합니다. [준비 환경·실행 순서·현재 한계](docs/FLUTTER_LOCAL_DEMO.md)를 먼저 확인하세요. 아래 `run.sh` 경로는 AI 단독 웹 테스트입니다.
+
 ## GitHub ZIP으로 바로 시작하기 (macOS)
 
 최신 AI 코드가 있는 [기본 main ZIP](https://github.com/Yubin-saves-the-world/Project/archive/refs/heads/main.zip)을 다운로드하고 압축을 풉니다. PR #7은 main에 병합됐습니다. 기본 main ZIP에 AI 서버가 포함됩니다.
@@ -24,14 +36,14 @@ Hugging Face 모델 이용 승인과 로그인은 필수입니다. 이미 승인
 
 ## 현재 기능
 
-- FastAPI `POST /v1/analyze`: 정면 전신 사진 1장의 MediaPipe 관절 기울기·비율과 DINOv3 상완 특징을 반환합니다.
+- FastAPI `POST /v1/analyze`: 정면 전신 사진 1장과 선택 측면 1장의 관절 기울기·비율·각도, 촬영 정보와 DINOv3 상완 특징을 반환합니다.
 - 픽셀 좌표를 사용해 어깨·골반 기울기, 어깨/골반 너비 및 상체/하체 길이 비율을 계산합니다.
 - 공식 DINOv3 모델을 시작 시 한 번 로딩하고 양쪽 상완의 CLS·평균 패치 특징을 추출합니다.
 - JPG/PNG, 파일당 10MB, 2,500만 픽셀 제한·EXIF 보정·긴 변 1024px 축소를 적용합니다.
 - 손상·단색·극단적으로 흐린 사진, 낮은 관절 신뢰도 및 전신 누락을 거절합니다. 처리 임시 파일은 응답 후 삭제합니다.
 - 기존 `POST /analyze/body`는 별도 경로로 camelCase 응답과 선택적 text 입력을 유지합니다. 기존 MediaPipe 파이프라인을 호출하며 DINOv3 결과와 혼합하지 않습니다. 사진은 1~3장으로 제한합니다.
 
-DINOv3 **근육 분류기는 학습하지 않았습니다.** 새 API는 근육 등급·균형 점수·체형 판정·목표 비교·운동 처방을 생성하지 않습니다. 기존 API의 휴리스틱 응답은 검증된 진단이나 학습된 근육 분류 결과가 아닙니다.
+소규모 검수 라벨로 학습한 것은 **사진상 상완 윤곽의 실험 분류기**입니다. 검증된 근육 발달 분류기는 없습니다. 새 API는 근육 등급·균형 점수·체형 판정·목표 비교·운동 처방을 생성하지 않습니다. 기존 API의 휴리스틱 응답은 검증된 진단이나 학습된 근육 분류 결과가 아닙니다.
 
 ## AI 단독 실행
 
@@ -62,6 +74,7 @@ curl -X POST http://127.0.0.1:8001/v1/analyze \
 
 ```sh
 .venv/bin/python -m pip install -r requirements-test.txt
+.venv/bin/python -m pip install -r requirements-dev.txt
 .venv/bin/python -m unittest discover -s tests -v
 ```
 

@@ -1,0 +1,6 @@
+// Runtime-only driver for the isolated copy; the team's BE/build.gradle is unchanged.
+allprojects {
+    plugins.withId('java') {
+        dependencies.add('runtimeOnly', 'com.h2database:h2')
+    }
+}

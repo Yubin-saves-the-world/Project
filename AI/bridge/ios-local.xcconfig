@@ -1,0 +1,2 @@
+// Build-time compatibility for current Xcode; canonical FE project is unchanged.
+IPHONEOS_DEPLOYMENT_TARGET = 15.0

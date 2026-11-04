@@ -112,7 +112,9 @@ def prepare_dataset(images, directory, api='http://127.0.0.1:8001'):
 class AnnotationStore:
     def __init__(self, directory):
         self.directory = Path(directory).resolve()
-        self.dataset = json.loads((self.directory / 'dataset.json').read_text())
+        raw_dataset = (self.directory / 'dataset.json').read_bytes()
+        self.batch_id = hashlib.sha256(raw_dataset).hexdigest()[:24]
+        self.dataset = json.loads(raw_dataset)
         self.entries = {entry['id']: entry for entry in self.dataset['entries']}
         self.path = self.directory / 'annotations.json'
         self.lock = threading.Lock()
@@ -155,8 +157,10 @@ class AnnotationStore:
                 annotation = self.annotations.get(key)
                 hint = next((a for k, a in self.annotations.items() if k in self.entries and self.entries[k]['source_sha256'] == entry['source_sha256']), None)
                 rows.append({'id': key, 'image_name': entry['image_name'], 'part': entry['part'],
-                             'annotation': annotation, 'subject_hint': hint['subject_id'] if hint else '',
-                             'split_hint': hint['split'] if hint else 'train'})
-            return {'entries': rows, 'reviewed': len(self.annotations), 'total': len(rows),
-                    'label_counts': dict(Counter(a['label'] for a in self.annotations.values())),
+                             'annotation': annotation, 'subject_hint': hint['subject_id'] if hint else entry.get('subject_hint', ''),
+                             'split_hint': hint['split'] if hint else entry.get('split_hint', 'train')})
+            valid = [a for key, a in self.annotations.items() if key in self.entries]
+            return {'batch_id': self.batch_id, 'dataset_name': self.directory.name,
+                    'entries': rows, 'reviewed': len(valid), 'total': len(rows),
+                    'label_counts': dict(Counter(a['label'] for a in valid)),
                     'failures': self.dataset.get('failures', [])}
