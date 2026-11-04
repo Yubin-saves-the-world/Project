@@ -2,6 +2,7 @@ import io
 from pathlib import Path
 import stat
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 import zipfile
@@ -40,7 +41,8 @@ class KaggleSourceTests(unittest.TestCase):
     def test_html_response_never_becomes_a_dataset_archive(self):
         response = io.BytesIO(b'<html>Sign in</html>')
         response.headers = {}
-        with tempfile.TemporaryDirectory() as folder, patch('training.kaggle_sources.open_url', return_value=response):
+        with tempfile.TemporaryDirectory() as folder, patch('training.kaggle_sources.open_url', return_value=response), \
+             patch('training.kaggle_sources.shutil.disk_usage', return_value=SimpleNamespace(free=20*1024**3)):
             path = Path(folder)/'download.zip'
             with self.assertRaisesRegex(ValueError, 'non-ZIP'):
                 download_archive('https://www.kaggle.com/example', path)
@@ -50,11 +52,23 @@ class KaggleSourceTests(unittest.TestCase):
     def test_interrupted_download_does_not_replace_existing_archive(self):
         response = io.BytesIO(b'broken')
         response.headers = {'Content-Length': '100'}
-        with tempfile.TemporaryDirectory() as folder, patch('training.kaggle_sources.open_url', return_value=response):
+        with tempfile.TemporaryDirectory() as folder, patch('training.kaggle_sources.open_url', return_value=response), \
+             patch('training.kaggle_sources.shutil.disk_usage', return_value=SimpleNamespace(free=20*1024**3)):
             path = Path(folder)/'download.zip';path.write_bytes(b'old intact archive')
             with self.assertRaisesRegex(ValueError, 'Incomplete'):
                 download_archive('https://www.kaggle.com/example', path)
             self.assertEqual(path.read_bytes(), b'old intact archive')
+
+    def test_low_disk_space_still_blocks_download_and_preserves_archive(self):
+        response=io.BytesIO(b'new bytes');response.headers={}
+        with tempfile.TemporaryDirectory() as folder, \
+             patch('training.kaggle_sources.open_url', return_value=response), \
+             patch('training.kaggle_sources.shutil.disk_usage', return_value=SimpleNamespace(free=1)):
+            path=Path(folder)/'download.zip';path.write_bytes(b'old archive')
+            with self.assertRaisesRegex(ValueError,'free-space'):
+                download_archive('https://www.kaggle.com/example',path)
+            self.assertEqual(path.read_bytes(),b'old archive')
+            self.assertFalse(path.with_suffix('.part').exists())
 
 
 class KaggleQueueTests(unittest.TestCase):

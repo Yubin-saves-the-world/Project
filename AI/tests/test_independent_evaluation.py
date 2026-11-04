@@ -6,10 +6,45 @@ import numpy as np
 from test_contour_training import fixture
 from training.dataset import write_json
 from training.fit_only import fit_only
-from training.independent import evaluate_independent
+from training.independent import evaluate_independent, freeze_reference
 
 
 class IndependentTests(unittest.TestCase):
+    def test_reported_identity_overlap_blocks_even_with_confirmation_flag(self):
+        write_json(self.test/'identity-review.json',{'status':'overlap_reported'})
+        with self.assertRaisesRegex(ValueError,'인물 중복'):
+            self.evaluate(True)
+        self.assertFalse(self.output.exists())
+
+    def test_identity_record_is_bound_to_the_exact_dataset(self):
+        write_json(self.test/'identity-review.json',{'status':'confirmed_independent','dataset_sha256':'wrong'})
+        with self.assertRaisesRegex(ValueError,'검수 기록'):
+            self.evaluate(True)
+        self.assertFalse(self.output.exists())
+
+    def test_reserved_evaluation_uses_model_fixed_before_labels(self):
+        write_json(self.test/'dataset.json',{'entries':self.entries,'purpose':'independent_test'})
+        write_json(self.test/'annotations.json',{})
+        reference=freeze_reference(self.test,self.model,self.train)
+        self.assertEqual((self.test/'frozen-model.json').read_bytes(),self.model.read_bytes())
+        self.assertTrue(reference['frozen_before_labels'])
+        for a in self.annotations.values():a['split']='test'
+        write_json(self.test/'annotations.json',self.annotations)
+        altered=json.loads(self.model.read_text());altered['abstain_threshold']=.7
+        write_json(self.root/'altered.json',altered)
+        with self.assertRaisesRegex(ValueError,'고정한 시험 모델'):
+            evaluate_independent(self.root/'altered.json',self.train,self.test,self.output,identities_confirmed=True)
+        report=self.evaluate()
+        self.assertEqual(report['samples'],12)
+        with self.assertRaisesRegex(ValueError,'라벨 저장 전'):
+            freeze_reference(self.test,self.model,self.train)
+
+    def test_model_cannot_be_fixed_after_test_labels_are_saved(self):
+        write_json(self.test/'dataset.json',{'entries':self.entries,'purpose':'independent_test'})
+        with self.assertRaisesRegex(ValueError,'라벨 저장 전'):
+            freeze_reference(self.test,self.model,self.train)
+        self.assertFalse((self.test/'frozen-model.json').exists())
+
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
         self.root=Path(self.temp.name);self.train=self.root/'train';self.test=self.root/'test'
