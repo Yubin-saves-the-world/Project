@@ -14,7 +14,7 @@ body{margin:0;background:#f5f6fb;color:#20283c;font:16px/1.7 system-ui,sans-seri
 <label><input id="confirm" type="checkbox" required> 두 사진의 촬영 방향·자세·카메라 높이와 거리가 비교 가능한지 확인했습니다.</label>
 <p class="muted">측면 각도 비교에는 양쪽 측면 사진이 필요합니다. 사진은 이 로컬 서버에서 처리하며 이 화면은 사진·결과를 보관하지 않습니다.</p>
 <button id="submit">측정값 비교하기</button><p id="message" role="status" aria-live="polite"></p></form>
-<section id="result" hidden><h2>사진상 측정값 차이</h2><p id="summary"></p><div class="scroll"><table><thead><tr><th>항목</th><th>현재</th><th>목표</th><th>현재−목표</th></tr></thead><tbody id="rows"></tbody></table></div><p id="limitations"></p><p class="muted">운동 우선 부위·맞춤 루틴은 아직 제공하지 않습니다.</p></section>
+<section id="result" hidden><h2>사진상 측정값 차이</h2><p id="summary"></p><div class="scroll"><table><thead><tr><th>항목</th><th>현재</th><th>목표</th><th>현재−목표</th></tr></thead><tbody id="rows"></tbody></table></div><p id="limitations"></p><p class="muted">수치 차이로 필요한 운동 부위를 판정하지 않습니다. 원하는 부위와 시간을 직접 고르면 일반 운동 예시를 만들 수 있습니다.</p><a href="/routine">설정 기반 운동 예시 만들기 →</a></section>
 <script>
 const form=document.querySelector('#form'),button=document.querySelector('#submit'),message=document.querySelector('#message');
 form.addEventListener('submit',async event=>{

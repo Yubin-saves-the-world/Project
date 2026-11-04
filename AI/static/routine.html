@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MOVID · 운동 예시</title>
+<style>
+:root{font:16px/1.7 system-ui,sans-serif;color:#202740;background:#f3f5fc}*{box-sizing:border-box}body{margin:0}main{max-width:950px;margin:30px auto;padding:24px}a{color:#514cd0}h1{font-size:clamp(26px,4vw,36px);line-height:1.35;margin-bottom:12px}h2{font-size:22px;margin:0 0 14px}p{color:#64708a}.card{background:white;border:1px solid #dfe4f0;border-radius:20px;padding:26px;margin:20px 0}.grid{display:grid;grid-template-columns:1fr 1fr;gap:0 22px}label{display:block;font-size:14px;font-weight:600}select,button{font:inherit;padding:12px;border-radius:10px}select{width:100%;margin:7px 0 18px;border:1px solid #ccd3e6;background:white}button{background:#5954d8;color:white;border:0;cursor:pointer}button.secondary{background:#edf0fa;color:#414d72}button:disabled{opacity:.5;cursor:wait}.check{font-weight:400;display:flex;align-items:flex-start;gap:9px;margin:12px 0}.check input{flex:0 0 auto;margin-top:7px}fieldset{border:1px solid #e0e5f0;border-radius:12px;margin:12px 0 20px;padding:12px 17px}legend{font-size:14px;color:#505f7b}.muted{font-size:13px;color:#69758c}.notice{padding:14px 17px;background:#eaeefd;border-radius:12px;white-space:pre-wrap}.error{background:#fff0f3;color:#a43853}.pills{display:flex;flex-wrap:wrap;gap:10px}.pill{background:#eceaff;color:#5149bd;border-radius:25px;padding:6px 13px;font-size:13px}.week{display:grid;grid-template-columns:repeat(7,1fr);gap:7px;margin:20px 0}.day{text-align:center;border-radius:12px;background:#f1f3f8;padding:10px 4px;color:#7a8397}.day.active{background:#5b57d9;color:white}.step{border-top:1px solid #e7eaf3;padding:18px 0}.step h3{font-size:17px;margin:0}.step p{margin:8px 0}.actions{display:flex;align-items:center;gap:16px;flex-wrap:wrap}summary{cursor:pointer;font-weight:600}button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid #aaa1ff;outline-offset:3px}[hidden]{display:none!important}@media(max-width:600px){main{margin:10px auto;padding:16px}.card{padding:20px}.grid{grid-template-columns:1fr}.week{gap:4px}.day{font-size:13px}}
+</style>
+</head>
+<body><main>
+<a href="/">← AI 홈</a>
+<h1>설정으로 만드는 운동 예시</h1>
+<p>원하는 목표·부위·시간을 고르면 시작 구성을 제안합니다. 사진으로 부족 부위를 판정하거나 개인별 운동 처방을 만드는 기능은 아닙니다.</p>
+<form id="form" class="card">
+<h2>이번에 원하는 구성</h2>
+<div class="grid">
+<div><label for="goal">운동 목표</label><select id="goal"><option value="habit">운동 습관 만들기</option><option value="strength">기초 근력 동작 익히기</option><option value="mobility">가벼운 움직임</option></select></div>
+<div><label for="focus">희망 부위</label><select id="focus"><option value="balanced">특별한 목표 없음 · 상·하체 균형 구성</option><option value="upper_body">상체</option><option value="lower_body">하체</option></select></div>
+<div><label for="days">주간 횟수</label><select id="days"><option value="1">주 1회</option><option value="2">주 2회</option><option value="3" selected>주 3회</option><option value="4">주 4회</option><option value="5">주 5회</option><option value="6">주 6회</option><option value="7">주 7회</option></select></div>
+<div><label for="minutes">한 번에 쓸 시간 · 휴식 포함</label><select id="minutes"><option value="5">5분</option><option value="10">10분</option><option value="15">15분</option><option value="20" selected>20분</option><option value="30">30분</option><option value="45">45분</option></select></div>
+</div>
+<fieldset><legend>현재 해당하는 주의 사항 · 해당하면 선택</legend>
+<label class="check"><input type="checkbox" name="caution" value="pain_or_injury">통증이나 부상이 있습니다.</label>
+<label class="check"><input type="checkbox" name="caution" value="exercise_restriction">의료진에게 운동 제한을 안내받았습니다.</label>
+<label class="check"><input type="checkbox" name="caution" value="individual_guidance_needed">질환·상태 등으로 개인별 운동 지도가 필요하거나 적합한지 잘 모르겠습니다.</label>
+<p class="muted">해당 항목이 있으면 운동 예시를 생성하지 않습니다. 자세한 건강 정보는 입력받거나 저장하지 않습니다.</p>
+</fieldset>
+<label class="check"><input id="adult" type="checkbox">성인용 일반 운동 예시를 적용할 수 있는 나이임을 확인했습니다.</label>
+<label class="check"><input id="confirmed" type="checkbox">현재 주의 사항 여부를 직접 확인했습니다.</label>
+<button id="submit" type="submit">일반 운동 예시 만들기</button>
+</form>
+<p id="message" class="notice" role="status" aria-live="polite">운동 시간은 준비·정리·휴식을 포함한 구성 시간입니다. 계속 운동하라는 뜻이 아닙니다.</p>
+<section id="result" class="card" hidden aria-labelledby="result-title">
+<h2 id="result-title"></h2><div id="parts" class="pills"></div><p id="summary"></p>
+<h3>주간 배치 예시</h3><div id="week" class="week"></div><p class="muted">앱 일정이나 운동 기록에 자동 저장하지 않습니다.</p>
+<div id="steps"></div><p id="stop" class="notice"></p><p id="limitations" class="muted"></p>
+<div class="actions"><button id="download" type="button" class="secondary">운동 예시 JSON 받기</button><a href="/coach">코치에게 일반적인 운동 방법 질문하기 →</a></div>
+<details style="margin-top:20px"><summary>생성 기준과 참고 자료</summary><p class="muted">사용자 설정에 따른 규칙 기반 예시이며 Qwen3가 생성한 답변이 아닙니다. 공개 자료는 일반 활동과 동작 설명을 참고한 근거입니다. 이 시간표 자체를 임상적으로 검증하거나 해당 기관이 승인한 것은 아닙니다.</p><div id="sources"></div></details>
+</section>
+</main>
+<script>
+const q=selector=>document.querySelector(selector);let latest=null;
+function element(tag,text){const el=document.createElement(tag);if(text!==undefined)el.textContent=text;return el;}
+function clearResult(){latest=null;q('#result').hidden=true;}
+q('#form').addEventListener('input',()=>{clearResult();q('#message').classList.remove('error');q('#message').textContent='설정이 바뀌었습니다. 운동 예시를 다시 만들어 주세요.';});
+q('#form').onsubmit=async event=>{
+ event.preventDefault();clearResult();q('#message').classList.remove('error');q('#message').textContent='설정과 주의 사항을 확인하고 있습니다…';
+ const body={goal:q('#goal').value,focus:q('#focus').value,weekly_days:Number(q('#days').value),minutes:Number(q('#minutes').value),adult_confirmed:q('#adult').checked,cautions_confirmed:q('#confirmed').checked,cautions:Array.from(document.querySelectorAll('[name=caution]:checked')).map(el=>el.value)};
+ q('#form').querySelectorAll('input,select,button').forEach(el=>el.disabled=true);
+ const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),15000);
+ try{
+  const response=await fetch('/v1/routines/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:controller.signal});
+  const data=await response.json();if(!response.ok)throw Error(data.detail?.message||'입력 항목을 확인하세요.');
+  q('#message').textContent=data.summary+'\n'+data.next_steps.join(' ');
+  if(data.status!=='ready')return;
+  latest=data;q('#result-title').textContent=data.routine.title;q('#summary').textContent=data.summary;
+  q('#parts').replaceChildren(...data.priority_parts.map(part=>{const pill=element('span',`${part.label} · ${part.basis==='balanced_default'?'균형 구성':'사용자 선택'}`);pill.className='pill';return pill;}));
+  q('#week').replaceChildren(...data.routine.week.map(day=>{const item=element('div');item.className='day'+(day.planned?' active':'');item.append(element('strong',day.label),element('div',day.planned?'예시':'—'));return item;}));
+  q('#steps').replaceChildren(...data.routine.steps.map(step=>{const item=element('article');item.className='step';item.append(element('h3',`${step.title} · ${step.minutes}분`),element('p',step.instruction));const note=element('small','휴식을 포함한 배정 시간이며 연속 수행 시간이나 세트 처방이 아닙니다.');note.className='muted';item.append(note);return item;}));
+  q('#stop').textContent=data.routine.stop_instruction;q('#limitations').textContent=data.limitations.join(' ');
+  q('#sources').replaceChildren(...data.sources.map(source=>{const link=element('a',source.title);link.href=source.url;link.target='_blank';link.rel='noopener noreferrer';const p=element('p');p.append(link);return p;}));
+  q('#result').hidden=false;
+ }catch(error){q('#message').classList.add('error');q('#message').textContent=error.name==='AbortError'?'응답 시간이 초과됐습니다. 서버 상태를 확인하고 다시 시도하세요.':error.message||'연결을 확인하세요.';}
+ finally{clearTimeout(timer);q('#form').querySelectorAll('input,select,button').forEach(el=>el.disabled=false);}
+};
+q('#download').onclick=()=>{if(!latest)return;const url=URL.createObjectURL(new Blob([JSON.stringify(latest,null,2)],{type:'application/json'}));const link=element('a');link.href=url;link.download='movid-routine-preview.json';document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+</script>
+</body></html>

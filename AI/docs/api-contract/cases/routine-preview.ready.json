@@ -1,0 +1,126 @@
+{
+  "version": "routine-preview-v1",
+  "source": "rule_based_general_example",
+  "model": null,
+  "preferences": {
+    "goal": "strength",
+    "focus": "upper_body",
+    "weekly_days": 3,
+    "minutes": 10
+  },
+  "photo_measurements_used": false,
+  "goal_photo_required": false,
+  "saved": false,
+  "rule_set_review_status": "prototype_not_professionally_validated",
+  "priority_parts": [
+    {
+      "part": "upper_body",
+      "label": "상체",
+      "basis": "user_preference",
+      "reason": "사용자가 희망 부위로 선택했습니다."
+    }
+  ],
+  "priority_parts_status": "user_preference",
+  "routine": {
+    "title": "기초 근력 동작 익히기 · 10분 예시",
+    "session_minutes": 10,
+    "weekly_days": 3,
+    "weekly_time_budget_minutes": 30,
+    "time_budget_includes_rest": true,
+    "steps": [
+      {
+        "phase": "warm_up",
+        "title": "가벼운 준비 움직임",
+        "minutes": 2,
+        "instruction": "편안한 범위에서 천천히 움직이며 준비하세요.",
+        "includes_rest": true
+      },
+      {
+        "phase": "practice",
+        "exercise_id": "wall_press",
+        "title": "벽 밀기 동작 익히기",
+        "minutes": 6,
+        "instruction": "벽에 손을 대고 팔을 천천히 굽혔다 펴세요. 편안한 범위에서 연습하고 쉬세요.",
+        "target": "상체",
+        "includes_rest": true,
+        "sets": null,
+        "repetitions": null,
+        "source_url": "https://www.nhs.uk/live-well/exercise/strength-exercises/"
+      },
+      {
+        "phase": "cool_down",
+        "title": "천천히 정리하기",
+        "minutes": 2,
+        "instruction": "움직임을 줄이고 편안하게 쉬세요.",
+        "includes_rest": true
+      }
+    ],
+    "week": [
+      {
+        "day_index": 0,
+        "label": "월",
+        "planned": true
+      },
+      {
+        "day_index": 1,
+        "label": "화",
+        "planned": false
+      },
+      {
+        "day_index": 2,
+        "label": "수",
+        "planned": true
+      },
+      {
+        "day_index": 3,
+        "label": "목",
+        "planned": false
+      },
+      {
+        "day_index": 4,
+        "label": "금",
+        "planned": true
+      },
+      {
+        "day_index": 5,
+        "label": "토",
+        "planned": false
+      },
+      {
+        "day_index": 6,
+        "label": "일",
+        "planned": false
+      }
+    ],
+    "equipment": [
+      "바퀴 없이 미끄러지지 않는 안정된 의자",
+      "안정된 벽"
+    ],
+    "stop_instruction": "통증이나 불편이 생기면 해당 동작을 중단하고 적합성을 확인하세요."
+  },
+  "sources": [
+    {
+      "title": "CDC · 성인 신체활동 일반 지침",
+      "url": "https://www.cdc.gov/physical-activity-basics/guidelines/adults.html/"
+    },
+    {
+      "title": "NHS · 근력 동작 안내",
+      "url": "https://www.nhs.uk/live-well/exercise/strength-exercises/"
+    },
+    {
+      "title": "NHS · 앉아서 하는 동작 안내",
+      "url": "https://www.nhs.uk/live-well/exercise/sitting-exercises/"
+    }
+  ],
+  "limitations": [
+    "일반 운동 예시이며 개인별 적합성을 검증한 처방이 아닙니다.",
+    "준비·정리·휴식을 포함한 시간 배분으로, 모든 시간을 계속 운동하라는 뜻이 아닙니다.",
+    "주간 활동 권장량 충족·체형 변화·근육 발달 효과를 보장하지 않습니다. 앱 일정에는 저장하지 않습니다."
+  ],
+  "status": "ready",
+  "reason_codes": [],
+  "summary": "기초 근력 동작 익히기 목표와 선택 설정에 맞춘 일반 예시입니다. 사진의 부족 부위를 판정한 결과가 아닙니다.",
+  "next_steps": [
+    "개인별 적합성을 확인하고 가능한 범위에서 시작하세요."
+  ]
+}
