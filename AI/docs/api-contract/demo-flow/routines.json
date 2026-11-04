@@ -1,0 +1,209 @@
+{
+  "routines": [
+    {
+      "title": "상체 · 기본 운동 예시",
+      "target_part": "chest",
+      "estimated_minutes": 10,
+      "items": [
+        {
+          "order_no": 1,
+          "exercise": {
+            "exercise_id": 910001,
+            "name": "벽 밀기",
+            "target_part": "chest",
+            "equipment": "bodyweight",
+            "difficulty": 1,
+            "min_sets": 1,
+            "max_sets": 2,
+            "media_url": null,
+            "description": "안정된 벽에 손을 대고 편안한 범위에서 천천히 팔을 굽혔다 펴세요.",
+            "source_url": "https://www.nhs.uk/live-well/exercise/strength-exercises/"
+          },
+          "target_sets": 1,
+          "target_reps": 5,
+          "target_weight_kg": null,
+          "rest_sec": 60,
+          "reason": "편안한 움직임 습관 목표와 주 3회 설정으로 구성한 기본 예시입니다. 사진의 부족 부위 판정은 사용하지 않았습니다.",
+          "item_id": 11,
+          "done": false
+        },
+        {
+          "order_no": 2,
+          "exercise": {
+            "exercise_id": 910002,
+            "name": "가벼운 물병 팔 굽히기",
+            "target_part": "arm",
+            "equipment": "dumbbell",
+            "difficulty": 1,
+            "min_sets": 1,
+            "max_sets": 2,
+            "media_url": null,
+            "description": "가벼운 물병을 잡고 팔꿈치를 몸 가까이 둔 채 천천히 굽혔다 펴세요.",
+            "source_url": "https://www.nhs.uk/live-well/exercise/strength-exercises/"
+          },
+          "target_sets": 1,
+          "target_reps": 5,
+          "target_weight_kg": null,
+          "rest_sec": 60,
+          "reason": "편안한 움직임 습관 목표와 주 3회 설정으로 구성한 기본 예시입니다. 사진의 부족 부위 판정은 사용하지 않았습니다.",
+          "item_id": 12,
+          "done": false
+        }
+      ],
+      "generation": {
+        "source": "rule_based_demo_general_example",
+        "model": null,
+        "photo_measurements_used": false,
+        "goal_photo_required": false,
+        "cautions_status": "not_collected",
+        "profile_goal": "posture",
+        "weekly_frequency": 3,
+        "rule_set_review_status": "not_professionally_validated",
+        "source_url": "https://www.nhs.uk/live-well/exercise/strength-exercises/",
+        "note": "세트·휴식·시간은 시연 기본값이며 개인별 적합성·효과를 검증한 처방이 아닙니다. 통증이나 불편이 생기면 중단하세요."
+      },
+      "routine_id": 1,
+      "analysis_id": 1,
+      "scheduled_date": "2026-11-04",
+      "status": "planned"
+    },
+    {
+      "title": "하체 · 기본 운동 예시",
+      "target_part": "leg",
+      "estimated_minutes": 10,
+      "items": [
+        {
+          "order_no": 1,
+          "exercise": {
+            "exercise_id": 910003,
+            "name": "의자 앉았다 일어나기",
+            "target_part": "leg",
+            "equipment": "bodyweight",
+            "difficulty": 1,
+            "min_sets": 1,
+            "max_sets": 2,
+            "media_url": null,
+            "description": "바퀴 없이 미끄러지지 않는 의자에서 천천히 일어나고 앉으세요.",
+            "source_url": "https://www.nhs.uk/live-well/exercise/strength-exercises/"
+          },
+          "target_sets": 1,
+          "target_reps": 5,
+          "target_weight_kg": null,
+          "rest_sec": 60,
+          "reason": "편안한 움직임 습관 목표와 주 3회 설정으로 구성한 기본 예시입니다. 사진의 부족 부위 판정은 사용하지 않았습니다.",
+          "item_id": 21,
+          "done": false
+        },
+        {
+          "order_no": 2,
+          "exercise": {
+            "exercise_id": 910004,
+            "name": "의자 잡고 뒤꿈치 들기",
+            "target_part": "leg",
+            "equipment": "bodyweight",
+            "difficulty": 1,
+            "min_sets": 1,
+            "max_sets": 2,
+            "media_url": null,
+            "description": "안정된 의자 등받이를 잡고 편안한 범위에서 뒤꿈치를 천천히 들었다 내리세요.",
+            "source_url": "https://www.nhs.uk/live-well/exercise/strength-exercises/"
+          },
+          "target_sets": 1,
+          "target_reps": 5,
+          "target_weight_kg": null,
+          "rest_sec": 60,
+          "reason": "편안한 움직임 습관 목표와 주 3회 설정으로 구성한 기본 예시입니다. 사진의 부족 부위 판정은 사용하지 않았습니다.",
+          "item_id": 22,
+          "done": false
+        }
+      ],
+      "generation": {
+        "source": "rule_based_demo_general_example",
+        "model": null,
+        "photo_measurements_used": false,
+        "goal_photo_required": false,
+        "cautions_status": "not_collected",
+        "profile_goal": "posture",
+        "weekly_frequency": 3,
+        "rule_set_review_status": "not_professionally_validated",
+        "source_url": "https://www.nhs.uk/live-well/exercise/strength-exercises/",
+        "note": "세트·휴식·시간은 시연 기본값이며 개인별 적합성·효과를 검증한 처방이 아닙니다. 통증이나 불편이 생기면 중단하세요."
+      },
+      "routine_id": 2,
+      "analysis_id": 1,
+      "scheduled_date": "2026-11-06",
+      "status": "planned"
+    },
+    {
+      "title": "상체 · 기본 운동 예시",
+      "target_part": "chest",
+      "estimated_minutes": 10,
+      "items": [
+        {
+          "order_no": 1,
+          "exercise": {
+            "exercise_id": 910001,
+            "name": "벽 밀기",
+            "target_part": "chest",
+            "equipment": "bodyweight",
+            "difficulty": 1,
+            "min_sets": 1,
+            "max_sets": 2,
+            "media_url": null,
+            "description": "안정된 벽에 손을 대고 편안한 범위에서 천천히 팔을 굽혔다 펴세요.",
+            "source_url": "https://www.nhs.uk/live-well/exercise/strength-exercises/"
+          },
+          "target_sets": 1,
+          "target_reps": 5,
+          "target_weight_kg": null,
+          "rest_sec": 60,
+          "reason": "편안한 움직임 습관 목표와 주 3회 설정으로 구성한 기본 예시입니다. 사진의 부족 부위 판정은 사용하지 않았습니다.",
+          "item_id": 31,
+          "done": false
+        },
+        {
+          "order_no": 2,
+          "exercise": {
+            "exercise_id": 910002,
+            "name": "가벼운 물병 팔 굽히기",
+            "target_part": "arm",
+            "equipment": "dumbbell",
+            "difficulty": 1,
+            "min_sets": 1,
+            "max_sets": 2,
+            "media_url": null,
+            "description": "가벼운 물병을 잡고 팔꿈치를 몸 가까이 둔 채 천천히 굽혔다 펴세요.",
+            "source_url": "https://www.nhs.uk/live-well/exercise/strength-exercises/"
+          },
+          "target_sets": 1,
+          "target_reps": 5,
+          "target_weight_kg": null,
+          "rest_sec": 60,
+          "reason": "편안한 움직임 습관 목표와 주 3회 설정으로 구성한 기본 예시입니다. 사진의 부족 부위 판정은 사용하지 않았습니다.",
+          "item_id": 32,
+          "done": false
+        }
+      ],
+      "generation": {
+        "source": "rule_based_demo_general_example",
+        "model": null,
+        "photo_measurements_used": false,
+        "goal_photo_required": false,
+        "cautions_status": "not_collected",
+        "profile_goal": "posture",
+        "weekly_frequency": 3,
+        "rule_set_review_status": "not_professionally_validated",
+        "source_url": "https://www.nhs.uk/live-well/exercise/strength-exercises/",
+        "note": "세트·휴식·시간은 시연 기본값이며 개인별 적합성·효과를 검증한 처방이 아닙니다. 통증이나 불편이 생기면 중단하세요."
+      },
+      "routine_id": 3,
+      "analysis_id": 1,
+      "scheduled_date": "2026-11-08",
+      "status": "planned"
+    }
+  ],
+  "source": "rule_based_demo_general_example",
+  "saved": true,
+  "store": "AI_bridge_local",
+  "photo_measurements_used": false
+}

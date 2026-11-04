@@ -1,0 +1,64 @@
+{
+  "week_start": "2026-11-02",
+  "days": [
+    {
+      "date": "2026-11-02",
+      "is_rest_day": true,
+      "routine": null
+    },
+    {
+      "date": "2026-11-03",
+      "is_rest_day": true,
+      "routine": null
+    },
+    {
+      "date": "2026-11-04",
+      "is_rest_day": false,
+      "routine": {
+        "routine_id": 1,
+        "title": "상체 · 기본 운동 예시",
+        "target_part": "chest",
+        "estimated_minutes": 10,
+        "status": "planned",
+        "item_count": 2,
+        "done_count": 0
+      }
+    },
+    {
+      "date": "2026-11-05",
+      "is_rest_day": true,
+      "routine": null
+    },
+    {
+      "date": "2026-11-06",
+      "is_rest_day": false,
+      "routine": {
+        "routine_id": 2,
+        "title": "하체 · 기본 운동 예시",
+        "target_part": "leg",
+        "estimated_minutes": 10,
+        "status": "planned",
+        "item_count": 2,
+        "done_count": 0
+      }
+    },
+    {
+      "date": "2026-11-07",
+      "is_rest_day": true,
+      "routine": null
+    },
+    {
+      "date": "2026-11-08",
+      "is_rest_day": false,
+      "routine": {
+        "routine_id": 3,
+        "title": "상체 · 기본 운동 예시",
+        "target_part": "chest",
+        "estimated_minutes": 10,
+        "status": "planned",
+        "item_count": 2,
+        "done_count": 0
+      }
+    }
+  ]
+}
