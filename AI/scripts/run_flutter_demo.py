@@ -17,6 +17,7 @@ import urllib.error
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from scripts.stage_team_runtime import RUNTIME, stage, verify_originals
+from scripts.check_team_integration import inspect_sources
 
 
 def http_json(method, url, body=None, headers=None):
@@ -130,6 +131,9 @@ def main():
     for tool in ('java', 'flutter' if not args.no_app else 'java'):
         if not shutil.which(tool):
             raise RuntimeError(f'{tool} 설치가 필요합니다.')
+    integration = inspect_sources(ROOT.parent)
+    for blocker in integration['blockers']:
+        print('원본 앱 연결 확인: ' + blocker, flush=True)
     print('원본 FE/BE를 AI 실행 폴더에 동일하게 복사합니다.', flush=True)
     stage()
     env = dict(os.environ)
