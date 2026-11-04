@@ -39,7 +39,8 @@ def index():
 
 @app.get('/health')
 def health():
-    return {'status': 'ok', 'dinov3_loaded': True, 'device': app.state.engine.dino.device}
+    return {'status': 'ok', 'dinov3_loaded': True, 'device': app.state.engine.dino.device,
+            'contour_classifier_loaded': getattr(app.state.engine, 'contour', None) is not None}
 
 
 def save_image(upload: UploadFile, root: Path, index: int = 0) -> Path:

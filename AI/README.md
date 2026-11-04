@@ -4,7 +4,7 @@
 
 ## GitHub ZIP으로 바로 시작하기 (macOS)
 
-최신 AI 코드가 있는 [AI 전용 브랜치 ZIP](https://github.com/Yubin-saves-the-world/Project/archive/refs/heads/codex/ai-only-review-20261031.zip)을 다운로드하고 압축을 풉니다. 아직 PR이 미병합이므로 기본 main ZIP은 이 버전이 아닙니다.
+최신 AI 코드가 있는 [기본 main ZIP](https://github.com/Yubin-saves-the-world/Project/archive/refs/heads/main.zip)을 다운로드하고 압축을 풉니다. PR #7은 main에 병합됐습니다. 기본 main ZIP에 AI 서버가 포함됩니다.
 
 1. Python 3.12를 설치합니다. 이 컴퓨터에 이미 설치돼 있다면 그대로 사용합니다.
 2. 압축을 푼 프로젝트의 `AI` 폴더에서 터미널로 `bash run.sh`를 실행합니다. macOS에서는 `AI 서버 실행.command`를 실행해도 됩니다.
@@ -69,7 +69,7 @@ API 경계 테스트는 가짜 엔진을 사용하며 모델이나 개인 사진
 
 ## 남은 기능
 
-근육 분류 학습, 다중 인물·정면·의복 검사, 측면 목 분석, 목표 비교, 추천 루틴은 후속 작업입니다. AI API에 JWT·사용자별 제한·DB·분산 큐는 없습니다. 한 번에 한 요청만 처리하고 사용 중이면 503을 반환합니다. 외부에 직접 공개하지 않고 로컬 또는 제한된 네트워크에서 사용합니다. 과거 모델 비교 자료는 연구 계획이며 현재 구현 범위는 이 README와 새 API 명세를 따릅니다.
+실제 검수 라벨을 사용한 윤곽 분류 학습, 다중 인물·정면·의복 검사, 측면 목 분석, 목표 비교, 추천 루틴은 후속 작업입니다. AI API에 JWT·사용자별 제한·DB·분산 큐는 없습니다. 한 번에 한 요청만 처리하고 사용 중이면 503을 반환합니다. 외부에 직접 공개하지 않고 로컬 또는 제한된 네트워크에서 사용합니다. 과거 모델 비교 자료는 연구 계획이며 현재 구현 범위는 이 README와 새 API 명세를 따릅니다.
 
 ## 커밋 전 범위 검사
 
@@ -78,3 +78,19 @@ Git 체크아웃의 `AI/`에서 `python scripts/check_scope.py`를 실행합니�
 ## ZIP 검증 결과
 
 GitHub ZIP을 실제로 다운로드해 새 가상환경 생성·설치·모델 다운로드·서버 실행·실제 사진 분석과 브라우저 결과 표시를 확인했습니다. [실행 검증 기록](docs/zip-startup-verification-2026-10-31.md)을 참고하세요. 검증 환경은 Apple Silicon Mac/Python 3.12입니다.
+
+
+## 상완 윤곽 라벨링·학습 준비
+
+사람이 검수할 로컬 라벨링 화면과 학습·평가 도구를 제공합니다. 실제 라벨이 없으면 학습하지 않고 안내합니다. 사진상 윤곽을 분류하는 도구이며 근육량이나 근력 등급을 추정하지 않습니다.
+
+AI 서버 실행 후 다른 터미널의 AI 폴더에서:
+
+```sh
+.venv/bin/python scripts/label_contours.py --images /절대/사진/폴더
+# http://127.0.0.1:8002에서 사람이 검수·저장
+.venv/bin/python scripts/train_contours.py --validate-only
+.venv/bin/python scripts/train_contours.py
+```
+
+검수한 인물 ID로 train/val/test를 분리합니다. 자세한 기준·명령·모델 연결은 [상완 윤곽 학습 안내](docs/contour-training.md)를 확인하세요. 실제 사진과 라벨·모델은 AI/.runtime에만 저장하며 GitHub에는 포함하지 않습니다.

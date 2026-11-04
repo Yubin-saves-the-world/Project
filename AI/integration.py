@@ -2,6 +2,7 @@
 from __future__ import annotations
 import base64
 import math
+import os
 import threading
 import time
 from pathlib import Path
@@ -10,6 +11,7 @@ import numpy as np
 from PIL import Image
 from analyzers.analyze_body import analyze_image
 from analyzers.dinov3_features import DinoFeatureExtractor, upper_arm_box
+from analyzers.contour_classifier import ContourClassifier
 
 class AnalysisFailure(ValueError):
     def __init__(self, code, message):
@@ -36,6 +38,8 @@ class AnalysisEngine:
     def __init__(self, model_path, device='cpu'):
         self.lock = threading.Lock()
         self.dino = DinoFeatureExtractor(model_path, device=device, local_only=Path(model_path).exists())
+        classifier_path = os.environ.get('AI_CONTOUR_MODEL')
+        self.contour = ContourClassifier(classifier_path) if classifier_path else None
 
     def analyze(self, image_path, output_dir):
         # Serial inference bounds memory and protects MediaPipe/PyTorch shared state.
@@ -78,6 +82,11 @@ class AnalysisEngine:
                                      'classification':'not_trained','crop_box':list(box),
                                      'cls':values['cls'].tolist(), 'patch_mean':values['patch_mean'].tolist(),
                                      'patch_shape':list(values['patches'].shape), 'seconds':round(elapsed,4)})
+            if self.contour is not None:
+                for part in features:
+                    if part['status'] == 'extracted':
+                        part['contour'] = self.contour.predict(part['cls'] + part['patch_mean'])
+                        part['classification'] = 'contour_' + part['contour']['status']
             labels = {'shoulder_tilt_deg':'어깨 기울기','pelvis_tilt_deg':'골반 기울기',
                       'neck_forward_deg':'목 전방 각도','shoulder_hip_ratio':'어깨/골반 비율','torso_leg_ratio':'상체/하체 비율'}
             return {'status':'done','measurement_version':'pixel-dino-v1','measures':measures,
