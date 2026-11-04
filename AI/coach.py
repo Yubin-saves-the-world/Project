@@ -88,6 +88,34 @@ class ChatRequest(BaseModel):
         return self
 
 
+class BackendChatRequest(BaseModel):
+    """BE compatibility contract; server context is data, not a replacement policy."""
+    model_config = ConfigDict(extra='forbid')
+    system: str = Field(default='', max_length=6000)
+    messages: list[Message] = Field(min_length=1, max_length=20)
+    max_new_tokens: int = Field(default=300, ge=32, le=512, strict=True)
+
+    @model_validator(mode='after')
+    def bounded_context(self):
+        if self.messages[-1].role != 'user':
+            raise ValueError('마지막 메시지는 사용자 질문이어야 합니다.')
+        if any(a.role == b.role for a,b in zip(self.messages,self.messages[1:])):
+            raise ValueError('사용자와 코치 메시지를 번갈아 보내세요.')
+        if any(token in self.system for token in ('<|im_start|>','<|im_end|>','<think>','</think>')):
+            raise ValueError('서버 문맥에 대화 제어 토큰을 넣을 수 없습니다.')
+        if len(self.system.encode('utf-8')) + sum(len(m.content.encode('utf-8')) for m in self.messages) > 12000:
+            raise ValueError('서버 문맥과 대화는 합계 12000바이트 이하여야 합니다.')
+        return self
+
+    @property
+    def profile(self):
+        return Profile()
+
+    @property
+    def measurements(self):
+        return None
+
+
 def example_plan(request):
     text=request.messages[-1].content
     if re.search(r'미루|의욕|꾸준',text) and not re.search(r'\d+\s*분|짜|만들|바꿔|줄여',text):
@@ -183,7 +211,7 @@ class LocalCoach:
             return {'status':'offline','model':self.model,'provider':'ollama_local','local_only':True,
                     'conversation_storage':'none','code':exc.code,'message':exc.message}
 
-    def chat(self, request: ChatRequest):
+    def chat(self, request: ChatRequest | BackendChatRequest):
         if not self.capacity.acquire(blocking=False):
             raise CoachFailure('COACH_BUSY','다른 대화에 답변 중입니다. 잠시 후 다시 보내세요.')
         started=time.perf_counter()
@@ -195,10 +223,12 @@ class LocalCoach:
                         'local_only':True,'context_used':request.measurements is not None,
                         'conversation_storage':'none','finish_reason':'stop','truncated':False,
                         'processing_seconds':round(time.perf_counter()-started,3),'plan':None}
-            plan=example_plan(request)
+            plan=None if isinstance(request, BackendChatRequest) else example_plan(request)
             context={'user_preferences':request.profile.model_dump(),
                      'photo_measurements':request.measurements.model_dump() if request.measurements else None,
                      'server_example_plan':plan}
+            if isinstance(request, BackendChatRequest):
+                context={'backend_context':request.system}
             messages=[{'role':'system','content':SYSTEM+'\nJSON의 reply 문자열에 사용자 질문에 대한 실제 답변을 작성하세요. 예시 문구나 형식 설명을 답으로 쓰지 마세요. '+'\n사용자 설정·사진 수치: '+json.dumps(context,ensure_ascii=False)}]
             messages += [m.model_dump() for m in request.messages]
             if plan:
@@ -213,7 +243,7 @@ class LocalCoach:
                     'think':False,'stream':False,'keep_alive':'5m',
                     'format':{'type':'object','properties':{'reply':reply_schema},
                               'required':['reply'],'additionalProperties':False},
-                    'options':{'temperature':.4,'num_predict':384,'num_ctx':8192}})
+                    'options':{'temperature':.4,'num_predict':request.max_new_tokens if isinstance(request, BackendChatRequest) else 384,'num_ctx':8192}})
             if data.get('model')!=self.model:
                 raise CoachFailure('COACH_INVALID_RESPONSE','요청한 코치 모델과 응답 모델이 다릅니다.',502)
             message=data.get('message')
@@ -233,7 +263,11 @@ class LocalCoach:
                 if plan:return plan_without_model_tips(plan,started)
                 raise CoachFailure('COACH_INVALID_RESPONSE','한국어 답변을 받지 못했습니다. 짧게 다시 질문해 주세요.',502)
             sentences=re.split(r'(?<=[.!?])\s+',content.strip())
-            retained=[sentence for sentence in sentences if not re.search(r'가장 효과적|가장 효율적|반드시|치료됩니다|교정됩니다|부상\s*위험',sentence)]
+            retained=[sentence for sentence in sentences
+                      if not re.search(r'가장 효과적|가장 효율적|반드시|치료됩니다|교정됩니다|부상\s*위험',sentence)
+                      and not re.search(r'(?:아프|통증).*(?:다시 시작|재개|참고)',sentence)
+                      and not re.search(r'(?:허리|가슴|팔|다리|복부)\s*(?:둘레|길이).*\d|(?:BMI|체질량|체지방|체중|몸무게).*\d',sentence,re.IGNORECASE)
+                      and not re.fullmatch(r'\d+[.)]',sentence.strip())]
             if len(content)>=170 and retained and not re.search(r'[.!?다요]$',retained[-1]):
                 retained=retained[:-1]
             if plan:
