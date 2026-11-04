@@ -83,6 +83,12 @@ def account_coach_script():
                         media_type='text/javascript', headers={'Cache-Control':'no-store'})
 
 
+@app.get('/assets/account-photo.mjs', include_in_schema=False)
+def account_photo_script():
+    return FileResponse(Path(__file__).resolve().parent / 'static' / 'account-photo.mjs',
+                        media_type='text/javascript', headers={'Cache-Control':'no-store'})
+
+
 @app.get('/v1/coach/health')
 def coach_health():
     if coach is None:

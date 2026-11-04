@@ -1,4 +1,5 @@
 /** Account coach UI. Credentials remain in this page's memory only. */
+import {initializePhotoPanel} from './account-photo.mjs';
 export class ApiError extends Error {
   constructor(message, status = 0) {
     super(message);
@@ -25,17 +26,18 @@ export function mergeSavedTurn(history, pair) {
 export function createCoachClient({fetchImpl = globalThis.fetch, onUnauthorized = () => {}, timeoutMs = 90000} = {}) {
   let token = null;
 
-  async function request(path, method = 'GET', body) {
+  async function request(path, method = 'GET', body, waitMs = timeoutMs) {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const timer = setTimeout(() => controller.abort(), waitMs);
+    const multipart = body instanceof FormData;
     try {
       const response = await fetchImpl(path, {
         method, cache: 'no-store', credentials: 'omit', signal: controller.signal,
         headers: {
           ...(token ? {Authorization: `Bearer ${token}`} : {}),
-          ...(body ? {'Content-Type': 'application/json'} : {}),
+          ...(body && !multipart ? {'Content-Type': 'application/json'} : {}),
         },
-        ...(body ? {body: JSON.stringify(body)} : {}),
+        ...(body ? {body: multipart ? body : JSON.stringify(body)} : {}),
       });
       // An expired session must be cleared even if the error body is unreadable.
       if (response.status === 401) {
@@ -43,6 +45,7 @@ export function createCoachClient({fetchImpl = globalThis.fetch, onUnauthorized 
         onUnauthorized();
         throw new ApiError('로그인 정보가 만료됐거나 올바르지 않습니다. 다시 로그인하세요.', 401);
       }
+      if (response.status === 204 && response.ok) return null;
       let data;
       try {
         data = await response.json();
@@ -90,6 +93,23 @@ export function createCoachClient({fetchImpl = globalThis.fetch, onUnauthorized 
     send(content, profile, analysisId) {
       return request('/api/ai-coach/messages', 'POST', {content, profile, analysis_id: analysisId});
     },
+    async photos() {
+      const data = await request('/api/photos?page_size=100');
+      if (!Array.isArray(data?.items)) throw new ApiError('사진 목록을 읽지 못했습니다.', 502);
+      return data.items;
+    },
+    uploadPhoto(file, side) {
+      const form = new FormData();
+      form.set('image', file);
+      form.set('type', 'current');
+      form.set('side', side);
+      return request('/api/photos', 'POST', form);
+    },
+    deletePhoto(id) { return request(`/api/photos/${id}`, 'DELETE'); },
+    startAnalysis(frontId, sideId = null) {
+      return request('/api/body-analyses/photo', 'POST', {photo_id: frontId, side_photo_id: sideId});
+    },
+    analysis(id) { return request(`/api/body-analyses/${id}`, 'GET', undefined, 10000); },
     async deleteHistory() {
       const data = await request('/api/ai-coach/messages', 'DELETE');
       if (!Number.isInteger(data?.deleted) || data.deleted < 0) {
@@ -118,6 +138,7 @@ export function initializeCoach(doc) {
   let history = [];
   let analyses = [];
   const client = createCoachClient({onUnauthorized: resetSession});
+  let photoPanel;
 
   function setStatus(text, error = false) {
     find('#status').textContent = text;
@@ -140,6 +161,7 @@ export function initializeCoach(doc) {
     find('#question').value = '';
     find('#preferences').reset();
     find('#analysis').replaceChildren(new Option('참고하지 않음', ''));
+    photoPanel?.reset();
     find('#chat-panel').hidden = true;
     find('#login-panel').hidden = false;
     updateCount();
@@ -182,23 +204,39 @@ export function initializeCoach(doc) {
     if (analyses.some(item => String(item.analysis_id) === selected)) find('#analysis').value = selected;
     find('#analysis-note').textContent = workspace.warning || (analyses.length ?
       '선택한 분석의 각도·비율만 참고합니다. 사진이나 건강 점수는 전달하지 않습니다.' :
-      '계정에 저장된 완료 분석이 없습니다. 기존 앱에서 분석을 저장한 뒤 새로고침하거나, 수치 없이 대화할 수 있습니다.');
+      '계정에 저장된 완료 분석이 없습니다. 위에서 사진을 분석하거나 수치 없이 대화할 수 있습니다.');
   }
 
-  async function run(action) {
+  async function run(action, {focusQuestion = true} = {}) {
     if (busy) return;
     setBusy(true);
     try { await action(); }
     catch (error) { setStatus(error.message || '서버 연결을 확인하세요.', true); }
     finally {
       setBusy(false);
-      if (!find('#chat-panel').hidden) find('#question').focus();
+      if (focusQuestion && !find('#chat-panel').hidden) find('#question').focus();
     }
   }
 
   function updateCount() {
     find('#count').textContent = `${find('#question').value.length}/500`;
   }
+
+  photoPanel = initializePhotoPanel({doc, client, run: action => run(action, {focusQuestion: false}), setStatus, onCompleted: async result => {
+    try {
+      const workspace = await loadWorkspace(client);
+      applyWorkspace(workspace);
+      if (workspace.analyses.some(item => item.analysis_id === result.analysis_id)) {
+        find('#analysis').value = String(result.analysis_id);
+        setStatus(`분석 #${result.analysis_id}을 완료했습니다. 다음 질문에 측정값을 참고합니다.`);
+      } else {
+        setStatus('분석을 완료했습니다. 목록 새로고침 후 참고할 분석을 선택해 주세요.');
+      }
+    } catch (error) {
+      if (error.status === 401) throw error;
+      setStatus('분석 결과는 저장됐습니다. 코치에 연결하려면 목록을 다시 불러와 주세요.');
+    }
+  }});
 
   find('#login').onsubmit = event => {
     event.preventDefault();
