@@ -18,7 +18,7 @@ from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Body, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse, Response
 import requests
-from coach import ChatRequest, CoachFailure
+from coach import ChatRequest, CoachFailure, Measurements
 
 log = logging.getLogger(__name__)
 
@@ -145,9 +145,32 @@ class FlutterBridge:
             rows=db.execute('SELECT * FROM coach_messages WHERE uid=? ORDER BY id DESC LIMIT 20',(uid,)).fetchall()
         return [self.chat_view(row) for row in reversed(rows)]
 
-    def chat_send(self, uid, content):
+    def coach_measurements(self, uid, analysis_id):
+        if analysis_id is None:
+            return None
+        if type(analysis_id) is not int or analysis_id < 1:
+            raise BridgeError('VALIDATION_FAILED', '분석 번호는 양의 정수여야 합니다.', 422)
+        with self.db() as db:
+            row = db.execute('SELECT status,payload FROM analyses WHERE id=? AND uid=?', (analysis_id, uid)).fetchone()
+        if row is None:
+            raise BridgeError('NOT_FOUND', '분석을 찾을 수 없어요.', 404)
+        if row['status'] != 'done':
+            raise BridgeError('ANALYSIS_NOT_READY', '완료된 분석만 코치에 참고할 수 있어요.', 409)
+        try:
+            payload = json.loads(row['payload'])
+            measures = payload['measures']
+            selected = {key: measures.get(key) for key in Measurements.model_fields}
+            validated = Measurements.model_validate(selected)
+            if all(value is None for value in validated.model_dump().values()):
+                raise ValueError('No available measurements')
+            return validated.model_dump()
+        except (ValueError, TypeError, KeyError, AttributeError) as exc:
+            raise BridgeError('MEASUREMENTS_UNAVAILABLE', '참고할 측정값이 없습니다. 다른 분석을 선택하세요.', 422) from exc
+
+    def chat_send(self, uid, content, profile=None, analysis_id=None):
         if not isinstance(content,str) or not 1<=len(content.strip())<=500:
             raise BridgeError('VALIDATION_FAILED','대화는 1~500자로 입력해 주세요.',422)
+        measurements = self.coach_measurements(uid, analysis_id)
         if self.coach is None:
             raise BridgeError('COACH_NOT_CONFIGURED','코치 모델을 설정해 주세요.',503)
         if not self.chat_lock.acquire(False):
@@ -160,7 +183,7 @@ class FlutterBridge:
                 messages=messages[2:]
             from pydantic import ValidationError
             try:
-                result=self.coach.chat(ChatRequest(messages=messages))
+                result=self.coach.chat(ChatRequest(messages=messages, measurements=measurements, **({'profile':profile} if profile is not None else {})))
             except ValidationError as exc:
                 raise BridgeError('VALIDATION_FAILED','대화 내용을 확인해 주세요.',422) from exc
             except CoachFailure as exc:
@@ -182,7 +205,9 @@ class FlutterBridge:
                 user_message=self.chat_view(db.execute('SELECT * FROM coach_messages WHERE id=?',(first,)).fetchone())
                 assistant_message=self.chat_view(db.execute('SELECT * FROM coach_messages WHERE id=?',(second,)).fetchone())
                 db.execute('DELETE FROM coach_messages WHERE uid=? AND id NOT IN (SELECT id FROM coach_messages WHERE uid=? ORDER BY id DESC LIMIT 100)',(uid,uid))
-            return {'user_message':user_message,'assistant_message':assistant_message}
+            return {'user_message':user_message,'assistant_message':assistant_message,
+                    'context':{'analysis_id':analysis_id,'measurements_provided':measurements is not None,
+                               'context_used':bool(result.get('context_used',False))}}
         finally:
             self.chat_lock.release()
 
@@ -336,7 +361,7 @@ def install(app, directory, backend_url, normalize, coach=None):
     @router.post('/api/ai-coach/messages')
     def coach_message(request: Request, body: dict = Body()):
         user=service.user(request,True)
-        return service.chat_send(user['user_id'],body.get('content'))
+        return service.chat_send(user['user_id'],body.get('content'),body.get('profile'),body.get('analysis_id'))
 
     @router.delete('/api/ai-coach/messages')
     def coach_delete(request: Request):

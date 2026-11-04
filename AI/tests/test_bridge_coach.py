@@ -59,3 +59,43 @@ class BridgeCoachTests(unittest.TestCase):
         finally:self.service.chat_lock.release()
         for text in ['',True,'x'*501]:
             self.assertEqual(self.client.post('/api/ai-coach/messages',headers=self.auth,json={'content':text}).status_code,422)
+
+    def analysis(self, uid=1, status='done', measures=None):
+        import json
+        with self.service.db() as db:
+            return db.execute('INSERT INTO analyses(uid,photo_id,status,payload,created_at) VALUES(?,?,?,?,?)',
+                (uid,1,status,json.dumps({'measures':measures if measures is not None else {'shoulder_tilt_deg':1.2},
+                    'debug_image_base64':'private-photo','features':[99]}),'2026-11-04T00:00:00+00:00')).lastrowid
+
+    def test_owned_measurements_and_profile_exclude_photo_features(self):
+        aid=self.analysis();self.coach.chat.return_value['context_used']=True
+        r=self.client.post('/api/ai-coach/messages',headers=self.auth,json={'content':'설명','analysis_id':aid,
+            'profile':{'goal':'mobility','weekly_days':2,'minutes':10}})
+        self.assertEqual(r.status_code,200)
+        request=self.coach.chat.call_args.args[0]
+        self.assertEqual(request.profile.minutes,10)
+        self.assertEqual(request.profile.weekly_days,2)
+        self.assertEqual(request.measurements.shoulder_tilt_deg,1.2)
+        self.assertNotIn('private-photo',request.model_dump_json())
+        self.assertNotIn('features',request.model_dump_json())
+        self.assertEqual(r.json()['context'],{'analysis_id':aid,'measurements_provided':True,'context_used':True})
+        self.coach.chat.reset_mock()
+        r=self.client.post('/api/ai-coach/messages',headers={'Authorization':'Bearer bob'},json={'content':'설명','analysis_id':aid})
+        self.assertEqual(r.status_code,404);self.coach.chat.assert_not_called()
+
+    def test_bad_or_unavailable_analysis_does_not_call_model(self):
+        pending=self.analysis(status='pending');empty=self.analysis(measures={})
+        invalid=self.analysis(measures={'shoulder_tilt_deg':True})
+        for aid,code in [(True,422),(-1,422),('1',422),(999,404),(pending,409),(empty,422),(invalid,422)]:
+            with self.subTest(aid=aid):
+                r=self.client.post('/api/ai-coach/messages',headers=self.auth,json={'content':'설명','analysis_id':aid})
+                self.assertEqual(r.status_code,code)
+        self.coach.chat.assert_not_called();self.assertEqual(self.service.chat_history(1),[])
+
+    def test_profile_validation_and_legacy_request(self):
+        r=self.client.post('/api/ai-coach/messages',headers=self.auth,json={'content':'계획','profile':{'minutes':True}})
+        self.assertEqual(r.status_code,422);self.coach.chat.assert_not_called()
+        r=self.client.post('/api/ai-coach/messages',headers=self.auth,json={'content':'계획'})
+        self.assertEqual(r.status_code,200)
+        self.assertEqual(self.coach.chat.call_args.args[0].profile.minutes,20)
+        self.assertFalse(r.json()['context']['measurements_provided'])
