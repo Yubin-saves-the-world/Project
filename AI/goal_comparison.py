@@ -40,7 +40,9 @@ def compare_measurements(current, goal):
                            '목표 사진의 비율은 운동으로 달성 가능한 목표나 이상적인 신체 기준을 뜻하지 않습니다.',
                            '측정값 차이로 근육 부족·운동 우선 부위·건강 상태를 결정하지 않습니다.'],
             'priority_parts': [], 'priority_parts_status': 'not_implemented',
-            'routine_status': 'not_implemented'}
+            'routine_status': 'not_implemented',
+            'preference_routine': {'status': 'available', 'api': '/v1/routines/preview',
+                                   'page': '/routine', 'uses_photo_measurements': False}}
 
 
 def measurement_view(result):

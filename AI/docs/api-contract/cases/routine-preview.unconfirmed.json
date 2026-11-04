@@ -1,0 +1,46 @@
+{
+  "version": "routine-preview-v1",
+  "source": "rule_based_general_example",
+  "model": null,
+  "preferences": {
+    "goal": "habit",
+    "focus": "balanced",
+    "weekly_days": 3,
+    "minutes": 20
+  },
+  "photo_measurements_used": false,
+  "goal_photo_required": false,
+  "saved": false,
+  "rule_set_review_status": "prototype_not_professionally_validated",
+  "priority_parts": [],
+  "priority_parts_status": "not_selected",
+  "routine": null,
+  "sources": [
+    {
+      "title": "CDC · 성인 신체활동 일반 지침",
+      "url": "https://www.cdc.gov/physical-activity-basics/guidelines/adults.html/"
+    },
+    {
+      "title": "NHS · 근력 동작 안내",
+      "url": "https://www.nhs.uk/live-well/exercise/strength-exercises/"
+    },
+    {
+      "title": "NHS · 앉아서 하는 동작 안내",
+      "url": "https://www.nhs.uk/live-well/exercise/sitting-exercises/"
+    }
+  ],
+  "limitations": [
+    "일반 운동 예시이며 개인별 적합성을 검증한 처방이 아닙니다.",
+    "준비·정리·휴식을 포함한 시간 배분으로, 모든 시간을 계속 운동하라는 뜻이 아닙니다.",
+    "주간 활동 권장량 충족·체형 변화·근육 발달 효과를 보장하지 않습니다. 앱 일정에는 저장하지 않습니다."
+  ],
+  "status": "needs_information",
+  "reason_codes": [
+    "ADULT_CONFIRMATION_REQUIRED",
+    "CAUTION_CHECK_REQUIRED"
+  ],
+  "summary": "성인용 예시 적용과 주의 사항 확인이 필요합니다.",
+  "next_steps": [
+    "성인용 일반 예시임을 확인하고 현재 주의 사항 여부를 직접 체크하세요."
+  ]
+}

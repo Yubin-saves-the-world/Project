@@ -1,0 +1,9 @@
+{
+  "goal": "strength",
+  "focus": "upper_body",
+  "weekly_days": 3,
+  "minutes": 10,
+  "adult_confirmed": true,
+  "cautions_confirmed": true,
+  "cautions": []
+}
