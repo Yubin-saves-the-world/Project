@@ -101,7 +101,7 @@ class AnalysisEngine:
             lm = result['landmarks']
             required = ['nose','left_shoulder','right_shoulder','left_hip','right_hip','left_ankle','right_ankle']
             if any(not valid_landmark(lm.get(k)) for k in required):
-                raise AnalysisFailure('NOT_FULL_BODY', '머리부터 발목까지 보이는 사진으로 다시 촬영해 주세요.')
+                raise AnalysisFailure('NOT_FULL_BODY', '머리·어깨·골반·발목 추정점을 충분히 확인하지 못했어요. 가림과 촬영 각도를 확인해 주세요.')
             metrics = result['metrics']
             measures = { 'shoulder_tilt_deg': rounded_measure(abs(metrics['shoulder_tilt_deg'])),
                          'pelvis_tilt_deg': rounded_measure(abs(metrics['hip_tilt_deg'])),

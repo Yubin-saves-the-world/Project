@@ -12,14 +12,11 @@ def upper_arm_box(landmarks, side, width, height, min_visibility=0.7):
     """Pixel crop around shoulder/elbow; visibility is not muscle visibility."""
     if side not in {"left", "right"}:
         raise ValueError("side must be left or right")
-    points = [landmarks.get(f"{side}_{name}") for name in ("shoulder", "elbow")]
-    if any(p is None for p in points):
+    from .photo_geometry import point
+    a, b = [point(landmarks, f"{side}_{name}", width, height, min_visibility)
+            for name in ("shoulder", "elbow")]
+    if a is None or b is None:
         return None
-    if any(not all(math.isfinite(float(p[k])) for k in ("x", "y", "visibility"))
-           or p["visibility"] < min_visibility
-           or not (0 <= p["x"] <= 1 and 0 <= p["y"] <= 1) for p in points):
-        return None
-    a, b = [(p["x"] * width, p["y"] * height) for p in points]
     length = math.dist(a, b)
     if length < 32:
         return None
