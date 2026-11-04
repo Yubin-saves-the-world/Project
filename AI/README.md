@@ -1,62 +1,80 @@
-# Project Vitality AI Server
+# MOVID AI 서버
 
-전신 사진에서 자세 정렬과 체형 실루엣 비율을 계산하는 AI 서버입니다.
+**확정 작업 범위는 `AI/` 폴더뿐입니다.** FE·BE·루트 문서·공통 설정을 변경하지 않습니다. AI 문서, 테스트, 설정도 이 폴더 안에서 관리합니다. [작업 지침](AGENTS.md)을 따릅니다.
 
-## 구현 상태
+## GitHub ZIP으로 바로 시작하기 (macOS)
 
-- 구현: MediaPipe Pose 관절 추정과 사람 영역 분할, OpenCV·NumPy를 이용한 각도·비율 계산
-- 구현: 여러 사진 통합, 지표별 규칙 판정, 우선 확인 부위 및 분석 JSON 반환
-- 실행 확인: 실제 사진 2장 업로드 분석과 결과 이미지 생성 성공, 사진 없는 요청에 HTTP 422 응답
-- 개발 계획: DINOv3 ViT-S/16 기반 부위별 근육 윤곽 분류, EfficientNet-B0와 성능 비교
-- 미완료: 근육 윤곽 라벨 데이터 구축과 모델 학습·평가, BE·FE 전체 연동 검증
+최신 AI 코드가 있는 [AI 전용 브랜치 ZIP](https://github.com/Yubin-saves-the-world/Project/archive/refs/heads/codex/ai-only-review-20261031.zip)을 다운로드하고 압축을 풉니다. 아직 PR이 미병합이므로 기본 main ZIP은 이 버전이 아닙니다.
 
-현재 체형 판정은 계산된 비율에 임계값을 적용하는 방식입니다. DINOv3는 아직 설치·적용되지 않았습니다. 실행 성공은 분석 정확도 검증을 의미하지 않습니다.
+1. Python 3.12를 설치합니다. 이 컴퓨터에 이미 설치돼 있다면 그대로 사용합니다.
+2. 압축을 푼 프로젝트의 `AI` 폴더에서 터미널로 `bash run.sh`를 실행합니다. macOS에서는 `AI 서버 실행.command`를 실행해도 됩니다.
+3. 설치·공식 모델 확인이 끝나면 `http://127.0.0.1:8001`에서 사진을 선택하고 **사진 분석하기**를 누릅니다.
 
-## 구성
+첫 실행은 가상환경 생성, 고정 버전 라이브러리 설치와 가중치 다운로드가 필요해 시간이 걸립니다. 이후에는 설치 결과와 다운로드 모델을 재사용합니다. Python 환경은 현재 AI/.venv에 생성하며 다른 프로젝트 가상환경에 의존하지 않습니다. 실행 폴더에 공백이 있어도 됩니다.
 
-```text
-AI/
-├── app.py
-├── requirements.txt
-├── analyzers/
-├── schemas/
-├── sample_outputs/analysis_result.example.json
-└── docs/
-    ├── api-integration.md
-    ├── model-selection.md
-    └── model-comparison-report.docx
-```
+Hugging Face 모델 이용 승인과 로그인은 필수입니다. 이미 승인받은 계정의 로컬 로그인을 사용합니다. 로그인하지 않았다면 설치 후 AI 폴더에서 `.venv/bin/hf auth login`을 실행하고 `bash run.sh`를 다시 실행하세요. 토큰은 채팅이나 소스에 적지 않습니다. 모델 파일을 ZIP에 넣어 승인을 대신하지 않습니다.
 
-FastAPI가 요청을 받고, MediaPipe와 자체 계산 로직이 분석 결과를 만듭니다. Spring Boot는 AI 호출 및 저장, Flutter는 사진 입력과 결과 표시를 담당하는 연동 구조를 계획하고 있습니다.
+- 종료: 서버를 실행한 터미널에서 Ctrl+C
+- 8001 포트 사용 중: 기존 서버를 임의 종료하지 않습니다. `bash run.sh --port 8002`로 다른 포트를 사용할 수 있습니다.
+- 브라우저 자동 열기 생략: `bash run.sh --no-browser`
+- 설치만 확인: `bash run.sh --install-only`
+- 폴더 위치를 옮긴 뒤 가상환경 경로 오류: AI/.venv를 새 위치에서 다시 생성합니다. 가상환경은 ZIP에 포함하지 않습니다.
 
-## 설치와 실행
+이 경로에서 검증하는 것은 **AI 단독 서버와 AI 안의 사진 테스트 화면**입니다. Flutter 앱 전체의 연동이나 BE 서버 실행을 보장하는 변경이 아닙니다. FE·BE 파일은 수정하지 않습니다.
 
-로컬 실행 확인 환경은 macOS Apple Silicon과 Python 3.12입니다. MediaPipe는 0.10.21로 고정합니다.
+## 현재 기능
 
-```bash
-cd AI
+- FastAPI `POST /v1/analyze`: 정면 전신 사진 1장의 MediaPipe 관절 기울기·비율과 DINOv3 상완 특징을 반환합니다.
+- 픽셀 좌표를 사용해 어깨·골반 기울기, 어깨/골반 너비 및 상체/하체 길이 비율을 계산합니다.
+- 공식 DINOv3 모델을 시작 시 한 번 로딩하고 양쪽 상완의 CLS·평균 패치 특징을 추출합니다.
+- JPG/PNG, 파일당 10MB, 2,500만 픽셀 제한·EXIF 보정·긴 변 1024px 축소를 적용합니다.
+- 손상·단색·극단적으로 흐린 사진, 낮은 관절 신뢰도 및 전신 누락을 거절합니다. 처리 임시 파일은 응답 후 삭제합니다.
+- 기존 `POST /analyze/body`는 별도 경로로 camelCase 응답과 선택적 text 입력을 유지합니다. 기존 MediaPipe 파이프라인을 호출하며 DINOv3 결과와 혼합하지 않습니다. 사진은 1~3장으로 제한합니다.
+
+DINOv3 **근육 분류기는 학습하지 않았습니다.** 새 API는 근육 등급·균형 점수·체형 판정·목표 비교·운동 처방을 생성하지 않습니다. 기존 API의 휴리스틱 응답은 검증된 진단이나 학습된 근육 분류 결과가 아닙니다.
+
+## AI 단독 실행
+
+이 폴더(`AI/`)에서 Python 3.12로 실행합니다.
+
+```sh
 python3.12 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-MPLCONFIGDIR=/tmp/project-vitality-mpl python -m uvicorn app:app --host 127.0.0.1 --port 8001
+.venv/bin/python -m pip install -r requirements-dinov3.txt
+.venv/bin/hf auth login
+.venv/bin/python -m uvicorn app:app --host 127.0.0.1 --port 8001
 ```
 
-```bash
-curl --fail http://127.0.0.1:8001/health
-curl --fail http://127.0.0.1:8001/analyze/body \
-  -F 'front_images=@/absolute/path/front1.jpg' \
-  -F 'front_images=@/absolute/path/front2.jpg' \
-  -F 'text=자세 분석'
+공식 `facebook/dinov3-vits16-pretrain-lvd1689m` 모델 접근 승인을 받은 계정이 필요합니다. 토큰을 코드에 적거나 공유하지 않습니다. 승인된 로컬 모델이 있으면 `DINO_MODEL_PATH=/절대/모델/폴더`를 지정할 수 있습니다. `AI_DEVICE`는 기본 `cpu`이며 `auto`도 지원합니다. 모델·사진·DB·토큰은 저장소에 포함하지 않습니다.
+
+- 상태 확인: `http://127.0.0.1:8001/health`
+- 사진 테스트 화면: `http://127.0.0.1:8001`
+- API 문서: `http://127.0.0.1:8001/docs`
+- DINOv3 요청:
+
+```sh
+curl -X POST http://127.0.0.1:8001/v1/analyze \
+  -F 'front_images=@/절대/경로/photo.jpg'
 ```
 
-`front_images`는 필수 파일 필드이며 여러 장은 같은 이름을 반복합니다. `text`는 선택입니다. 요청은 multipart/form-data 형식입니다. API 탐색 문서는 서버 실행 후 `/docs`에서 확인할 수 있습니다.
+응답과 오류 계약은 [DINOv3 API 명세](docs/dinov3-api.md)를 확인하세요. 이 브랜치에는 Spring 저장·JWT·할당량·Flutter 화면 변경이 없습니다. 연동은 각 담당자가 이 명세를 기준으로 구현해야 합니다.
 
-## 응답
+## 검사
 
-`posture`, `bodyShape`, `judgements`, `priorityParts`, `comparisonSummary`, `comparisonDetail`, `textSummary`, `debugImages`, `raw`를 반환합니다. 예시 JSON은 응답 구조를 설명하는 자료이며 정확도 평가 결과가 아닙니다.
+```sh
+.venv/bin/python -m pip install -r requirements-test.txt
+.venv/bin/python -m unittest discover -s tests -v
+```
 
-## 한계와 연동 사항
+API 경계 테스트는 가짜 엔진을 사용하며 모델이나 개인 사진을 다운로드하지 않습니다. 실제 추론 여부는 별도 모델 실행 검사와 구분합니다. 검증 범위는 [리뷰 기록](docs/ai-only-review-2026-10-31.md)을 확인하세요.
 
-2D 사진 기반 참고 분석이며 실제 근육량과 체지방률을 측정하지 않습니다. 옷·자세·조명·카메라 각도에 영향을 받습니다. `debugImages`는 서버 로컬 파일 경로로, 프론트에서 접근 가능한 URL이 아닙니다. 세부 연동 사항은 [API 문서](docs/api-integration.md)를 참고하세요.
+## 남은 기능
 
-사진 원본, 실측 분석 결과, 가상환경과 모델 가중치는 저장소에 포함하지 않습니다. 사전학습 모델을 배포할 때에는 해당 모델의 이용 조건을 확인해야 합니다.
+근육 분류 학습, 다중 인물·정면·의복 검사, 측면 목 분석, 목표 비교, 추천 루틴은 후속 작업입니다. AI API에 JWT·사용자별 제한·DB·분산 큐는 없습니다. 한 번에 한 요청만 처리하고 사용 중이면 503을 반환합니다. 외부에 직접 공개하지 않고 로컬 또는 제한된 네트워크에서 사용합니다. 과거 모델 비교 자료는 연구 계획이며 현재 구현 범위는 이 README와 새 API 명세를 따릅니다.
+
+## 커밋 전 범위 검사
+
+Git 체크아웃의 `AI/`에서 `python scripts/check_scope.py`를 실행합니다. 기준 브랜치가 다르면 마지막 인자로 지정합니다. 커밋된 변경·작업 중 변경·미추적 파일에 AI 밖의 경로가 있으면 실패합니다.
+
+## ZIP 검증 결과
+
+GitHub ZIP을 실제로 다운로드해 새 가상환경 생성·설치·모델 다운로드·서버 실행·실제 사진 분석과 브라우저 결과 표시를 확인했습니다. [실행 검증 기록](docs/zip-startup-verification-2026-10-31.md)을 참고하세요. 검증 환경은 Apple Silicon Mac/Python 3.12입니다.

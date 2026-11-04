@@ -1,51 +1,100 @@
 from __future__ import annotations
 
-import shutil
-import uuid
+import io
+import logging
+import os
+import tempfile
+import threading
+from contextlib import asynccontextmanager, contextmanager
 from pathlib import Path
 from typing import Annotated
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.responses import FileResponse
+from PIL import Image, ImageOps, UnidentifiedImageError
 
 from analyzers.body_pipeline import analyze_body_images
+from integration import AnalysisEngine, AnalysisFailure
 from schemas.analysis_result import BodyAnalysisResponse
 
-
-BASE_DIR = Path(__file__).resolve().parent
-UPLOAD_DIR = BASE_DIR / "tmp_uploads"
-RESULT_DIR = BASE_DIR / "results"
-UPLOAD_DIR.mkdir(exist_ok=True)
-RESULT_DIR.mkdir(exist_ok=True)
-
-app = FastAPI(title="Project Vitality AI Server", version="0.1.0")
+logger = logging.getLogger(__name__)
+MAX_BYTES = 10 * 1024 * 1024
+capacity = threading.BoundedSemaphore(1)
 
 
-@app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}
+@asynccontextmanager
+async def lifespan(app):
+    model = os.environ.get('DINO_MODEL_PATH', 'facebook/dinov3-vits16-pretrain-lvd1689m')
+    app.state.engine = AnalysisEngine(model, os.environ.get('AI_DEVICE', 'cpu'))
+    yield
 
 
-def _save_upload(upload: UploadFile, request_dir: Path) -> str:
-    suffix = Path(upload.filename or "image.jpg").suffix.lower() or ".jpg"
-    target = request_dir / f"{uuid.uuid4().hex}{suffix}"
-    with target.open("wb") as file:
-        shutil.copyfileobj(upload.file, file)
-    return str(target)
+app = FastAPI(title='MOVID AI server', version='1.0.0', lifespan=lifespan)
 
 
-@app.post("/analyze/body", response_model=BodyAnalysisResponse)
-def analyze_body(
-    front_images: Annotated[list[UploadFile], File(description="One or more front full-body photos.")],
-    text: Annotated[str | None, Form(description="Optional user text input.")] = None,
-) -> BodyAnalysisResponse:
-    request_id = uuid.uuid4().hex
-    request_upload_dir = UPLOAD_DIR / request_id
-    request_result_dir = RESULT_DIR / request_id
-    request_upload_dir.mkdir(parents=True, exist_ok=True)
-    request_result_dir.mkdir(parents=True, exist_ok=True)
+@app.get('/', include_in_schema=False)
+def index():
+    return FileResponse(Path(__file__).resolve().parent / 'static' / 'index.html')
 
+
+@app.get('/health')
+def health():
+    return {'status': 'ok', 'dinov3_loaded': True, 'device': app.state.engine.dino.device}
+
+
+def save_image(upload: UploadFile, root: Path, index: int = 0) -> Path:
+    """Bound and normalize uploads without persisting originals or EXIF metadata."""
+    data = upload.file.read(MAX_BYTES + 1)
+    if len(data) > MAX_BYTES:
+        raise HTTPException(413, detail={'code': 'IMAGE_TOO_LARGE', 'message': '10MB 이하 사진을 사용해 주세요.'})
     try:
-        image_paths = [_save_upload(upload, request_upload_dir) for upload in front_images]
-        return analyze_body_images(image_paths, str(request_result_dir), text_input=text)
+        with Image.open(io.BytesIO(data)) as source:
+            if source.format not in ('JPEG', 'PNG') or source.width * source.height > 25_000_000:
+                raise ValueError('Unsupported image format or resolution')
+            image = ImageOps.exif_transpose(source).convert('RGB')
+            image.thumbnail((1024, 1024))
+            path = root / f'input-{index}.jpg'
+            image.save(path, quality=95)
+            return path
+    except (UnidentifiedImageError, ValueError, OSError, Image.DecompressionBombError) as exc:
+        raise HTTPException(422, detail={'code': 'INVALID_IMAGE', 'message': '올바른 JPG 또는 PNG 사진이 필요합니다.'}) from exc
+
+
+@contextmanager
+def analysis_slot():
+    if not capacity.acquire(blocking=False):
+        raise HTTPException(503, detail={'code': 'AI_BUSY', 'message': '다른 사진을 분석 중이에요. 잠시 후 다시 시도해 주세요.'})
+    try:
+        yield
+    except AnalysisFailure as exc:
+        raise HTTPException(422, detail={'code': exc.code, 'message': exc.message}) from exc
+    except HTTPException:
+        raise
     except Exception as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+        logger.exception('Analysis failed')
+        raise HTTPException(500, detail={'code': 'AI_FAILED', 'message': '분석 중 오류가 발생했습니다.'}) from exc
+    finally:
+        capacity.release()
+
+
+@app.post('/v1/analyze')
+def analyze(front_images: Annotated[list[UploadFile], File()]):
+    if len(front_images) != 1:
+        raise HTTPException(422, detail={'code': 'VALIDATION_FAILED', 'message': 'DINOv3 API는 정면 사진 1장을 받습니다.'})
+    with analysis_slot(), tempfile.TemporaryDirectory(prefix='movid-ai-') as directory:
+        root = Path(directory)
+        return app.state.engine.analyze(save_image(front_images[0], root), root)
+
+
+@app.post('/analyze/body', response_model=BodyAnalysisResponse)
+def analyze_body(
+    front_images: Annotated[list[UploadFile], File(description='Front full-body photos, up to 3.')],
+    text: Annotated[str | None, Form(description='Optional user text input.')] = None,
+) -> BodyAnalysisResponse:
+    """Keep the team's existing camelCase response separate from the new DINOv3 API."""
+    if not 1 <= len(front_images) <= 3:
+        raise HTTPException(422, detail={'code': 'VALIDATION_FAILED', 'message': '기존 API는 사진 1~3장을 받습니다.'})
+    with analysis_slot(), tempfile.TemporaryDirectory(prefix='movid-legacy-') as directory:
+        root = Path(directory)
+        paths = [str(save_image(upload, root, i)) for i, upload in enumerate(front_images)]
+        return analyze_body_images(paths, str(root), text_input=text)

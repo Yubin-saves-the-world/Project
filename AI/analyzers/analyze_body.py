@@ -237,7 +237,7 @@ def compute_metrics(points, all_points):
         "arm_length_asymmetry_ratio": arm_asymmetry,
         "leg_length_asymmetry_ratio": leg_asymmetry,
         "skeletal_symmetry_score": clamp(1.0 - np.mean([arm_asymmetry or 0.0, leg_asymmetry or 0.0, side_diff_ratio or 0.0]), 0.0, 1.0),
-        "raw_normalized": {
+        "raw_pixel": {
             "body_height_estimate": body_height,
             "shoulder_width": shoulder_width,
             "hip_width": hip_width,
@@ -603,7 +603,12 @@ def analyze_image(image_path, output_dir, min_detection_confidence):
     all_points = get_all_points(result.pose_landmarks.landmark)
     points = get_required_points(result.pose_landmarks.landmark)
     virtual_points = build_virtual_points(all_points)
-    pose_metrics = compute_metrics(points, all_points)
+    # Geometry must use equally scaled axes; normalized x/y distort angles on portraits.
+    height, width = image_bgr.shape[:2]
+    def pixels(items):
+        return {key: {**point, "x": point["x"] * width, "y": point["y"] * height}
+                for key, point in items.items()}
+    pose_metrics = compute_metrics(pixels(points), pixels(all_points))
     silhouette_metrics = {}
     silhouette_debug = {}
     if result.segmentation_mask is not None:
@@ -634,7 +639,7 @@ def analyze_image(image_path, output_dir, min_detection_confidence):
         "disclaimer": DISCLAIMER,
         "method": {
             "pipeline": "MediaPipe Pose Segmentation + OpenCV + Python",
-            "coordinate_system": "MediaPipe normalized 2D image coordinates",
+            "coordinate_system": "Normalized landmarks; pixel coordinates for geometry",
             "tracked_landmarks": 33,
             "virtual_centerline_landmarks": len(virtual_points),
             "silhouette_cross_sections": len(silhouette_debug.get("widths", {})),
