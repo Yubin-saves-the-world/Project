@@ -68,3 +68,23 @@ bash AI/run-flutter.sh --no-app --require-coach
 코치를 포함한 시연에서는 이 명령을 사용한다. 모델 준비를 실제 BE 빌드 전에 확인하고, 서버가 뜬 후에도 코치 상태를 다시 확인한다. 모델을 자동으로 내려받거나 다른 모델로 대체하지 않는다. 실패하면 이 실행이 시작한 서버만 종료한다. 기본 실행은 코치가 준비되지 않아도 사진 분석을 사용할 수 있도록 경고와 계정 코치 주소를 출력한다. 원본 Flutter 코치 탭의 연결 여부는 별도로 안내한다.
 
 2026-11-04 변경: 계정 코치 화면과 실행 점검을 PR #24에서 함께 정리한다. 이전에 main에 병합된 PR #23 이력은 공유 이력 보존을 위해 변경하지 않는다.
+
+## 사진 측정값을 참고하는 계정 코치
+
+`POST /api/ai-coach/messages`는 기존 `content` 요청을 유지하면서 선택 항목 `profile`, `analysis_id`를 받는다.
+
+```json
+{"content":"선택한 사진의 측정값을 설명해줘","profile":{"goal":"habit","experience":"beginner","weekly_days":3,"minutes":20},"analysis_id":1}
+```
+
+`analysis_id`를 생략하거나 null로 보내면 측정값을 전달하지 않는다. 서버는 인증한 사용자의 완료된 분석에서 허용된 각도·비율 5개만 읽는다. 원본 사진·특징 벡터·디버그 이미지·점수는 전달하지 않는다. 클라이언트가 임의 측정값을 보내는 방식은 지원하지 않는다. 타인 또는 없는 분석은 404 NOT_FOUND, 미완료 분석은 409 ANALYSIS_NOT_READY, 참고할 수치가 없거나 유효하지 않으면 422 MEASUREMENTS_UNAVAILABLE을 반환한다. 잘못된 번호·프로필은 422 VALIDATION_FAILED이다.
+
+기존 user_message, assistant_message 외에 context를 반환한다:
+
+```json
+{"context":{"analysis_id":1,"measurements_provided":true,"context_used":true}}
+```
+
+`measurements_provided`는 수치를 전달했다는 뜻이며 `context_used`는 이번 응답 경로에서 참고했는지를 뜻한다. 규칙 기반 운동 계획은 측정값을 이용해 운동 우선순위를 정하지 않아 context_used=false일 수 있다. 선택은 자동으로 켜지지 않는다. 계정 화면 ‘운동 설정과 사진 측정값 참고’에서 최근 100건 중 완료된 분석을 사용자가 선택한다. 기본 프로필은 습관·초보·주 3회·20분이다. 설정은 요청마다 전달하며 서버 프로필을 변경하거나 운동 루틴을 저장하지 않는다.
+
+검증: 자동 테스트 157개 통과. 기존 로컬 사진과 모델·인증 서버를 사용해 로그인→사진 업로드→분석 완료→analysis_id 전달→qwen3:4b 답변까지 실제 HTTP 요청으로 확인했다. 응답의 measurements_provided=true, context_used=true를 확인했다. 독립 테스트 DB를 사용했으며 원본 Flutter 화면의 검증을 의미하지 않는다. 타인 분석 404, 미완료 409, 빈 수치·잘못된 수치·잘못된 프로필 422 및 기존 content-only 요청 호환성을 자동 테스트로 확인했다.
