@@ -5,6 +5,7 @@ from pathlib import Path
 from types import SimpleNamespace
 import tempfile
 import time
+import threading
 import unittest
 from unittest.mock import patch, MagicMock
 
@@ -179,6 +180,24 @@ class FlutterBridgeTests(unittest.TestCase):
         self.assertEqual(response.status_code, 503)
         self.assertEqual(response.json()['code'], 'AUTH_SERVER_UNAVAILABLE')
 
+    def test_auth_server_outage_is_not_an_expired_session(self):
+        for status in (302, 404, 429, 500, 503):
+            with self.subTest(status=status), patch('bridge.api.requests.Session.request',
+                    return_value=SimpleNamespace(status_code=status)):
+                response = self.client.get('/api/body-analyses/usage', headers=self.auth)
+                self.assertEqual(response.status_code, 503)
+                self.assertEqual(response.json()['code'], 'AUTH_SERVER_UNAVAILABLE')
+
+    def test_malformed_signed_links_are_not_server_errors(self):
+        photo = self.upload()
+        from urllib.parse import urlsplit, parse_qs
+        url = urlsplit(photo['url'])
+        expiry = parse_qs(url.query)['expires'][0]
+        for signature in ('한'*64, 'é'*64, 'a'*63, 'a'*65, '0'*64):
+            response = self.client.get(url.path, params={'expires': expiry, 'signature': signature})
+            self.assertEqual(response.status_code, 404)
+        self.assertEqual(self.client.get(photo['url']).status_code, 200)
+
     def test_daily_quota_enforced_for_regular_user(self):
         for _ in range(3):
             photo = self.upload()
@@ -203,8 +222,119 @@ class FlutterBridgeTests(unittest.TestCase):
                 self.service.start(user, photo['photo_id'])
         self.assertTrue(self.service.capacity.acquire(blocking=False))
         self.service.capacity.release()
+        self.assertEqual(self.service.active_files, {})
         with original() as connection:
             self.assertEqual(connection.execute('SELECT COUNT(*) FROM analyses').fetchone()[0], 0)
+
+    def test_timed_out_worker_keeps_both_source_files_until_it_finishes(self):
+        front = self.upload()
+        side = self.client.post('/api/photos', files={'image': image()},
+            data={'type': 'current', 'side': 'side'}, headers=self.auth).json()
+        entered, release = threading.Event(), threading.Event()
+        original = self.engine.analyze
+        def blocked(path, directory, **kwargs):
+            entered.set()
+            if not release.wait(5):
+                raise RuntimeError('test worker was not released')
+            return original(path, directory, **kwargs)
+        with patch.object(self.engine, 'analyze', side_effect=blocked):
+            ticket = self.client.post('/api/body-analyses/photo', json={
+                'photo_id': front['photo_id'], 'side_photo_id': side['photo_id']}, headers=self.auth).json()
+            try:
+                self.assertTrue(entered.wait(2))
+                with self.service.db() as db:
+                    db.execute("UPDATE analyses SET created_at='2000-01-01T00:00:00+00:00' WHERE id=?", (ticket['analysis_id'],))
+                result = self.client.get(f"/api/body-analyses/{ticket['analysis_id']}", headers=self.auth).json()
+                self.assertEqual(result['error_code'], 'AI_TIMEOUT')
+                for photo in (front, side):
+                    self.assertEqual(self.client.delete(f"/api/photos/{photo['photo_id']}", headers=self.auth).status_code, 409)
+                    self.assertEqual(self.client.get(photo['url']).status_code, 200)
+            finally:
+                release.set()
+                self.service.close()
+        self.assertEqual(self.service.active_files, {})
+        result = self.client.get(f"/api/body-analyses/{ticket['analysis_id']}", headers=self.auth).json()
+        self.assertEqual(result['status'], 'failed')
+        self.assertIsNone(result['measures'])
+        for photo in (front, side):
+            self.assertEqual(self.client.delete(f"/api/photos/{photo['photo_id']}", headers=self.auth).status_code, 204)
+
+    def test_rejected_worker_submission_cleans_up_its_file_lease(self):
+        photo = self.upload()
+        with patch.object(self.service.executor, 'submit', side_effect=RuntimeError('executor stopped')):
+            ticket = self.service.start({'user_id': 1}, photo['photo_id'])
+        self.assertEqual(self.service.active_files, {})
+        self.assertTrue(self.service.capacity.acquire(blocking=False))
+        self.service.capacity.release()
+        self.assertEqual(self.finish(ticket['analysis_id'])['status'], 'failed')
+        self.assertEqual(self.client.delete(f"/api/photos/{photo['photo_id']}", headers=self.auth).status_code, 204)
+
+    def test_upload_commit_failure_does_not_leave_a_private_orphan_file(self):
+        original = self.service.db
+        @contextmanager
+        def failed_commit():
+            with original() as connection:
+                yield connection
+                raise RuntimeError('simulated failed photo commit')
+        with patch.object(self.service, 'db', failed_commit), self.assertRaisesRegex(RuntimeError, 'photo commit'):
+            self.client.post('/api/photos', files={'image': image()}, headers=self.auth)
+        self.assertEqual(list(self.service.photos.iterdir()), [])
+        with original() as db:
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM photos').fetchone()[0], 0)
+
+    def test_timeout_does_not_overwrite_a_result_that_completed_after_the_read(self):
+        import json
+        with self.service.db() as db:
+            aid = db.execute("INSERT INTO analyses(uid,photo_id,status,created_at) VALUES(1,1,'pending','2000-01-01T00:00:00+00:00')").lastrowid
+            class CompletingConnection:
+                def execute(inner, query, params=()):
+                    if "error_code='AI_TIMEOUT'" in query:
+                        db.execute("UPDATE analyses SET status='done',payload=? WHERE id=?",
+                            (json.dumps({'measures': {'shoulder_tilt_deg': 0}}), aid))
+                    return db.execute(query, params)
+            result = self.service.detail(CompletingConnection(), 1, aid)
+        self.assertEqual(result['status'], 'done')
+        self.assertIsNone(result['error_code'])
+        self.assertEqual(result['measures']['shoulder_tilt_deg'], 0)
+
+    def test_delete_commit_failure_preserves_original_file_and_signed_url(self):
+        photo = self.upload()
+        original = self.service.db
+        @contextmanager
+        def failed_commit():
+            with original() as connection:
+                yield connection
+                raise RuntimeError('simulated failed delete commit')
+        with patch.object(self.service, 'db', failed_commit), self.assertRaisesRegex(RuntimeError, 'delete commit'):
+            self.client.delete(f"/api/photos/{photo['photo_id']}", headers=self.auth)
+        self.assertEqual(self.client.get(photo['url']).status_code, 200)
+        self.assertEqual(len(list(self.service.photos.iterdir())), 1)
+
+    def test_filesystem_delete_failure_blocks_access_and_allows_owner_retry(self):
+        photo = self.upload()
+        with patch('bridge.api.Path.unlink', side_effect=PermissionError('test file busy')):
+            response = self.client.delete(f"/api/photos/{photo['photo_id']}", headers=self.auth)
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()['code'], 'PHOTO_DELETE_INCOMPLETE')
+        self.assertEqual(self.client.get(photo['url']).status_code, 404)
+        self.assertEqual(len(list(self.service.photos.iterdir())), 1)
+        self.assertEqual(self.client.delete(f"/api/photos/{photo['photo_id']}", headers={'Authorization':'Bearer bob'}).status_code, 404)
+        self.assertEqual(self.client.delete(f"/api/photos/{photo['photo_id']}", headers=self.auth).status_code, 204)
+        self.assertEqual(list(self.service.photos.iterdir()), [])
+
+    def test_revoked_processing_consent_does_not_prevent_authenticated_cleanup(self):
+        photo = self.upload()
+        with self.service.db() as db:
+            db.execute("INSERT INTO coach_messages(uid,role,content,created_at,source) VALUES(1,'user','test',?,'user')", ('2026-11-04T00:00:00+00:00',))
+        revoked = {'user_id': 1, 'onboarding_completed': False,
+            'body_photo_agreed': False, 'ai_processing_agreed': False}
+        response = SimpleNamespace(status_code=200, json=lambda: revoked)
+        with patch('bridge.api.requests.Session.request', return_value=response):
+            self.assertEqual(self.client.post('/api/photos', files={'image': image()}, headers=self.auth).status_code, 403)
+            self.assertEqual(self.client.get('/api/ai-coach/messages', headers=self.auth).status_code, 403)
+            self.assertEqual(self.client.delete(f"/api/photos/{photo['photo_id']}", headers=self.auth).status_code, 204)
+            self.assertEqual(self.client.delete('/api/ai-coach/messages', headers=self.auth).json()['deleted'], 1)
+        self.assertEqual(self.client.delete('/api/photos/999').status_code, 401)
 
 
 if __name__ == '__main__':
