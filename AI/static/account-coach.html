@@ -1,24 +1,143 @@
 <!doctype html>
-<html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MOVID · 계정 코치</title>
-<style>*{box-sizing:border-box}body{margin:0;background:#f3f5fc;color:#202740;font:16px/1.7 system-ui,sans-serif}main{max-width:850px;margin:35px auto;padding:24px}header{display:flex;justify-content:space-between;align-items:center}a{color:#514cd0}section{background:white;border:1px solid #dfe3f1;border-radius:20px;padding:25px;margin:20px 0}h1{font-size:28px;margin-bottom:6px}p{color:#65708a}input,textarea,select,button{font:inherit;padding:12px;border-radius:10px;border:1px solid #ccd2e5}input,textarea,select{width:100%;margin:7px 0 15px}button{cursor:pointer;background:#5954d8;color:white;border:0}button.secondary{background:#edf0fa;color:#414b6b}button:disabled{opacity:.5;cursor:wait}.toolbar{display:flex;gap:10px;flex-wrap:wrap}#messages{max-height:55vh;overflow:auto}.turn{padding:15px 20px;background:#f1f3fc;border-radius:15px;margin:14px 0;white-space:pre-wrap;overflow-wrap:anywhere}.turn.user{background:#e9e6ff;margin-left:45px}.turn small{display:block;color:#65708a;font-size:12px}.status{padding:12px;border-radius:10px;background:#e9edf8}.error{color:#a52e49;background:#fff0f3}textarea{min-height:90px}button:focus-visible,a:focus-visible{outline:3px solid #aaa1ff;outline-offset:3px}[hidden]{display:none!important}</style>
-<main><header><a href="/coach">← 임시 대화 코치</a><span>계정 연결 시연</span></header><h1>다시 이어가는 나의 코치</h1><p>로그인한 계정의 대화를 저장하고 다시 불러옵니다. 원본 Flutter 앱과는 별도의 AI 시연 화면입니다.</p>
-<div id="status" class="status" role="status">AI 호환 서버로 실행한 경우 사용할 수 있습니다.</div>
-<section id="login-panel"><h2>로그인</h2><form id="login"><label for="email">이메일</label><input id="email" type="email" autocomplete="username" required><label for="password">비밀번호</label><input id="password" type="password" autocomplete="current-password" required><button type="submit">로그인하고 대화 불러오기</button></form><p>비밀번호와 인증 토큰은 이 페이지가 열린 동안 메모리에만 유지합니다. 새로고침하면 다시 로그인하세요.</p></section>
-<section id="chat-panel" hidden><div class="toolbar"><button id="reload" class="secondary">기록 새로고침</button><button id="clear" class="secondary">기록 모두 삭제</button><button id="logout" class="secondary">로그아웃</button></div><p>서버에 계정별 최대 100개 메시지를 보관하며 최근 20개를 표시합니다. 로그아웃해도 서버 기록은 유지됩니다.</p><div id="messages" role="log" aria-label="계정 대화"></div><details><summary>운동 설정과 사진 측정값 참고</summary><label for="goal">운동 목표</label><select id="goal"><option value="habit">꾸준한 습관</option><option value="strength">기초 근력</option><option value="mobility">가벼운 움직임</option></select><label for="experience">운동 경험</label><select id="experience"><option value="beginner">처음 시작</option><option value="intermediate">경험 있음</option></select><label for="days">주간 횟수</label><select id="days"><option value="2">주 2회</option><option value="3" selected>주 3회</option><option value="4">주 4회</option><option value="5">주 5회</option></select><label for="minutes">한 번 운동 시간</label><select id="minutes"><option value="10">10분</option><option value="20" selected>20분</option><option value="30">30분</option><option value="45">45분</option></select><label for="analysis">참고할 본인 사진 분석</label><select id="analysis"><option value="">참고하지 않음</option></select><p>선택한 분석의 각도·비율만 전달합니다. 원본 사진·이미지 특징·건강 점수는 전달하지 않습니다. 규칙 기반 계획은 이 측정값으로 운동 우선순위를 결정하지 않습니다.</p></details><form id="chat"><label for="question">코치에게 질문하기</label><textarea id="question" maxlength="500" required placeholder="예: 주 3회, 20분 운동 계획을 알려주세요."></textarea><button type="submit">질문 보내기</button></form></section>
-<p>로컬 Qwen3를 사용하는 일반 운동 안내입니다. 규칙 기반 계획은 답변에 별도로 표시합니다. 의료적 진단이나 근육 발달 점수를 제공하지 않습니다.</p></main>
-<script type="module">
-const q=s=>document.querySelector(s);let token=null,busy=false;
-function status(text,error=false){q('#status').textContent=text;q('#status').classList.toggle('error',error);}
-function lock(value){busy=value;document.querySelectorAll('button,input,textarea,select').forEach(el=>el.disabled=value);}
-function logout(){token=null;q('#password').value='';q('#messages').replaceChildren();q('#question').value='';q('#analysis').replaceChildren(new Option('참고하지 않음',''));q('#chat-panel').hidden=true;q('#login-panel').hidden=false;}
-async function api(path,method='GET',body){const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),90000);try{const r=await fetch(path,{method,cache:'no-store',signal:controller.signal,headers:{...(token?{'Authorization':'Bearer '+token}:{}),...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{})});let d;try{d=await r.json();}catch{throw Error('응답을 읽지 못했습니다. AI 호환 서버 주소를 확인하세요.');}if(!r.ok){if(r.status===401){logout();throw Error('로그인 정보가 만료됐거나 올바르지 않습니다. 다시 로그인하세요.');}throw Error(d.message||d.detail?.message||(r.status===404?'계정 연결 API가 없습니다. AI/run-flutter.sh --no-app으로 실행한 서버에서 열어주세요.':'요청에 실패했습니다.'));}return d;}catch(e){if(e.name==='AbortError')throw Error('응답 대기 시간이 지났습니다. 기록을 새로고침해 저장 여부를 먼저 확인하세요.');throw e;}finally{clearTimeout(timer);}}
-function render(messages){q('#messages').replaceChildren();if(!messages.length){q('#messages').textContent='아직 대화가 없습니다. 첫 질문을 보내보세요.';return;}for(const m of messages){const el=document.createElement('div');el.className='turn '+(m.role==='user'?'user':'assistant');const label=document.createElement('small');label.textContent=m.role==='user'?'나':`코치 · ${m.model||'규칙 기반 안내'}`;el.append(label,document.createTextNode(m.content));q('#messages').append(el);}q('#messages').scrollTop=q('#messages').scrollHeight;}
-async function analyses(){const d=await api('/api/body-analyses?page_size=100');q('#analysis').replaceChildren(new Option('참고하지 않음',''));for(const item of d.items.filter(x=>x.status==='done'))q('#analysis').append(new Option(`분석 #${item.analysis_id} · ${item.created_at}`,String(item.analysis_id)));}
-async function reload(){const d=await api('/api/ai-coach/messages');render(d.messages);}
-async function action(fn){if(busy)return;lock(true);try{await fn();}catch(e){status(e.message||'서버 연결을 확인하세요.',true);}finally{lock(false);}}
-q('#login').onsubmit=e=>{e.preventDefault();action(async()=>{token=null;status('로그인 확인 중…');const d=await api('/api/auth/login','POST',{email:q('#email').value.trim(),password:q('#password').value});if(!d.access_token)throw Error('인증 토큰이 없는 응답입니다.');token=d.access_token;q('#password').value='';await reload();await analyses();q('#login-panel').hidden=true;q('#chat-panel').hidden=false;status('로그인 완료 · 계정 대화를 불러왔습니다.');});};
-q('#chat').onsubmit=e=>{e.preventDefault();const content=q('#question').value.trim();if(!content)return;action(async()=>{status('코치가 답변 중입니다. 잠시 기다려 주세요.');const result=await api('/api/ai-coach/messages','POST',{content,profile:{goal:q('#goal').value,experience:q('#experience').value,weekly_days:Number(q('#days').value),minutes:Number(q('#minutes').value)},analysis_id:q('#analysis').value?Number(q('#analysis').value):null});q('#question').value='';await reload();status('답변과 대화를 저장했습니다.'+(result.context?.measurements_provided?(result.context.context_used?' 선택한 측정값을 참고했습니다.':' 측정값을 전달했지만 이번 안내에는 사용하지 않았습니다.') :''));});};
-q('#reload').onclick=()=>action(async()=>{await reload();status('최근 대화를 불러왔습니다.');});
-q('#clear').onclick=()=>{if(busy||!confirm('이 계정의 서버 대화 기록을 모두 삭제할까요? 복구할 수 없습니다.'))return;action(async()=>{const d=await api('/api/ai-coach/messages','DELETE');render([]);status(`${d.deleted}개 메시지를 삭제했습니다.`);});};
-q('#logout').onclick=()=>{if(busy)return;logout();status('로그아웃했습니다. 서버 대화 기록은 유지됩니다.');};
-</script></html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>MOVID · 계정 코치</title>
+  <style>
+    :root { font: 16px/1.7 system-ui, sans-serif; color: #202740; background: #f3f5fc; }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    main { max-width: 900px; margin: 30px auto; padding: 24px; }
+    header, .toolbar, .composer-label { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    a { color: #514cd0; text-decoration: none; }
+    .badge { padding: 5px 12px; border-radius: 20px; background: #e8e6ff; color: #5147bc; font-size: 12px; }
+    h1 { font-size: clamp(25px, 4vw, 34px); line-height: 1.3; margin: 24px 0 10px; letter-spacing: -.8px; }
+    h2 { font-size: 21px; margin: 0 0 18px; }
+    p, .help { color: #65708a; }
+    .intro { margin-bottom: 22px; }
+    .card { background: white; border: 1px solid #dfe3f1; border-radius: 20px; padding: 26px; margin: 20px 0; }
+    label { display: block; font-size: 14px; font-weight: 600; }
+    input, textarea, select, button { font: inherit; padding: 11px 13px; border-radius: 11px; border: 1px solid #ccd2e5; }
+    input, textarea, select { width: 100%; margin: 7px 0 17px; color: #25304b; background: white; }
+    textarea { min-height: 105px; resize: vertical; }
+    button { cursor: pointer; background: #5954d8; color: white; border: 0; font-weight: 600; }
+    button.secondary { background: #eef0f9; color: #414b6b; font-size: 13px; }
+    button.danger { color: #a13c55; }
+    button:disabled { opacity: .5; cursor: wait; }
+    select:disabled { background: #f4f5fa; }
+    button:focus-visible, a:focus-visible, summary:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 3px solid #aaa1ff; outline-offset: 3px; }
+    .toolbar { justify-content: flex-start; flex-wrap: wrap; }
+    .toolbar #logout { margin-left: auto; }
+    .help { font-size: 13px; line-height: 1.7; }
+    .status { padding: 13px 17px; border: 1px solid #d8def0; border-radius: 12px; background: #e9edf8; font-size: 14px; }
+    .status.error { color: #a52e49; border-color: #efc9d3; background: #fff0f3; }
+    #messages { max-height: 55vh; overflow: auto; padding: 10px 0; margin: 18px 0; }
+    .empty { padding: 25px 14px; text-align: center; border: 1px dashed #dfe3f1; border-radius: 14px; }
+    .turn { padding: 15px 20px; background: #f1f3fc; border-radius: 16px; margin: 14px 30px 14px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .turn.user { background: #e9e6ff; margin: 14px 0 14px 40px; }
+    .turn small { display: block; margin-bottom: 7px; color: #65708a; font-size: 12px; }
+    details { padding: 14px 0; border-top: 1px solid #e8ebf4; }
+    summary { cursor: pointer; font-size: 14px; font-weight: 600; }
+    .settings { display: grid; grid-template-columns: 1fr 1fr; gap: 0 18px; margin-top: 18px; }
+    .wide { grid-column: 1 / -1; }
+    #chat { margin-top: 18px; }
+    #count { font-size: 12px; color: #758099; }
+    .foot { font-size: 12px; text-align: center; line-height: 1.8; margin-top: 24px; }
+    [hidden] { display: none !important; }
+    @media (max-width: 560px) {
+      main { margin: 10px auto; padding: 16px; }
+      .card { padding: 19px; }
+      .settings { grid-template-columns: 1fr; }
+      .toolbar #logout { margin-left: 0; }
+      .turn { margin-right: 12px; }
+      .turn.user { margin-left: 20px; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <a href="/coach">← 저장 없이 대화하기</a>
+    <span class="badge">MOVID · 계정 코치</span>
+  </header>
+  <h1>이전 대화에서, 다음 실천으로</h1>
+  <p class="intro">계정에 저장한 대화를 이어가고, 필요한 사진 측정값만 선택해 질문하세요.</p>
+  <div id="status" class="status" role="status" aria-live="polite">계정 코치를 사용하려면 AI 호환 서버에서 로그인하세요.</div>
+
+  <section id="login-panel" class="card" aria-labelledby="login-title">
+    <h2 id="login-title">로그인하고 이어가기</h2>
+    <form id="login">
+      <label for="email">이메일</label>
+      <input id="email" type="email" autocomplete="username" placeholder="이메일 주소" required>
+      <label for="password">비밀번호</label>
+      <input id="password" type="password" autocomplete="current-password" required>
+      <button type="submit">대화 불러오기</button>
+    </form>
+    <p class="help">새로고침하면 다시 로그인해야 합니다. 이 화면은 원본 Flutter 앱과 별도의 AI 웹 시연입니다.</p>
+  </section>
+
+  <section id="chat-panel" class="card" hidden aria-label="코치와 대화" aria-busy="false">
+    <div class="toolbar">
+      <button id="reload" class="secondary">대화·분석 새로고침</button>
+      <button id="clear" class="secondary danger">대화 기록 삭제</button>
+      <button id="logout" class="secondary">로그아웃</button>
+    </div>
+    <div id="messages" role="log" aria-label="계정 대화" aria-live="polite"></div>
+
+    <details>
+      <summary>운동 설정과 사진 측정값 참고</summary>
+      <form id="preferences" class="settings">
+        <div>
+          <label for="goal">운동 목표</label>
+          <select id="goal">
+            <option value="habit">꾸준한 습관</option>
+            <option value="strength">기초 근력</option>
+            <option value="mobility">가벼운 움직임</option>
+          </select>
+        </div>
+        <div>
+          <label for="experience">운동 경험</label>
+          <select id="experience">
+            <option value="beginner">처음 시작</option>
+            <option value="intermediate">경험 있음</option>
+          </select>
+        </div>
+        <div>
+          <label for="days">주간 횟수</label>
+          <select id="days">
+            <option value="2">주 2회</option><option value="3" selected>주 3회</option>
+            <option value="4">주 4회</option><option value="5">주 5회</option>
+          </select>
+        </div>
+        <div>
+          <label for="minutes">한 번 운동 시간</label>
+          <select id="minutes">
+            <option value="10">10분</option><option value="20" selected>20분</option>
+            <option value="30">30분</option><option value="45">45분</option>
+          </select>
+        </div>
+        <div class="wide">
+          <label for="analysis">참고할 본인 사진 분석</label>
+          <select id="analysis" aria-describedby="analysis-note" disabled><option value="">참고하지 않음</option></select>
+          <p id="analysis-note" class="help">선택한 분석의 각도·비율만 참고합니다. 사진이나 건강 점수는 전달하지 않습니다.</p>
+        </div>
+      </form>
+      <p class="help">설정은 이번 대화 요청에 사용하며 계정 프로필을 바꾸지 않습니다. 규칙 기반 운동 예시는 측정값으로 운동 우선순위를 결정하지 않습니다.</p>
+    </details>
+
+    <form id="chat">
+      <div class="composer-label"><label for="question">오늘 무엇이 궁금한가요?</label><span id="count">0/500</span></div>
+      <textarea id="question" maxlength="500" required aria-describedby="count" placeholder="예: 주 3회, 20분 운동 계획을 알려주세요."></textarea>
+      <button type="submit">질문 보내기 ↗</button>
+    </form>
+    <details class="help">
+      <summary>대화 보관 안내</summary>
+      <p>최근 20개 메시지를 표시하며 계정별 최대 100개를 서버에 보관합니다. 로그아웃해도 기록은 유지됩니다. ‘대화 기록 삭제’를 누르면 서버 기록을 모두 삭제합니다. 비밀번호와 인증 토큰은 브라우저 저장소에 기록하지 않습니다.</p>
+    </details>
+  </section>
+  <p class="foot">로컬 Qwen3를 사용하는 일반 운동 안내입니다. 의료적 진단이나 근육 발달 점수를 제공하지 않습니다.</p>
+</main>
+<script type="module" src="/assets/account-coach.mjs"></script>
+</body>
+</html>
