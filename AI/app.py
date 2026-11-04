@@ -54,9 +54,16 @@ def contour_test():
 
 @app.get('/health')
 def health():
+    classifier = getattr(app.state.engine, 'contour', None)
     return {'status': 'ok', 'dinov3_loaded': True, 'device': app.state.engine.dino.device,
             'pose_guard_loaded': bool(getattr(app.state.engine, 'pose_guard', None)),
-            'contour_classifier_loaded': getattr(app.state.engine, 'contour', None) is not None}
+            'contour_classifier_loaded': classifier is not None,
+            'contour_model': None if classifier is None else {
+                'sha256': getattr(classifier, 'model_sha256', None),
+                'classes': getattr(classifier, 'labels', []),
+                'validation_status': getattr(classifier, 'validation_status', 'unspecified_experimental')},
+            'capabilities': {'photo_measurement': True, 'balance_score': False, 'body_type': False,
+                             'contour_requires_review': True}}
 
 
 def save_image(upload: UploadFile, root: Path, index: int = 0) -> Path:
