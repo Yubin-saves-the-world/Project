@@ -5,6 +5,7 @@ import math
 import time
 
 MODEL_ID = "facebook/dinov3-vits16-pretrain-lvd1689m"
+MODEL_REVISION = "114c1379950215c8b35dfcd4e90a5c251dde0d32"
 
 
 def upper_arm_box(landmarks, side, width, height, min_visibility=0.7):
@@ -31,7 +32,7 @@ def upper_arm_box(landmarks, side, width, height, min_visibility=0.7):
 
 
 class DinoFeatureExtractor:
-    def __init__(self, model=MODEL_ID, device="auto", revision="main", local_only=False):
+    def __init__(self, model=MODEL_ID, device="auto", revision=MODEL_REVISION, local_only=False):
         import torch
         from transformers import AutoImageProcessor, AutoModel
 
