@@ -12,13 +12,26 @@ def main():
     parser.add_argument('--dataset', type=Path, default=ROOT / '.runtime/contour_dataset')
     parser.add_argument('--threshold', type=float, default=.6)
     parser.add_argument('--validate-only', action='store_true')
-    parser.add_argument('--evaluation', choices=['holdout','grouped-cv'], default='holdout')
+    parser.add_argument('--evaluation', choices=['holdout','grouped-cv','fit-only'], default='holdout')
+    parser.add_argument('--output', type=Path, help='fit-only 전용 새 모델 출력 폴더; AI/.runtime 내부')
     args = parser.parse_args()
     directory = args.dataset.resolve()
     if any(part.startswith('quarantine_web_') for part in directory.parts):
         raise ValueError('격리된 외부 자료는 학습에 사용할 수 없습니다.')
     if not directory.is_relative_to(ROOT / '.runtime'):
         raise ValueError('학습 결과 저장 위치는 AI/.runtime 폴더 안이어야 합니다.')
+    if args.evaluation == 'fit-only':
+        if args.validate_only or args.threshold != .6 or args.output is None:
+            raise ValueError('fit-only는 --output 새 폴더와 고정 임계값 0.6이 필요합니다. 평가 명령이 아닙니다.')
+        output = args.output.resolve()
+        if not output.is_relative_to(ROOT / '.runtime') or any(p.startswith('quarantine_web_') for p in output.parts):
+            raise ValueError('출력은 격리되지 않은 AI/.runtime 내부여야 합니다.')
+        from training.fit_only import fit_only
+        print(fit_only(directory, output))
+        print('미검증 실험 모델입니다. 전체 입력으로 학습했으므로 별도 독립 평가 자료가 필요합니다.')
+        return
+    if args.output is not None:
+        raise ValueError('--output은 fit-only에서만 사용합니다.')
     if args.evaluation == 'grouped-cv':
         if args.threshold != .6:
             raise ValueError('초기 교차검증 실험의 임계값은 0.6으로 고정합니다.')

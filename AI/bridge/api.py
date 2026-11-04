@@ -35,7 +35,9 @@ def now():
 class FlutterBridge:
     def __init__(self, directory, backend_url, engine, normalize):
         parsed = urlparse(backend_url)
-        if parsed.scheme != 'http' or parsed.hostname not in {'127.0.0.1', 'localhost'} or parsed.username:
+        if (parsed.scheme != 'http' or parsed.hostname not in {'127.0.0.1', 'localhost'}
+                or parsed.username or parsed.password or parsed.path not in ('', '/')
+                or parsed.query or parsed.fragment):
             raise ValueError('인증 백엔드는 로컬 Spring 주소만 허용합니다.')
         self.backend = backend_url.rstrip('/')
         self.root = Path(directory).resolve()
@@ -91,8 +93,10 @@ class FlutterBridge:
         if authorization:
             headers['Authorization'] = authorization
         try:
-            return requests.request(method, self.backend + path, headers=headers, json=body,
-                                    params=query, timeout=10, allow_redirects=False)
+            with requests.Session() as session:
+                session.trust_env = False
+                return session.request(method, self.backend + path, headers=headers, json=body,
+                                       params=query, timeout=10, allow_redirects=False)
         except requests.RequestException as exc:
             raise BridgeError('AUTH_SERVER_UNAVAILABLE', '로그인 서버에 연결하지 못했어요.', 503) from exc
 
@@ -109,11 +113,11 @@ class FlutterBridge:
                 raise ValueError('Invalid user response')
         except (ValueError, TypeError) as exc:
             raise BridgeError('AUTH_SERVER_UNAVAILABLE', '사용자 응답을 확인하지 못했어요.', 503) from exc
-        if not user.get('onboarding_completed'):
+        if user.get('onboarding_completed') is not True:
             raise BridgeError('ONBOARDING_REQUIRED', '신체 정보를 먼저 입력해 주세요.', 403)
-        if not user.get('body_photo_agreed') or (ai and not user.get('ai_processing_agreed')):
+        if user.get('body_photo_agreed') is not True or (ai and user.get('ai_processing_agreed') is not True):
             raise BridgeError('CONSENT_REQUIRED', '사진·AI 처리 동의가 필요해요.', 403)
-        if not isinstance(user.get('user_id'), int):
+        if type(user.get('user_id')) is not int or user['user_id'] <= 0:
             raise BridgeError('AUTH_SERVER_UNAVAILABLE', '사용자 응답을 확인하지 못했어요.', 503)
         return user
 
