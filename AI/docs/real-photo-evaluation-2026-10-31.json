@@ -1,0 +1,39 @@
+{
+  "status": "execution_checks_complete",
+  "original_images": 27,
+  "photos_done": 27,
+  "photo_failures": {},
+  "region_statuses": {
+    "extracted": 43,
+    "unavailable": 11
+  },
+  "expected_regions_if_all_photos_usable": 54,
+  "ground_truth_available": false,
+  "classification_accuracy": null,
+  "measurement_accuracy": null,
+  "perturbation_checks": 12,
+  "perturbation_failures": 0,
+  "measure_delta_summary": {
+    "shoulder_tilt_deg": {
+      "mean_absolute_delta": 0.2433333333333334,
+      "max_absolute_delta": 0.6200000000000001
+    },
+    "pelvis_tilt_deg": {
+      "mean_absolute_delta": 0.20500000000000004,
+      "max_absolute_delta": 0.5900000000000001
+    },
+    "shoulder_hip_ratio": {
+      "mean_absolute_delta": 0.01666666666666668,
+      "max_absolute_delta": 0.050000000000000044
+    },
+    "torso_leg_ratio": {
+      "mean_absolute_delta": 0.007499999999999997,
+      "max_absolute_delta": 0.030000000000000027
+    }
+  },
+  "cls_cosine_summary": {
+    "mean": 0.980473623441226,
+    "minimum": 0.9538816855783021
+  },
+  "note": "라벨 없는 사진의 실행 성공률·재현성 검사입니다. 분류 정확도·측정 정확도·정상 여부를 검증한 결과가 아닙니다."
+}
