@@ -20,6 +20,7 @@ from integration import AnalysisEngine, AnalysisFailure
 from schemas.analysis_result import BodyAnalysisResponse
 from pydantic import BaseModel, Field
 from review_sessions import ReviewSessions
+from routine_preview import RoutinePreviewRequest, preview_routine
 from coach import LocalCoach, ChatRequest, BackendChatRequest, CoachFailure
 
 review_sessions = ReviewSessions()
@@ -53,7 +54,7 @@ app = FastAPI(title='MOVID AI server', version='1.0.0', lifespan=lifespan)
 async def validation_error(request, exc):
     # Do not echo request values, paths, files or internal validation details.
     return JSONResponse(status_code=422, content={'detail': {
-        'code': 'VALIDATION_FAILED', 'message': '요청 필드와 사진 개수를 확인해 주세요.'}})
+        'code': 'VALIDATION_FAILED', 'message': '입력 항목과 값을 확인해 주세요.'}})
 
 
 @app.get('/', include_in_schema=False)
@@ -110,6 +111,16 @@ def backend_coach_chat(body: BackendChatRequest):
     return {'reply':result['message']['content'], 'model':result['model'],
             'seconds':result['processing_seconds'], 'response_source':result['response_source'],
             'truncated':result['truncated']}
+
+
+@app.get('/routine', include_in_schema=False)
+def routine_page():
+    return FileResponse(Path(__file__).resolve().parent / 'static' / 'routine.html', headers={'Cache-Control':'no-store'})
+
+
+@app.post('/v1/routines/preview')
+def routine_preview(body: RoutinePreviewRequest):
+    return preview_routine(body)
 
 
 @app.get('/goal-compare', include_in_schema=False)

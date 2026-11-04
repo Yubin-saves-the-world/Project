@@ -9,6 +9,7 @@
 | 목적 | 실행 | 기본 접속 주소 |
 |---|---|---|
 | DINOv3 승인 없이 사진 수치 측정 | `bash AI/run.sh --geometry-only` | `http://127.0.0.1:8001/analysis` |
+| 목표·희망 부위·시간으로 일반 운동 예시 | `bash AI/run.sh --geometry-only` | `http://127.0.0.1:8001/routine` |
 | 로그인 없이 Qwen3 대화 | `bash AI/run-coach.sh --geometry-only` | `http://127.0.0.1:8023/coach` |
 | 계정 로그인·대화 저장·사진 분석 연동 | `bash AI/run-flutter.sh --no-app --require-coach` | `http://127.0.0.1:8080/coach/account` |
 
@@ -28,12 +29,13 @@
 
 ## 지금 되는 것과 남은 연결
 
-- **사용 가능:** 정면·측면 관절 수치 측정, 선택적 DINOv3 특징 추출, 사진 간 수치 비교, 실험적 상완 윤곽 검수·분류, Qwen3 대화, 계정별 대화 저장·복원·삭제.
-- **판정 검증 필요:** 근육 발달 등급, 건강·체형 점수, 측정값에 따른 운동 우선 부위·개인별 운동 처방. 규칙 기반 일반 운동 예시는 검증된 맞춤 처방이 아닙니다.
+- **사용 가능:** 정면·측면 관절 수치 측정, 선택적 DINOv3 특징 추출, 사진 간 수치 비교, 실험적 상완 윤곽 검수·분류, Qwen3 대화, 계정별 대화 저장·복원·삭제, 사용자 설정 기반 운동 예시 생성.
+- **판정 검증 필요:** 근육 발달 등급, 건강·체형 점수, 측정값에 따른 운동 우선 부위·개인별 운동 처방. `/routine`의 희망 부위는 사용자 선택 또는 기본 균형 구성이며 사진 판정이 아닙니다. 규칙 기반 일반 운동 예시는 검증된 맞춤 처방이 아닙니다.
 - **원본 앱 연결 미완료:** Flutter 코치 탭은 빈 화면이며, 확인한 원격 BE에는 로컬 Qwen3 호출 연결이 없습니다. 환경 변수만 넣으면 연결되는 상태가 아닙니다. AI 웹 시연과 원본 앱을 구분하세요.
 
 연결 근거를 읽기 전용으로 점검하려면 `python3 AI/scripts/check_team_integration.py --json`을 실행합니다. 소스 근거 점검이며 실제 종단 실행 검증을 대신하지 않습니다.
 
+- [운동 예시·희망 부위·주의 사항 계약과 전체 JSON](docs/api-contract/ROUTINE_PREVIEW.md)
 - [BE 코치 요청·응답 및 오류 계약](docs/BE_COACH_COMPATIBILITY.md)
 - [AI-only 계정 연결 안내](docs/AI_ONLY_RELEASE_2026-11-03.md)
 - [Qwen3 시연과 실행 준비](docs/QWEN3_COACH_DEMO.md)
