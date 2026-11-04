@@ -2,6 +2,10 @@
 
 **확정 작업 범위는 `AI/` 폴더뿐입니다.** FE·BE·루트 문서·공통 설정을 변경하지 않습니다. AI 문서, 테스트, 설정도 이 폴더 안에서 관리합니다. [작업 지침](AGENTS.md)을 따릅니다.
 
+## 원본 Flutter 앱에서 테스트하기
+
+프로젝트 루트에서 `bash AI/run-flutter.sh --photo "/사진/test1.jpg"`를 실행합니다. 원본 FE·BE 코드는 수정하지 않고 AI 실행 폴더의 복사본으로 로그인·사진 선택·실제 AI 분석을 연결합니다. [준비 환경·실행 순서·현재 한계](docs/FLUTTER_LOCAL_DEMO.md)를 먼저 확인하세요. 아래 `run.sh` 경로는 AI 단독 웹 테스트입니다.
+
 ## GitHub ZIP으로 바로 시작하기 (macOS)
 
 최신 AI 코드가 있는 [기본 main ZIP](https://github.com/Yubin-saves-the-world/Project/archive/refs/heads/main.zip)을 다운로드하고 압축을 풉니다. PR #7은 main에 병합됐습니다. 기본 main ZIP에 AI 서버가 포함됩니다.
@@ -62,6 +66,7 @@ curl -X POST http://127.0.0.1:8001/v1/analyze \
 
 ```sh
 .venv/bin/python -m pip install -r requirements-test.txt
+.venv/bin/python -m pip install -r requirements-dev.txt
 .venv/bin/python -m unittest discover -s tests -v
 ```
 
