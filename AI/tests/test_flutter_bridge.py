@@ -46,7 +46,7 @@ class FlutterBridgeTests(unittest.TestCase):
     def test_malformed_user_id_and_nonboolean_consents_are_rejected(self):
         user = {'user_id': 1, 'onboarding_completed': True,
                 'body_photo_agreed': True, 'ai_processing_agreed': True}
-        cases = [({'user_id': value}, 503) for value in (True, 0, -1, '1')]
+        cases = [({'user_id': value}, 503) for value in (True, 0, -1, '1', 10**100)]
         cases += [({'body_photo_agreed': 'true'}, 403),
                   ({'ai_processing_agreed': 1}, 403),
                   ({'onboarding_completed': 'true'}, 403)]
@@ -64,6 +64,30 @@ class FlutterBridgeTests(unittest.TestCase):
         self.assertFalse(session.trust_env)
         self.assertFalse(session.request.call_args.kwargs['allow_redirects'])
         self.assertEqual(session.request.call_args.args[1], 'http://127.0.0.1:8082/api/users/me')
+
+    def test_huge_ids_and_pages_do_not_reach_sqlite_as_overflows(self):
+        huge = 10**100
+        for path in (f'/api/body-analyses/{huge}', f'/api/photo-files/{huge}?expires=1&signature=x'):
+            self.assertEqual(self.client.get(path, headers=self.auth).status_code, 404)
+        self.assertEqual(self.client.delete(f'/api/photos/{huge}', headers=self.auth).status_code, 404)
+        self.assertEqual(self.client.post('/api/body-analyses/photo', headers=self.auth, json={'photo_id':huge}).status_code, 400)
+        self.assertEqual(self.client.post('/api/ai-coach/messages', headers=self.auth, json={'content':'test','analysis_id':huge}).status_code, 422)
+        for path in ('/api/photos', '/api/body-analyses'):
+            self.assertEqual(self.client.get(path, headers=self.auth, params={'page':huge}).status_code, 400)
+
+    def test_analysis_history_pages_keep_total_order_and_owner(self):
+        with self.service.db() as db:
+            for uid in (1, 2):
+                for index in range(9):
+                    db.execute('INSERT INTO analyses(uid,photo_id,status,created_at,payload) VALUES(?,?,?,?,?)',
+                        (uid, index+1, 'done', '2026-11-05T00:00:00+00:00', '{"large":"unused"}'))
+            identifiers = [row[0] for row in db.execute('SELECT id FROM analyses WHERE uid=1 ORDER BY id DESC')]
+        body = self.client.get('/api/body-analyses', headers=self.auth, params={'page':2,'page_size':3}).json()
+        self.assertEqual(body['total'], 9)
+        self.assertEqual([item['analysis_id'] for item in body['items']], identifiers[3:6])
+        empty = self.client.get('/api/body-analyses', headers=self.auth, params={'page':10,'page_size':3}).json()
+        self.assertEqual(empty['items'], [])
+        self.assertEqual(empty['total'], 9)
 
     def test_backend_base_url_cannot_include_credentials_path_or_query(self):
         for url in ('https://127.0.0.1', 'http://outside.example',

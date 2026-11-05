@@ -19,18 +19,9 @@ from fastapi import APIRouter, Body, File, Form, HTTPException, Request, UploadF
 from fastapi.responses import JSONResponse, Response
 import requests
 from coach import ChatRequest, CoachFailure, Measurements
+from bridge.common import BridgeError, now, page_bounds, valid_id
 
 log = logging.getLogger(__name__)
-
-
-class BridgeError(Exception):
-    def __init__(self, code, message, status=400):
-        self.code, self.message, self.status = code, message, status
-        super().__init__(message)
-
-
-def now():
-    return datetime.now(timezone.utc).isoformat()
 
 
 class FlutterBridge:
@@ -76,6 +67,7 @@ class FlutterBridge:
                   created_at TEXT NOT NULL, completed_at TEXT);
                 CREATE UNIQUE INDEX IF NOT EXISTS one_pending_per_user
                   ON analyses(uid) WHERE status='pending';
+                CREATE INDEX IF NOT EXISTS analyses_owner ON analyses(uid,id);
                 CREATE TABLE IF NOT EXISTS coach_messages (
                   id INTEGER PRIMARY KEY AUTOINCREMENT, uid INTEGER NOT NULL,
                   role TEXT NOT NULL, content TEXT NOT NULL, created_at TEXT NOT NULL,
@@ -133,7 +125,7 @@ class FlutterBridge:
                 raise ValueError('Invalid user response')
         except (ValueError, TypeError) as exc:
             raise BridgeError('AUTH_SERVER_UNAVAILABLE', '사용자 응답을 확인하지 못했어요.', 503) from exc
-        if type(user.get('user_id')) is not int or user['user_id'] <= 0:
+        if not valid_id(user.get('user_id')):
             raise BridgeError('AUTH_SERVER_UNAVAILABLE', '사용자 응답을 확인하지 못했어요.', 503)
         # Revoking processing consent must not prevent deleting one's own data.
         if cleanup:
@@ -145,6 +137,8 @@ class FlutterBridge:
         return user
 
     def owned_photo(self, db, uid, photo_id):
+        if not valid_id(photo_id):
+            raise BridgeError('NOT_FOUND', '사진을 찾을 수 없어요.', 404)
         photo = db.execute('SELECT * FROM photos WHERE id=? AND uid=? AND deleted_at IS NULL', (photo_id, uid)).fetchone()
         if photo is None:
             raise BridgeError('NOT_FOUND', '사진을 찾을 수 없어요.', 404)
@@ -163,7 +157,7 @@ class FlutterBridge:
     def coach_measurements(self, uid, analysis_id):
         if analysis_id is None:
             return None
-        if type(analysis_id) is not int or analysis_id < 1:
+        if not valid_id(analysis_id):
             raise BridgeError('VALIDATION_FAILED', '분석 번호는 양의 정수여야 합니다.', 422)
         with self.db() as db:
             row = db.execute('SELECT status,payload FROM analyses WHERE id=? AND uid=?', (analysis_id, uid)).fetchone()
@@ -267,9 +261,9 @@ class FlutterBridge:
     def start(self, user, photo_id, side_id=None, goal_id=None):
         if goal_id is not None:
             raise BridgeError('GOAL_NOT_READY', '현재 AI 연결은 목표 비교를 제공하지 않아요.')
-        if not isinstance(photo_id, int) or isinstance(photo_id, bool) or photo_id <= 0:
+        if not valid_id(photo_id):
             raise BridgeError('VALIDATION_FAILED', '정면 사진 ID가 필요해요.')
-        if side_id is not None and (not isinstance(side_id, int) or isinstance(side_id, bool) or side_id <= 0):
+        if side_id is not None and not valid_id(side_id):
             raise BridgeError('VALIDATION_FAILED', '측면 사진 ID를 확인하세요.')
         acquired = False
         reserved_id = None
@@ -349,6 +343,8 @@ class FlutterBridge:
             self.capacity.release()
 
     def detail(self, db, uid, analysis_id):
+        if not valid_id(analysis_id):
+            raise BridgeError('NOT_FOUND', '분석을 찾을 수 없어요.', 404)
         row = db.execute('SELECT * FROM analyses WHERE id=? AND uid=?', (analysis_id, uid)).fetchone()
         if row is None:
             raise BridgeError('NOT_FOUND', '분석을 찾을 수 없어요.', 404)
@@ -438,14 +434,18 @@ def install(app, directory, backend_url, normalize, coach=None):
     @router.get('/api/photos')
     def photos(request: Request, type: str = 'current', page: int = 1, page_size: int = 20):
         user = service.user(request)
-        if page < 1 or not 1 <= page_size <= 100:
-            raise BridgeError('VALIDATION_FAILED', '페이지 범위를 확인하세요.')
+        limit, offset = page_bounds(page, page_size)
         with service.db() as db:
-            rows = db.execute('SELECT * FROM photos WHERE uid=? AND type=? AND deleted_at IS NULL ORDER BY id DESC', (user['user_id'], type)).fetchall()
-        return {'items': [service.photo_view(row, str(request.base_url).rstrip('/')) for row in rows[(page-1)*page_size:page*page_size]], 'total': len(rows), 'page': page}
+            db.execute('BEGIN')
+            params = (user['user_id'], type)
+            total = db.execute('SELECT COUNT(*) FROM photos WHERE uid=? AND type=? AND deleted_at IS NULL', params).fetchone()[0]
+            rows = db.execute('SELECT * FROM photos WHERE uid=? AND type=? AND deleted_at IS NULL ORDER BY id DESC LIMIT ? OFFSET ?', (*params, limit, offset)).fetchall()
+        return {'items': [service.photo_view(row, str(request.base_url).rstrip('/')) for row in rows], 'total': total, 'page': page}
 
     @router.get('/api/photo-files/{photo_id}')
     def photo_file(photo_id: int, expires: int, signature: str):
+        if not valid_id(photo_id):
+            raise BridgeError('NOT_FOUND', '사진을 찾을 수 없어요.', 404)
         with service.db() as db:
             row = db.execute('SELECT * FROM photos WHERE id=? AND deleted_at IS NULL', (photo_id,)).fetchone()
         # compare_digest rejects non-ASCII strings; malformed links must stay a 404.
@@ -469,6 +469,8 @@ def install(app, directory, backend_url, normalize, coach=None):
         with service.db() as db:
             db.execute('BEGIN IMMEDIATE')
             if photo_id is not None:
+                if not valid_id(photo_id):
+                    raise BridgeError('NOT_FOUND', '사진을 찾을 수 없어요.', 404)
                 # A completed soft delete can be retried after a filesystem error.
                 row = db.execute('SELECT * FROM photos WHERE id=? AND uid=?', (photo_id, user['user_id'])).fetchone()
                 if row is None:
@@ -526,11 +528,12 @@ def install(app, directory, backend_url, normalize, coach=None):
     @router.get('/api/body-analyses')
     def history(request: Request, page: int = 1, page_size: int = 20):
         user = service.user(request, True)
-        if page < 1 or not 1 <= page_size <= 100:
-            raise BridgeError('VALIDATION_FAILED', '페이지 범위를 확인하세요.')
+        limit, offset = page_bounds(page, page_size)
         with service.db() as db:
-            rows = db.execute('SELECT * FROM analyses WHERE uid=? ORDER BY id DESC', (user['user_id'],)).fetchall()
-        return {'items': [{'analysis_id': row['id'], 'status': row['status'], 'created_at': row['created_at'], 'balance_score': None, 'body_type': None} for row in rows[(page-1)*page_size:page*page_size]], 'total': len(rows), 'page': page}
+            db.execute('BEGIN')
+            total = db.execute('SELECT COUNT(*) FROM analyses WHERE uid=?', (user['user_id'],)).fetchone()[0]
+            rows = db.execute('SELECT id,status,created_at FROM analyses WHERE uid=? ORDER BY id DESC LIMIT ? OFFSET ?', (user['user_id'], limit, offset)).fetchall()
+        return {'items': [{'analysis_id': row['id'], 'status': row['status'], 'created_at': row['created_at'], 'balance_score': None, 'body_type': None} for row in rows], 'total': total, 'page': page}
 
     @router.get('/api/goal-bodies')
     def goal(request: Request):
