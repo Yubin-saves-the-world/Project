@@ -1,4 +1,5 @@
 import json
+from contextlib import contextmanager
 import tempfile
 import unittest
 from datetime import timedelta
@@ -248,6 +249,59 @@ class DemoWorkoutTests(unittest.TestCase):
             self.assertEqual(self.client.post('/api/workout-logs', headers=self.auth, json={'exercise_id':910001}).status_code, 201)
             self.assertEqual(self.client.post('/api/routines', headers=self.auth, json={'analysis_id':self.aid}).status_code, 403)
             self.assertEqual(self.client.get('/api/ai-coach/messages', headers=self.auth).status_code, 403)
+
+    def test_paged_history_has_bounded_queries_and_full_period_statistics(self):
+        store = self.service.workouts
+        with self.service.db() as db:
+            for number in range(125):
+                status = ('completed', 'in_progress', 'aborted')[number % 3]
+                lid = db.execute('INSERT INTO demo_logs(uid,exercise_id,started_at,workout_date,status,duration_sec) VALUES(?,?,?,?,?,?)',
+                    (1 if number < 120 else 2, 910001, now(), today().isoformat(), status, number if status == 'completed' else None)).lastrowid
+                for set_no, weight in enumerate((0.335, 0.005, 2.25, 0), 1):
+                    db.execute('INSERT INTO demo_sets(log_id,client_set_id,set_no,weight_kg,reps,is_done) VALUES(?,?,?,?,?,?)',
+                        (lid, f'seed-{set_no}', set_no, weight, 3, set_no != 4))
+            expected = [store.log(db, 1, row['id']) for row in db.execute('SELECT id FROM demo_logs WHERE uid=1 ORDER BY id DESC').fetchall()]
+        statements = []
+        original = self.service.db
+        @contextmanager
+        def traced():
+            with original() as db:
+                db.set_trace_callback(statements.append)
+                yield db
+        with patch.object(self.service, 'db', traced), patch.object(store, 'log_view', wraps=store.log_view) as render:
+            result = store.logs_page(1, today(), today(), None, 2, 3)
+        self.assertEqual(render.call_count, 3)
+        self.assertLessEqual(sum(sql.lstrip().upper().startswith('SELECT') for sql in statements), 4)
+        self.assertEqual(result['items'], expected[3:6])
+        done = [entry for entry in expected if entry['status'] == 'completed']
+        self.assertEqual(result['total'], 120)
+        self.assertEqual(result['summary'], {'log_count':120,
+            'total_sets':sum(entry['set_count'] for entry in done),
+            'total_volume_kg':round(sum(entry['total_volume_kg'] for entry in done), 2),
+            'total_duration_sec':sum(entry['duration_sec'] for entry in done),
+            'workout_dates':[today().isoformat()]})
+        empty = store.logs_page(1, today(), today(), 'completed', 100, 3)
+        self.assertEqual(empty['items'], [])
+        self.assertEqual(empty['summary'], result['summary'] | {'log_count':len(done)})
+        active = store.logs_page(1, today(), today(), 'in_progress', 1, 3)
+        self.assertEqual(active['summary']['workout_dates'], [])
+        self.assertEqual(active['summary']['total_sets'], 0)
+
+    def test_expired_or_aborted_logs_cannot_be_edited(self):
+        lid = self.start()['log_id'];self.add(lid)
+        with self.service.db() as db:
+            sid = db.execute('SELECT id FROM demo_sets WHERE log_id=?', (lid,)).fetchone()[0]
+            db.execute("UPDATE demo_logs SET started_at='2000-01-01T00:00:00+00:00' WHERE id=?", (lid,))
+        path = f'/api/workout-logs/{lid}/sets/{sid}'
+        self.assertEqual(self.client.patch(path, headers=self.auth, json={'version':1,'reps':7}).status_code, 409)
+        self.assertEqual(self.client.delete(path, headers=self.auth).status_code, 409)
+        with self.service.db() as db:db.execute("UPDATE demo_logs SET status='aborted' WHERE id=?", (lid,))
+        self.assertEqual(self.client.patch(path, headers=self.auth, json={'version':1,'reps':7}).status_code, 409)
+        self.assertEqual(self.client.delete(path, headers=self.auth).status_code, 409)
+        self.assertEqual(self.client.get(f'/api/workout-logs/{lid}', headers=self.auth).json()['sets'][0]['reps'], 5)
+
+    def test_huge_page_is_a_validation_error_not_sqlite_overflow(self):
+        self.assertEqual(self.records(page=10**100).status_code, 422)
 
 
 if __name__ == '__main__':unittest.main()

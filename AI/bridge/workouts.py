@@ -8,10 +8,10 @@ import json
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Body, Request
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
-from bridge.api import BridgeError, now
+from bridge.common import BridgeError, MAX_ID, now, page_bounds, valid_id
 from routine_preview import DAYS
 
 SOURCE = 'https://www.nhs.uk/live-well/exercise/strength-exercises/'
@@ -21,7 +21,6 @@ CATALOG = {
     910003: ('의자 앉았다 일어나기', 'leg', 'bodyweight', '바퀴 없이 미끄러지지 않는 의자에서 천천히 일어나고 앉으세요.'),
     910004: ('의자 잡고 뒤꿈치 들기', 'leg', 'bodyweight', '안정된 의자 등받이를 잡고 편안한 범위에서 뒤꿈치를 천천히 들었다 내리세요.'),
 }
-MAX_ID = 2**53 - 1
 
 
 class Input(BaseModel):
@@ -109,6 +108,7 @@ class WorkoutStore:
                   status TEXT NOT NULL DEFAULT 'in_progress', duration_sec INTEGER,
                   memo TEXT);
                 CREATE INDEX IF NOT EXISTS demo_logs_owner ON demo_logs(uid,workout_date);
+                CREATE INDEX IF NOT EXISTS demo_logs_routine ON demo_logs(uid,routine_id,status,exercise_id);
                 CREATE TABLE IF NOT EXISTS demo_sets (
                   id INTEGER PRIMARY KEY AUTOINCREMENT, log_id INTEGER NOT NULL,
                   client_set_id TEXT NOT NULL, set_no INTEGER NOT NULL,
@@ -120,7 +120,7 @@ class WorkoutStore:
     def owned(self, db, table, uid, ident):
         if table not in {'demo_routines', 'demo_logs'}:
             raise ValueError('Invalid table')
-        if type(ident) is not int or not 1 <= ident <= MAX_ID:
+        if not valid_id(ident):
             raise BridgeError('NOT_FOUND', '기록을 찾지 못했어요.', 404)
         row = db.execute(f'SELECT * FROM {table} WHERE id=? AND uid=?', (ident, uid)).fetchone()
         if row is None:
@@ -133,6 +133,10 @@ class WorkoutStore:
         age = datetime.now(timezone.utc) - datetime.fromisoformat(row['started_at'])
         if age >= timedelta(hours=6):
             raise BridgeError('WORKOUT_EXPIRED', '시작한 지 6시간이 지났습니다. 새 운동을 시작하세요.', 409)
+
+    def require_editable(self, row):
+        if row['status'] != 'completed':
+            self.require_active(row)
 
     def generate(self, uid, request, profile):
         start = day(request.start_date) if request.start_date else today()
@@ -157,14 +161,14 @@ class WorkoutStore:
             # Regenerate only unstarted plans; preserve every recorded workout.
             for old in db.execute('SELECT id,scheduled_date FROM demo_routines WHERE uid=? AND scheduled_date BETWEEN ? AND ?',
                     (uid, start.isoformat(), (start + timedelta(days=6)).isoformat())).fetchall():
-                recorded = db.execute('SELECT id FROM demo_logs WHERE routine_id=?', (old['id'],)).fetchone()
+                recorded = db.execute('SELECT id FROM demo_logs WHERE uid=? AND routine_id=? LIMIT 1', (uid, old['id'])).fetchone()
                 if old['scheduled_date'] not in selected_dates and not recorded:
                     db.execute('DELETE FROM demo_routines WHERE id=?', (old['id'],))
             for index, offset in enumerate(DAYS[profile['weekly_frequency']]):
                 scheduled = (start + timedelta(days=offset)).isoformat()
                 existing = db.execute('SELECT id FROM demo_routines WHERE uid=? AND scheduled_date=?', (uid, scheduled)).fetchone()
                 if existing:
-                    recorded = db.execute('SELECT id FROM demo_logs WHERE routine_id=?', (existing['id'],)).fetchone()
+                    recorded = db.execute('SELECT id FROM demo_logs WHERE uid=? AND routine_id=? LIMIT 1', (uid, existing['id'])).fetchone()
                     if recorded:
                         identifiers.append(existing['id'])
                         continue
@@ -229,14 +233,60 @@ class WorkoutStore:
 
     def log(self, db, uid, lid):
         row = self.owned(db, 'demo_logs', uid, lid)
-        sets = [dict(s) for s in db.execute('SELECT * FROM demo_sets WHERE log_id=? ORDER BY set_no', (lid,))]
+        sets = db.execute('SELECT * FROM demo_sets WHERE log_id=? ORDER BY set_no', (lid,)).fetchall()
+        return self.log_view(row, sets)
+
+    @staticmethod
+    def log_view(row, sets):
+        sets = [dict(entry) for entry in sets]
         for entry in sets:
-            entry['set_id'] = entry.pop('id');entry.pop('log_id');entry['is_done'] = bool(entry['is_done'])
+            entry['set_id'] = entry.pop('id')
+            entry.pop('log_id')
+            entry['is_done'] = bool(entry['is_done'])
         done = [s for s in sets if s['is_done']]
-        return {'log_id': lid, 'exercise': exercise(row['exercise_id']), 'routine_id': row['routine_id'],
+        return {'log_id': row['id'], 'exercise': exercise(row['exercise_id']), 'routine_id': row['routine_id'],
             'started_at': row['started_at'], 'completed_at': row['completed_at'], 'workout_date': row['workout_date'],
             'status': row['status'], 'duration_sec': row['duration_sec'], 'memo': row['memo'], 'sets': sets,
             'set_count': len(done), 'total_volume_kg': round(sum(s['weight_kg'] * s['reps'] for s in done), 2)}
+
+    def logs_page(self, uid, start, end, status, page, page_size):
+        limit, offset = page_bounds(page, page_size, status=422)
+        if not 0 <= (end-start).days < 92 or status not in (None, 'in_progress', 'completed', 'aborted'):
+            raise BridgeError('VALIDATION_FAILED', '조회 기간·상태·페이지를 확인하세요.', 422)
+        where = 'l.uid=? AND l.workout_date BETWEEN ? AND ?'
+        params = [uid, start.isoformat(), end.isoformat()]
+        if status is not None:
+            where += ' AND l.status=?'
+            params.append(status)
+        with self.service.db() as db:
+            # Count, page and totals must describe the same read snapshot.
+            db.execute('BEGIN')
+            total = db.execute(f'SELECT COUNT(*) FROM demo_logs l WHERE {where}', params).fetchone()[0]
+            rows = db.execute(f'SELECT l.* FROM demo_logs l WHERE {where} ORDER BY l.id DESC LIMIT ? OFFSET ?',
+                              (*params, limit, offset)).fetchall()
+            grouped_sets = {row['id']: [] for row in rows}
+            if grouped_sets:
+                placeholders = ','.join('?' for _ in grouped_sets)
+                for entry in db.execute(f'SELECT * FROM demo_sets WHERE log_id IN ({placeholders}) ORDER BY log_id,set_no',
+                                        tuple(grouped_sets)):
+                    grouped_sets[entry['log_id']].append(entry)
+            items = [self.log_view(row, grouped_sets[row['id']]) for row in rows]
+            sets, duration, volume = 0, 0, 0.0
+            dates = set()
+            # Stream compact aggregates, never hydrate every historical set/log.
+            # Round per log to retain the detail endpoint's existing semantics.
+            for aggregate in db.execute(f'''SELECT l.workout_date,l.duration_sec,
+                    COUNT(s.id) AS set_count,COALESCE(SUM(s.weight_kg*s.reps),0) AS volume
+                    FROM demo_logs l LEFT JOIN demo_sets s ON s.log_id=l.id AND s.is_done=1
+                    WHERE {where} AND l.status='completed' GROUP BY l.id ORDER BY l.id DESC''', params):
+                sets += aggregate['set_count']
+                duration += aggregate['duration_sec'] or 0
+                volume += round(aggregate['volume'], 2)
+                dates.add(aggregate['workout_date'])
+        return {'items': items, 'page': page, 'total': total,
+                'summary': {'log_count': total, 'total_sets': sets,
+                            'total_volume_kg': round(volume, 2),
+                            'total_duration_sec': duration, 'workout_dates': sorted(dates)}}
 
     def start(self, uid, body):
         exercise(body.exercise_id)
@@ -317,7 +367,8 @@ def install_workouts(app, service):
             raise BridgeError('PROFILE_REQUIRED', '신체정보를 먼저 입력해 주세요.', 422 if response.status_code == 404 else 503)
         try:
             profile = response.json()
-            if not isinstance(profile, dict):raise ValueError('Invalid profile')
+            if not isinstance(profile, dict):
+                raise ValueError('Invalid profile')
         except ValueError as exc:
             raise BridgeError('AUTH_SERVER_UNAVAILABLE', '프로필 응답을 읽지 못했어요.', 503) from exc
         return store.generate(owner, validated, profile)
@@ -337,7 +388,8 @@ def install_workouts(app, service):
     @router.get('/api/routines/{routine_id}')
     def routine(request: Request, routine_id: int):
         owner = uid(request)
-        with service.db() as db:return store.routine(db, owner, routine_id)
+        with service.db() as db:
+            return store.routine(db, owner, routine_id)
 
     @router.patch('/api/routines/{routine_id}')
     def routine_status(request: Request, routine_id: int, body: dict = Body()):
@@ -356,7 +408,8 @@ def install_workouts(app, service):
     def exercises(request: Request, q: str = '', target_part: str | None = None,
                   equipment: str | None = None, difficulty: int | None = None, page: int = 1, page_size: int = 20):
         uid(request)
-        if page < 1 or not 1 <= page_size <= 100:raise BridgeError('VALIDATION_FAILED', '페이지 범위를 확인하세요.', 422)
+        if page < 1 or not 1 <= page_size <= 100:
+            raise BridgeError('VALIDATION_FAILED', '페이지 범위를 확인하세요.', 422)
         items = [exercise(eid) for eid in CATALOG]
         items = [item for item in items if q.casefold() in item['name'].casefold()
             and (target_part is None or item['target_part'] == target_part)
@@ -366,18 +419,19 @@ def install_workouts(app, service):
 
     @router.get('/api/exercises/{exercise_id}')
     def exercise_detail(request: Request, exercise_id: int):
-        uid(request);return exercise(exercise_id)
+        uid(request)
+        return exercise(exercise_id)
 
     @router.post('/api/workout-logs')
     def start(request: Request, body: dict = Body()):
         result, created = store.start(uid(request), checked(StartInput, body))
-        from fastapi.responses import JSONResponse
         return JSONResponse(result, status_code=201 if created else 200)
 
     @router.get('/api/workout-logs/{log_id}')
     def log_detail(request: Request, log_id: int):
         owner = uid(request)
-        with service.db() as db:return store.log(db, owner, log_id)
+        with service.db() as db:
+            return store.log(db, owner, log_id)
 
     @router.post('/api/workout-logs/{log_id}/sets')
     def add_set(request: Request, log_id: int, body: dict = Body()):
@@ -385,15 +439,19 @@ def install_workouts(app, service):
 
     @router.patch('/api/workout-logs/{log_id}/sets/{set_id}')
     def update_set(request: Request, log_id: int, set_id: int, body: dict = Body()):
-        owner = uid(request);values = checked(SetUpdate, body)
+        owner = uid(request)
+        values = checked(SetUpdate, body)
         if not 1 <= set_id <= MAX_ID:
             raise BridgeError('NOT_FOUND', '세트를 찾지 못했어요.', 404)
         with service.db() as db:
             db.execute('BEGIN IMMEDIATE')
             log_row = store.owned(db, 'demo_logs', owner, log_id)
+            store.require_editable(log_row)
             row = db.execute('SELECT * FROM demo_sets WHERE id=? AND log_id=?', (set_id, log_id)).fetchone()
-            if row is None:raise BridgeError('NOT_FOUND', '세트를 찾지 못했어요.', 404)
-            if row['version'] != values.version:raise BridgeError('VERSION_CONFLICT', '기록을 다시 불러온 뒤 수정하세요.', 409)
+            if row is None:
+                raise BridgeError('NOT_FOUND', '세트를 찾지 못했어요.', 404)
+            if row['version'] != values.version:
+                raise BridgeError('VERSION_CONFLICT', '기록을 다시 불러온 뒤 수정하세요.', 409)
             merged = dict(row) | values.model_dump(exclude_unset=True, exclude={'version'})
             if log_row['status'] == 'completed' and not merged['is_done'] and row['is_done']:
                 if db.execute('SELECT COUNT(*) FROM demo_sets WHERE log_id=? AND is_done=1', (log_id,)).fetchone()[0] <= 1:
@@ -410,6 +468,7 @@ def install_workouts(app, service):
         with service.db() as db:
             db.execute('BEGIN IMMEDIATE')
             log_row = store.owned(db, 'demo_logs', owner, log_id)
+            store.require_editable(log_row)
             if log_row['status'] == 'completed':
                 entry = db.execute('SELECT is_done FROM demo_sets WHERE id=? AND log_id=?', (set_id, log_id)).fetchone()
                 if entry and entry['is_done'] and db.execute('SELECT COUNT(*) FROM demo_sets WHERE log_id=? AND is_done=1', (log_id,)).fetchone()[0] <= 1:
@@ -420,33 +479,23 @@ def install_workouts(app, service):
 
     @router.patch('/api/workout-logs/{log_id}/complete')
     def complete(request: Request, log_id: int, body: dict = Body(default={})):
-        if set(body) - {'memo'}:raise BridgeError('VALIDATION_FAILED', '완료 항목을 확인하세요.', 422)
+        if set(body) - {'memo'}:
+            raise BridgeError('VALIDATION_FAILED', '완료 항목을 확인하세요.', 422)
         return store.complete(uid(request), log_id, body.get('memo'))
 
     @router.delete('/api/workout-logs/{log_id}', status_code=204)
     def delete_log(request: Request, log_id: int):
         owner = service.user(request, cleanup=True)['user_id']
         with service.db() as db:
-            db.execute('BEGIN IMMEDIATE');store.owned(db, 'demo_logs', owner, log_id)
+            db.execute('BEGIN IMMEDIATE')
+            store.owned(db, 'demo_logs', owner, log_id)
             db.execute('DELETE FROM demo_sets WHERE log_id=?', (log_id,))
             db.execute('DELETE FROM demo_logs WHERE id=?', (log_id,))
         return Response(status_code=204)
 
     @router.get('/api/workout-logs')
     def logs(request: Request, start_date: str, end_date: str, status: str | None = None, page: int = 1, page_size: int = 50):
-        owner = uid(request);a, b = day(start_date), day(end_date)
-        if not 0 <= (b-a).days < 92 or page < 1 or not 1 <= page_size <= 100 or status not in (None, 'in_progress', 'completed', 'aborted'):
-            raise BridgeError('VALIDATION_FAILED', '조회 기간·상태·페이지를 확인하세요.', 422)
-        with service.db() as db:
-            rows = db.execute('SELECT id FROM demo_logs WHERE uid=? AND workout_date BETWEEN ? AND ? AND (? IS NULL OR status=?) ORDER BY id DESC',
-                (owner, a.isoformat(), b.isoformat(), status, status)).fetchall()
-            all_logs = [store.log(db, owner, row['id']) for row in rows]
-        completed = [log for log in all_logs if log['status'] == 'completed']
-        return {'items': all_logs[(page-1)*page_size:page*page_size], 'page': page, 'total': len(all_logs),
-            'summary': {'log_count': len(all_logs), 'total_sets': sum(log['set_count'] for log in completed),
-                'total_volume_kg': round(sum(log['total_volume_kg'] for log in completed), 2),
-                'total_duration_sec': sum(log['duration_sec'] or 0 for log in completed),
-                'workout_dates': sorted({log['workout_date'] for log in completed})}}
+        return store.logs_page(uid(request), day(start_date), day(end_date), status, page, page_size)
 
     app.include_router(router)
     return store
